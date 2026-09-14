@@ -1,0 +1,329 @@
+// use prisma-8
+enum UserRole {
+  ADMIN
+  CUSTOMER
+  BARISTA
+  GUEST
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model User {
+  id           Int                        @id @default(autoincrement())
+  firebaseUid  String                     @unique
+  email        String                     @unique
+  role         UserRole
+  status       UserStatus                 @default(ACTIVE)
+
+  name         String
+  phone        String?
+  profilePhoto String?
+
+  customer     Customer?
+  barista      Barista?
+
+  createdAt    TimestamptzString          @default(now())
+  updatedAt    temporal.updatedAtString()
+}
+
+model Customer {
+  id        Int                        @id @default(autoincrement())
+  user      User                       @relation(fields:[userId], references:[id])
+  userId    Int                        @unique
+
+  birthDate TimestamptzString?
+  gender    Gender?
+
+  addresses CustomerAddress[]
+  reviews   ProductReview[]
+
+  createdAt TimestamptzString          @default(now())
+  updatedAt temporal.updatedAtString()
+}
+
+model CustomerAddress {
+  id            Int                        @id @default(autoincrement())
+
+  customer      Customer                   @relation(fields:[customerId], references:[id])
+  customerId    Int
+
+  label         String
+  recipientName String
+  phone         String
+
+  address       String
+  city          String
+  province      String
+  postalCode    String?
+
+  latitude      Decimal?
+  longitude     Decimal?
+
+  isDefault     Boolean                    @default(false)
+  isActive      Boolean                    @default(true)
+
+  createdAt     TimestamptzString          @default(now())
+  updatedAt     temporal.updatedAtString()
+
+  @@index([customerId])
+}
+
+model Barista {
+  id                    Int                        @id @default(autoincrement())
+
+  user                  User                       @relation(fields:[userId], references:[id])
+  userId                Int                        @unique
+
+  employeeNumber        String                     @unique
+  position              String
+  employmentStatus      EmploymentStatus           @default(ACTIVE)
+
+  birthDate             TimestamptzString?
+  gender                Gender?
+
+  address               String?
+  city                  String?
+  province              String?
+  postalCode            String?
+
+  hireDate              TimestamptzString
+  resignationDate       TimestamptzString?
+
+  emergencyContactName  String?
+  emergencyContactPhone String?
+
+  createdAt             TimestamptzString          @default(now())
+  updatedAt             temporal.updatedAtString()
+}
+
+model Product {
+  id                    Int                        @id @default(autoincrement())
+  name                  String
+  description           String?
+  sellingPrice          Decimal
+
+  finishedProductItem   InventoryItem              @relation(fields:[finishedProductItemId], references:[id])
+  finishedProductItemId Int                        @unique
+
+  recipes               ProductRecipe[]
+  productions           Production[]
+  costHistories         ProductCostHistory[]
+
+  reviews               ProductReview[]
+  ratingSummary         ProductRatingSummary?
+  salesSummary          ProductSalesSummary?
+
+  isActive              Boolean                    @default(true)
+  createdAt             TimestamptzString          @default(now())
+  updatedAt             temporal.updatedAtString()
+}
+
+model InventoryItem {
+  id          Int                        @id @default(autoincrement())
+  name        String
+  type        String
+  unit        String
+  isActive    Boolean                    @default(true)
+
+  product     Product?
+  batches     InventoryBatch[]
+  recipeItems RecipeItem[]
+  restocks    Restock[]
+
+  createdAt   TimestamptzString          @default(now())
+  updatedAt   temporal.updatedAtString()
+}
+
+model InventoryLocation {
+  id            Int                        @id @default(autoincrement())
+  name          String
+
+  stocks        InventoryBatchStock[]
+  transfersFrom InventoryTransfer[]        @relation("TransferFrom")
+  transfersTo   InventoryTransfer[]        @relation("TransferTo")
+
+  createdAt     TimestamptzString          @default(now())
+  updatedAt     temporal.updatedAtString()
+}
+
+model InventoryBatch {
+  id              Int                   @id @default(autoincrement())
+  inventoryItem   InventoryItem         @relation(fields:[inventoryItemId], references:[id])
+  inventoryItemId Int
+
+  batchNumber     String
+  quantity        Decimal
+  unitCost        Decimal
+  totalCost       Decimal
+
+  stocks          InventoryBatchStock[]
+  production      Production?
+  restocks        Restock[]
+  transfers       InventoryTransfer[]
+
+  createdAt       TimestamptzString     @default(now())
+}
+
+model InventoryBatchStock {
+  id               Int                        @id @default(autoincrement())
+  batch            InventoryBatch             @relation(fields:[batchId], references:[id])
+  batchId          Int
+  location         InventoryLocation          @relation(fields:[locationId], references:[id])
+  locationId       Int
+
+  quantity         Decimal
+  reservedQuantity Decimal                    @default("0")
+
+  createdAt        TimestamptzString          @default(now())
+  updatedAt        temporal.updatedAtString()
+
+  @@unique([batchId, locationId])
+}
+
+model ProductRecipe {
+  id          Int               @id @default(autoincrement())
+  product     Product           @relation(fields:[productId], references:[id])
+  productId   Int
+
+  version     Int
+  items       RecipeItem[]
+  productions Production[]
+
+  createdAt   TimestamptzString @default(now())
+
+  @@unique([productId, version])
+}
+
+model RecipeItem {
+  id              Int           @id @default(autoincrement())
+  recipe          ProductRecipe @relation(fields:[recipeId], references:[id])
+  recipeId        Int
+
+  inventoryItem   InventoryItem @relation(fields:[inventoryItemId], references:[id])
+  inventoryItemId Int
+
+  quantity        Decimal
+}
+
+model Production {
+  id        Int               @id @default(autoincrement())
+  product   Product           @relation(fields:[productId], references:[id])
+  productId Int
+
+  recipe    ProductRecipe     @relation(fields:[recipeId], references:[id])
+  recipeId  Int
+
+  quantity  Decimal
+  totalHpp  Decimal
+  unitHpp   Decimal
+
+  batch     InventoryBatch    @relation(fields:[batchId], references:[id])
+  batchId   Int               @unique
+
+  createdAt TimestamptzString @default(now())
+}
+
+model Restock {
+  id              Int               @id @default(autoincrement())
+  inventoryItem   InventoryItem     @relation(fields:[inventoryItemId], references:[id])
+  inventoryItemId Int
+
+  batch           InventoryBatch    @relation(fields:[batchId], references:[id])
+  batchId         Int
+
+  quantity        Decimal
+  totalCost       Decimal
+
+  createdAt       TimestamptzString @default(now())
+}
+
+model InventoryTransfer {
+  id             Int               @id @default(autoincrement())
+  batch          InventoryBatch    @relation(fields:[batchId], references:[id])
+  batchId        Int
+
+  fromLocation   InventoryLocation @relation("TransferFrom", fields:[fromLocationId], references:[id])
+  fromLocationId Int
+
+  toLocation     InventoryLocation @relation("TransferTo", fields:[toLocationId], references:[id])
+  toLocationId   Int
+
+  quantity       Decimal
+
+  createdAt      TimestamptzString @default(now())
+}
+
+model ProductCostHistory {
+  id        Int               @id @default(autoincrement())
+  product   Product           @relation(fields:[productId], references:[id])
+  productId Int
+
+  hpp       Decimal
+
+  createdAt TimestamptzString @default(now())
+}
+
+model ProductReview {
+  id         Int                        @id @default(autoincrement())
+
+  product    Product                    @relation(fields:[productId], references:[id])
+  productId  Int
+
+  customer   Customer                   @relation(fields:[customerId], references:[id])
+  customerId Int
+
+  rating     Int
+  review     String?
+
+  isVisible  Boolean                    @default(true)
+
+  createdAt  TimestamptzString          @default(now())
+  updatedAt  temporal.updatedAtString()
+
+  @@index([productId])
+  @@index([customerId])
+  @@unique([productId, customerId])
+}
+
+model ProductRatingSummary {
+  id            Int                        @id @default(autoincrement())
+
+  product       Product                    @relation(fields:[productId], references:[id])
+  productId     Int                        @unique
+
+  averageRating Decimal                    @default("0")
+  totalReviews  Int                        @default(0)
+
+  rating5Count  Int                        @default(0)
+  rating4Count  Int                        @default(0)
+  rating3Count  Int                        @default(0)
+  rating2Count  Int                        @default(0)
+  rating1Count  Int                        @default(0)
+
+  updatedAt     temporal.updatedAtString()
+}
+
+model ProductSalesSummary {
+  id        Int                        @id @default(autoincrement())
+
+  product   Product                    @relation(fields:[productId], references:[id])
+  productId Int                        @unique
+
+  totalSold Int                        @default(0)
+
+  updatedAt temporal.updatedAtString()
+}
