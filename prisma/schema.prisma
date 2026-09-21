@@ -1,0 +1,224 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  ADMIN
+  CUSTOMER
+  BARISTA
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum InventoryItemType {
+  SEMI_FINISHED
+  DIRECT_USE
+}
+
+enum InventoryUnit {
+  ML
+  PCS
+}
+
+enum InventoryBatchSourceType {
+  RESTOCK
+  PRODUCTION
+}
+
+// ============================================================
+// USER
+// ============================================================
+
+model User {
+  id          String     @id @default(cuid())
+  firebaseUid String     @unique
+  role        UserRole
+  status      UserStatus @default(ACTIVE)
+  name        String
+  phone       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+// ============================================================
+// PRODUCT
+// ============================================================
+
+model Product {
+  id            String               @id @default(cuid())
+  name          String
+  sellingPrice  Decimal
+  recipes       ProductRecipe[]
+  costHistories ProductCostHistory[]
+  isActive      Boolean              @default(true)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+}
+
+// ============================================================
+// PRODUCT RECIPE
+// ============================================================
+
+model ProductRecipe {
+  id        String       @id @default(cuid())
+  product   Product      @relation(fields: [productId], references: [id])
+  productId String
+  version   Int
+  isActive  Boolean      @default(true)
+  items     RecipeItem[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([productId, version])
+}
+
+// ============================================================
+// RECIPE ITEM
+// ============================================================
+
+model RecipeItem {
+  id              String        @id @default(cuid())
+  recipe          ProductRecipe @relation(fields: [recipeId], references: [id])
+  recipeId        String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  inventoryItemId String
+  quantity        Decimal
+}
+
+// ============================================================
+// INVENTORY ITEM
+// ============================================================
+
+model InventoryItem {
+  id                   String                @id @default(cuid())
+  name                 String
+  type                 InventoryItemType
+  unit                 InventoryUnit
+  isActive             Boolean               @default(true)
+  batches              InventoryBatch[]
+  recipeItems          RecipeItem[]
+  restocks             Restock[]
+  productions          Production[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  productionComponents ProductionComponent[]
+}
+
+// ============================================================
+// INVENTORY BATCH
+// ============================================================
+
+model InventoryBatch {
+  id                String                   @id @default(cuid())
+  inventoryItem     InventoryItem            @relation(fields: [inventoryItemId], references: [id])
+  inventoryItemId   String
+  batchCode         String                   @unique
+  sourceType        InventoryBatchSourceType
+  quantity          Decimal
+  remainingQuantity Decimal
+  unitCost          Decimal
+  totalCost         Decimal
+  stock             InventoryBatchStock?
+  production        Production?
+  restock           Restock?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@index([inventoryItemId])
+  @@index([inventoryItemId, createdAt])
+}
+
+// ============================================================
+// INVENTORY BATCH STOCK
+// ============================================================
+
+model InventoryBatchStock {
+  id                String         @id @default(cuid())
+  batch             InventoryBatch @relation(fields: [batchId], references: [id])
+  batchId           String         @unique
+  quantity          Decimal
+  remainingQuantity Decimal
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+// ============================================================
+// RESTOCK
+// ============================================================
+
+model Restock {
+  id              String         @id @default(cuid())
+  inventoryItem   InventoryItem  @relation(fields: [inventoryItemId], references: [id])
+  inventoryItemId String
+  batch           InventoryBatch @relation(fields: [batchId], references: [id])
+  batchId         String         @unique
+  quantity        Decimal
+  totalCost       Decimal
+  unitCost        Decimal
+  supplierName    String?
+  createdAt       DateTime       @default(now())
+}
+
+// ============================================================
+// PRODUCTION
+// ============================================================
+
+model Production {
+  id              String                @id @default(cuid())
+  inventoryItem   InventoryItem         @relation(fields: [inventoryItemId], references: [id])
+  inventoryItemId String
+  batch           InventoryBatch        @relation(fields: [batchId], references: [id])
+  batchId         String                @unique
+  outputQuantity  Decimal
+  totalCost       Decimal
+  unitCost        Decimal
+  components      ProductionComponent[]
+  createdAt       DateTime              @default(now())
+}
+
+// ============================================================
+// PRODUCTION COMPONENT
+// ============================================================
+
+model ProductionComponent {
+  id              String         @id @default(cuid())
+  production      Production     @relation(fields: [productionId], references: [id])
+  productionId    String
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+  inventoryItemId String?
+  name            String
+  quantity        Decimal
+  unit            InventoryUnit
+  unitCost        Decimal
+  totalCost       Decimal
+  createdAt       DateTime       @default(now())
+}
+
+// ============================================================
+// PRODUCT COST HISTORY
+// ============================================================
+
+model ProductCostHistory {
+  id        String   @id @default(cuid())
+  product   Product  @relation(fields: [productId], references: [id])
+  productId String
+  hpp       Decimal
+  createdAt DateTime @default(now())
+}

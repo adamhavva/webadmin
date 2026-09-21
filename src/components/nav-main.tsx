@@ -1,10 +1,12 @@
 "use client"
 
+import * as React from "react"
+import { usePathname, useRouter } from "next/navigation"
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react"
+
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -15,54 +17,216 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
-import { ChevronRightIcon } from "lucide-react"
 
-export function NavMain({
-  items,
-}: {
-  items: {
-    title: string
-    url: string
-    icon?: React.ReactNode
-    isActive?: boolean
-    items?: {
-      title: string
-      url: string
-    }[]
-  }[]
-}) {
+export type NavItem = {
+  title: string
+  url: string
+  icon?: React.ReactNode
+  isActive?: boolean
+  items?: NavItem[]
+}
+
+type NavMainProps = {
+  items: NavItem[]
+}
+
+export function NavMain({ items }: NavMainProps) {
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>Platform</SidebarGroupLabel>
-      <SidebarMenu>
+    <SidebarGroup className="px-2 py-2">
+      <SidebarGroupLabel className="px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+        Platform
+      </SidebarGroupLabel>
+
+      <SidebarMenu className="mt-1 gap-1">
         {items.map((item) => (
-          <Collapsible
-            key={item.title}
-            defaultOpen={item.isActive}
-            className="group/collapsible"
-            render={<SidebarMenuItem />}
-          >
-            <CollapsibleTrigger
-              render={<SidebarMenuButton tooltip={item.title} />}
-            >
-              {item.icon}
-              <span>{item.title}</span>
-              <ChevronRightIcon className="ml-auto transition-transform duration-200 group-data-open/collapsible:rotate-90" />
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <SidebarMenuSub>
-                {item.items?.map((subItem) => (
-                  <SidebarMenuSubItem key={subItem.title}>
-                    <SidebarMenuSubButton render={<a href={subItem.url} />}>
-                      <span>{subItem.title}</span>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                ))}
-              </SidebarMenuSub>
-            </CollapsibleContent>
-          </Collapsible>
+          <NavItemRenderer
+            key={`${item.title}-${item.url}`}
+            item={item}
+            level={0}
+          />
         ))}
       </SidebarMenu>
     </SidebarGroup>
   )
+}
+
+function NavItemRenderer({
+  item,
+  level,
+}: {
+  item: NavItem
+  level: number
+}) {
+  const pathname = usePathname()
+  const router = useRouter()
+
+  const hasChildren =
+    Boolean(item.items && item.items.length > 0)
+
+  const isCurrentPage =
+    item.url !== "#" &&
+    (pathname === item.url ||
+      pathname.startsWith(`${item.url}/`))
+
+  const hasActiveDescendant = React.useMemo(
+    () => hasActiveChild(item, pathname),
+    [item, pathname]
+  )
+
+  const [open, setOpen] = React.useState(
+    item.isActive === true || hasActiveDescendant
+  )
+
+  React.useEffect(() => {
+    if (hasActiveDescendant) {
+      setOpen(true)
+    }
+  }, [hasActiveDescendant])
+
+  const handleClick = () => {
+    if (hasChildren) {
+      setOpen((current) => !current)
+      return
+    }
+
+    if (item.url !== "#") {
+      router.push(item.url)
+    }
+  }
+
+  /*
+   * ============================================================
+   * ROOT LEVEL
+   * ============================================================
+   */
+  if (level === 0) {
+    const active = isCurrentPage || hasActiveDescendant
+
+    return (
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          tooltip={item.title}
+          isActive={active}
+          onClick={handleClick}
+          className={[
+            "h-10 rounded-lg px-3",
+            "text-[14px] font-medium",
+            "transition-colors",
+            "hover:bg-muted/70",
+            active
+              ? "bg-muted text-foreground shadow-none"
+              : "text-foreground/80",
+          ].join(" ")}
+        >
+          {item.icon && (
+            <span className="flex size-5 shrink-0 items-center justify-center">
+              {item.icon}
+            </span>
+          )}
+
+          <span className="truncate">{item.title}</span>
+
+          {hasChildren && (
+            <ChevronDown
+              className={[
+                "ml-auto size-4 shrink-0",
+                "text-muted-foreground/70",
+                "transition-transform duration-200",
+                open ? "rotate-0" : "-rotate-90",
+              ].join(" ")}
+            />
+          )}
+        </SidebarMenuButton>
+
+        {hasChildren && open && (
+          <SidebarMenuSub className="ml-4 mr-0 border-l border-border/60 pl-2">
+            {item.items!.map((child) => (
+              <NavItemRenderer
+                key={`${child.title}-${child.url}`}
+                item={child}
+                level={1}
+              />
+            ))}
+          </SidebarMenuSub>
+        )}
+      </SidebarMenuItem>
+    )
+  }
+
+  /*
+   * ============================================================
+   * NESTED LEVEL
+   * ============================================================
+   */
+  const active = isCurrentPage || hasActiveDescendant
+
+  return (
+    <SidebarMenuSubItem>
+      <SidebarMenuSubButton
+        isActive={isCurrentPage}
+        onClick={handleClick}
+        className={[
+          "min-h-9 rounded-md px-3",
+          "text-[13px]",
+          "transition-colors",
+          "hover:bg-muted/60",
+          active
+            ? "bg-muted/70 font-medium text-foreground"
+            : "text-muted-foreground hover:text-foreground",
+        ].join(" ")}
+      >
+        {item.icon && (
+          <span className="flex size-4 shrink-0 items-center justify-center">
+            {item.icon}
+          </span>
+        )}
+
+        <span className="truncate">{item.title}</span>
+
+        {hasChildren && (
+          <ChevronRight
+            className={[
+              "ml-auto size-3.5 shrink-0",
+              "text-muted-foreground/60",
+              "transition-transform duration-200",
+              open ? "rotate-90" : "rotate-0",
+            ].join(" ")}
+          />
+        )}
+      </SidebarMenuSubButton>
+
+      {hasChildren && open && (
+        <SidebarMenuSub className="ml-3 border-l border-border/50 pl-2">
+          {item.items!.map((child) => (
+            <NavItemRenderer
+              key={`${child.title}-${child.url}`}
+              item={child}
+              level={level + 1}
+            />
+          ))}
+        </SidebarMenuSub>
+      )}
+    </SidebarMenuSubItem>
+  )
+}
+
+function hasActiveChild(
+  item: NavItem,
+  pathname: string
+): boolean {
+  if (!item.items?.length) {
+    return false
+  }
+
+  return item.items.some((child) => {
+    const childIsActive =
+      child.url !== "#" &&
+      (pathname === child.url ||
+        pathname.startsWith(`${child.url}/`))
+
+    return (
+      childIsActive ||
+      hasActiveChild(child, pathname)
+    )
+  })
 }
