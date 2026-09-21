@@ -1,215 +1,113 @@
 // use prisma-8
+
+
+// ============================================================
+// ENUMS
+// ============================================================
+
 enum UserRole {
   ADMIN
   CUSTOMER
   BARISTA
-  GUEST
 }
 
 enum UserStatus {
   ACTIVE
   INACTIVE
-  BLOCKED
 }
 
-enum Gender {
-  MALE
-  FEMALE
+enum InventoryItemType {
+  SEMI_FINISHED
+  DIRECT_USE
 }
 
-enum EmploymentStatus {
-  ACTIVE
-  INACTIVE
+enum InventoryUnit {
+  ML
+  PCS
 }
+
+enum InventoryBatchSourceType {
+  RESTOCK
+  PRODUCTION
+}
+
+
+// ============================================================
+// USER
+// ============================================================
 
 model User {
+
   id           Int                        @id @default(autoincrement())
+
   firebaseUid  String                     @unique
-  email        String                     @unique
+  email        String?
   role         UserRole
   status       UserStatus                 @default(ACTIVE)
 
   name         String
   phone        String?
-  profilePhoto String?
-
-  customer     Customer?
-  barista      Barista?
 
   createdAt    TimestamptzString          @default(now())
   updatedAt    temporal.updatedAtString()
+
 }
 
-model Customer {
-  id        Int                        @id @default(autoincrement())
-  user      User                       @relation(fields:[userId], references:[id])
-  userId    Int                        @unique
 
-  birthDate TimestamptzString?
-  gender    Gender?
-
-  addresses CustomerAddress[]
-  reviews   ProductReview[]
-
-  createdAt TimestamptzString          @default(now())
-  updatedAt temporal.updatedAtString()
-}
-
-model CustomerAddress {
-  id            Int                        @id @default(autoincrement())
-
-  customer      Customer                   @relation(fields:[customerId], references:[id])
-  customerId    Int
-
-  label         String
-  recipientName String
-  phone         String
-
-  address       String
-  city          String
-  province      String
-  postalCode    String?
-
-  latitude      Decimal?
-  longitude     Decimal?
-
-  isDefault     Boolean                    @default(false)
-  isActive      Boolean                    @default(true)
-
-  createdAt     TimestamptzString          @default(now())
-  updatedAt     temporal.updatedAtString()
-
-  @@index([customerId])
-}
-
-model Barista {
-  id                    Int                        @id @default(autoincrement())
-
-  user                  User                       @relation(fields:[userId], references:[id])
-  userId                Int                        @unique
-
-  employeeNumber        String                     @unique
-  position              String
-  employmentStatus      EmploymentStatus           @default(ACTIVE)
-
-  birthDate             TimestamptzString?
-  gender                Gender?
-
-  address               String?
-  city                  String?
-  province              String?
-  postalCode            String?
-
-  hireDate              TimestamptzString
-  resignationDate       TimestamptzString?
-
-  emergencyContactName  String?
-  emergencyContactPhone String?
-
-  createdAt             TimestamptzString          @default(now())
-  updatedAt             temporal.updatedAtString()
-}
+// ============================================================
+// PRODUCT
+// ============================================================
 
 model Product {
-  id                    Int                        @id @default(autoincrement())
-  name                  String
-  description           String?
-  sellingPrice          Decimal
 
-  finishedProductItem   InventoryItem              @relation(fields:[finishedProductItemId], references:[id])
-  finishedProductItemId Int                        @unique
+  id              Int                        @id @default(autoincrement())
 
-  recipes               ProductRecipe[]
-  productions           Production[]
-  costHistories         ProductCostHistory[]
+  name            String
+  sellingPrice    Decimal
 
-  reviews               ProductReview[]
-  ratingSummary         ProductRatingSummary?
-  salesSummary          ProductSalesSummary?
+  recipes         ProductRecipe[]
+  costHistories   ProductCostHistory[]
 
-  isActive              Boolean                    @default(true)
-  createdAt             TimestamptzString          @default(now())
-  updatedAt             temporal.updatedAtString()
+  isActive        Boolean                    @default(true)
+
+  createdAt       TimestamptzString          @default(now())
+  updatedAt       temporal.updatedAtString()
+
 }
 
-model InventoryItem {
-  id          Int                        @id @default(autoincrement())
-  name        String
-  type        String
-  unit        String
-  isActive    Boolean                    @default(true)
 
-  product     Product?
-  batches     InventoryBatch[]
-  recipeItems RecipeItem[]
-  restocks    Restock[]
-
-  createdAt   TimestamptzString          @default(now())
-  updatedAt   temporal.updatedAtString()
-}
-
-model InventoryLocation {
-  id            Int                        @id @default(autoincrement())
-  name          String
-
-  stocks        InventoryBatchStock[]
-  transfersFrom InventoryTransfer[]        @relation("TransferFrom")
-  transfersTo   InventoryTransfer[]        @relation("TransferTo")
-
-  createdAt     TimestamptzString          @default(now())
-  updatedAt     temporal.updatedAtString()
-}
-
-model InventoryBatch {
-  id              Int                   @id @default(autoincrement())
-  inventoryItem   InventoryItem         @relation(fields:[inventoryItemId], references:[id])
-  inventoryItemId Int
-
-  batchNumber     String
-  quantity        Decimal
-  unitCost        Decimal
-  totalCost       Decimal
-
-  stocks          InventoryBatchStock[]
-  production      Production?
-  restocks        Restock[]
-  transfers       InventoryTransfer[]
-
-  createdAt       TimestamptzString     @default(now())
-}
-
-model InventoryBatchStock {
-  id               Int                        @id @default(autoincrement())
-  batch            InventoryBatch             @relation(fields:[batchId], references:[id])
-  batchId          Int
-  location         InventoryLocation          @relation(fields:[locationId], references:[id])
-  locationId       Int
-
-  quantity         Decimal
-  reservedQuantity Decimal                    @default("0")
-
-  createdAt        TimestamptzString          @default(now())
-  updatedAt        temporal.updatedAtString()
-
-  @@unique([batchId, locationId])
-}
+// ============================================================
+// PRODUCT RECIPE
+// ============================================================
 
 model ProductRecipe {
+
   id          Int               @id @default(autoincrement())
+
   product     Product           @relation(fields:[productId], references:[id])
   productId   Int
 
   version     Int
+  isActive    Boolean           @default(true)
+
   items       RecipeItem[]
-  productions Production[]
 
   createdAt   TimestamptzString @default(now())
+  updatedAt   temporal.updatedAtString()
 
   @@unique([productId, version])
+
 }
 
+
+// ============================================================
+// RECIPE ITEM
+// ============================================================
+
 model RecipeItem {
+
   id              Int           @id @default(autoincrement())
+
   recipe          ProductRecipe @relation(fields:[recipeId], references:[id])
   recipeId        Int
 
@@ -217,113 +115,195 @@ model RecipeItem {
   inventoryItemId Int
 
   quantity        Decimal
+
 }
 
-model Production {
-  id        Int               @id @default(autoincrement())
-  product   Product           @relation(fields:[productId], references:[id])
-  productId Int
 
-  recipe    ProductRecipe     @relation(fields:[recipeId], references:[id])
-  recipeId  Int
+// ============================================================
+// INVENTORY ITEM
+// ============================================================
 
-  quantity  Decimal
-  totalHpp  Decimal
-  unitHpp   Decimal
+model InventoryItem {
 
-  batch     InventoryBatch    @relation(fields:[batchId], references:[id])
-  batchId   Int               @unique
+  id          Int                        @id @default(autoincrement())
 
-  createdAt TimestamptzString @default(now())
+  name        String
+
+  type        InventoryItemType
+
+  unit        InventoryUnit
+
+  isActive    Boolean                    @default(true)
+
+  batches     InventoryBatch[]
+
+  recipeItems RecipeItem[]
+
+  restocks    Restock[]
+
+  productions Production[]
+
+  createdAt   TimestamptzString          @default(now())
+  updatedAt   temporal.updatedAtString()
+
 }
+
+
+// ============================================================
+// INVENTORY BATCH
+// ============================================================
+
+model InventoryBatch {
+
+  id              Int                        @id @default(autoincrement())
+
+  inventoryItem   InventoryItem              @relation(fields:[inventoryItemId], references:[id])
+  inventoryItemId Int
+
+  batchCode       String                     @unique
+
+  sourceType      InventoryBatchSourceType
+
+  quantity        Decimal
+
+  remainingQuantity Decimal
+
+  unitCost        Decimal
+
+  totalCost       Decimal
+
+  stock           InventoryBatchStock?
+
+  production      Production?
+
+  restock         Restock?
+
+  createdAt       TimestamptzString          @default(now())
+  updatedAt       temporal.updatedAtString()
+
+  @@index([inventoryItemId])
+  @@index([inventoryItemId, createdAt])
+
+}
+
+
+// ============================================================
+// INVENTORY BATCH STOCK
+// ============================================================
+
+model InventoryBatchStock {
+
+  id               Int                        @id @default(autoincrement())
+
+  batch            InventoryBatch             @relation(fields:[batchId], references:[id])
+  batchId          Int                        @unique
+
+  quantity         Decimal
+
+  remainingQuantity Decimal
+
+  createdAt        TimestamptzString          @default(now())
+  updatedAt        temporal.updatedAtString()
+
+}
+
+
+// ============================================================
+// RESTOCK
+// ============================================================
 
 model Restock {
+
   id              Int               @id @default(autoincrement())
+
   inventoryItem   InventoryItem     @relation(fields:[inventoryItemId], references:[id])
   inventoryItemId Int
 
   batch           InventoryBatch    @relation(fields:[batchId], references:[id])
-  batchId         Int
+  batchId         Int               @unique
 
   quantity        Decimal
+
+  totalCost       Decimal
+
+  unitCost        Decimal
+
+  supplierName    String?
+
+  createdAt       TimestamptzString @default(now())
+
+}
+
+
+// ============================================================
+// PRODUCTION
+// ============================================================
+
+model Production {
+
+  id              Int               @id @default(autoincrement())
+
+  inventoryItem   InventoryItem     @relation(fields:[inventoryItemId], references:[id])
+  inventoryItemId Int
+
+  batch           InventoryBatch    @relation(fields:[batchId], references:[id])
+  batchId         Int               @unique
+
+  outputQuantity  Decimal
+
+  totalCost       Decimal
+
+  unitCost        Decimal
+
+  components      ProductionComponent[]
+
+  createdAt       TimestamptzString @default(now())
+
+}
+
+
+// ============================================================
+// PRODUCTION COMPONENT
+// ============================================================
+
+model ProductionComponent {
+
+  id              Int               @id @default(autoincrement())
+
+  production      Production        @relation(fields:[productionId], references:[id])
+  productionId    Int
+
+  inventoryItem   InventoryItem?    @relation(fields:[inventoryItemId], references:[id])
+  inventoryItemId Int?
+
+  name            String
+
+  quantity        Decimal
+
+  unit            InventoryUnit
+
+  unitCost        Decimal
+
   totalCost       Decimal
 
   createdAt       TimestamptzString @default(now())
+
 }
 
-model InventoryTransfer {
-  id             Int               @id @default(autoincrement())
-  batch          InventoryBatch    @relation(fields:[batchId], references:[id])
-  batchId        Int
 
-  fromLocation   InventoryLocation @relation("TransferFrom", fields:[fromLocationId], references:[id])
-  fromLocationId Int
-
-  toLocation     InventoryLocation @relation("TransferTo", fields:[toLocationId], references:[id])
-  toLocationId   Int
-
-  quantity       Decimal
-
-  createdAt      TimestamptzString @default(now())
-}
+// ============================================================
+// PRODUCT COST HISTORY
+// ============================================================
 
 model ProductCostHistory {
-  id        Int               @id @default(autoincrement())
-  product   Product           @relation(fields:[productId], references:[id])
-  productId Int
 
-  hpp       Decimal
+  id          Int               @id @default(autoincrement())
 
-  createdAt TimestamptzString @default(now())
-}
+  product     Product           @relation(fields:[productId], references:[id])
+  productId   Int
 
-model ProductReview {
-  id         Int                        @id @default(autoincrement())
+  hpp         Decimal
 
-  product    Product                    @relation(fields:[productId], references:[id])
-  productId  Int
+  createdAt   TimestamptzString @default(now())
 
-  customer   Customer                   @relation(fields:[customerId], references:[id])
-  customerId Int
-
-  rating     Int
-  review     String?
-
-  isVisible  Boolean                    @default(true)
-
-  createdAt  TimestamptzString          @default(now())
-  updatedAt  temporal.updatedAtString()
-
-  @@index([productId])
-  @@index([customerId])
-  @@unique([productId, customerId])
-}
-
-model ProductRatingSummary {
-  id            Int                        @id @default(autoincrement())
-
-  product       Product                    @relation(fields:[productId], references:[id])
-  productId     Int                        @unique
-
-  averageRating Decimal                    @default("0")
-  totalReviews  Int                        @default(0)
-
-  rating5Count  Int                        @default(0)
-  rating4Count  Int                        @default(0)
-  rating3Count  Int                        @default(0)
-  rating2Count  Int                        @default(0)
-  rating1Count  Int                        @default(0)
-
-  updatedAt     temporal.updatedAtString()
-}
-
-model ProductSalesSummary {
-  id        Int                        @id @default(autoincrement())
-
-  product   Product                    @relation(fields:[productId], references:[id])
-  productId Int                        @unique
-
-  totalSold Int                        @default(0)
-
-  updatedAt temporal.updatedAtString()
 }

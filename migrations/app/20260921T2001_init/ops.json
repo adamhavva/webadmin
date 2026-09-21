@@ -41,7 +41,7 @@
     "execute": [
       {
         "description": "create table \"inventoryBatch\"",
-        "sql": "CREATE TABLE \"public\".\"inventoryBatch\" (\n  \"batchNumber\" text NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"inventoryItemId\" int4 NOT NULL,\n  \"quantity\" numeric NOT NULL,\n  \"totalCost\" numeric NOT NULL,\n  \"unitCost\" numeric NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "sql": "CREATE TABLE \"public\".\"inventoryBatch\" (\n  \"batchCode\" text NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"inventoryItemId\" int4 NOT NULL,\n  \"quantity\" numeric NOT NULL,\n  \"remainingQuantity\" numeric NOT NULL,\n  \"sourceType\" text NOT NULL,\n  \"totalCost\" numeric NOT NULL,\n  \"unitCost\" numeric NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"inventoryBatch_sourceType_check_0c96c6db\" CHECK (\"sourceType\" IN ('RESTOCK', 'PRODUCTION'))\n)",
         "params": []
       }
     ],
@@ -80,7 +80,7 @@
     "execute": [
       {
         "description": "create table \"inventoryBatchStock\"",
-        "sql": "CREATE TABLE \"public\".\"inventoryBatchStock\" (\n  \"batchId\" int4 NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"locationId\" int4 NOT NULL,\n  \"quantity\" numeric NOT NULL,\n  \"reservedQuantity\" numeric DEFAULT '0'::numeric NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "sql": "CREATE TABLE \"public\".\"inventoryBatchStock\" (\n  \"batchId\" int4 NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"quantity\" numeric NOT NULL,\n  \"remainingQuantity\" numeric NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
         "params": []
       }
     ],
@@ -119,7 +119,7 @@
     "execute": [
       {
         "description": "create table \"inventoryItem\"",
-        "sql": "CREATE TABLE \"public\".\"inventoryItem\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"isActive\" bool DEFAULT true NOT NULL,\n  \"name\" text NOT NULL,\n  \"type\" text NOT NULL,\n  \"unit\" text NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "sql": "CREATE TABLE \"public\".\"inventoryItem\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"isActive\" bool DEFAULT true NOT NULL,\n  \"name\" text NOT NULL,\n  \"type\" text NOT NULL,\n  \"unit\" text NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"inventoryItem_type_check_3fb4b103\" CHECK (\"type\" IN ('SEMI_FINISHED', 'DIRECT_USE')),\n  CONSTRAINT \"inventoryItem_unit_check_61ddd923\" CHECK (\"unit\" IN ('ML', 'PCS'))\n)",
         "params": []
       }
     ],
@@ -129,84 +129,6 @@
         "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
         "params": [
           "\"public\".\"inventoryItem\""
-        ]
-      }
-    ]
-  },
-  {
-    "id": "table.inventoryLocation",
-    "label": "Create table \"inventoryLocation\"",
-    "summary": "Creates table \"inventoryLocation\"",
-    "operationClass": "additive",
-    "target": {
-      "id": "postgres",
-      "details": {
-        "schema": "public",
-        "objectType": "table",
-        "name": "inventoryLocation"
-      }
-    },
-    "precheck": [
-      {
-        "description": "ensure table \"inventoryLocation\" does not exist",
-        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
-        "params": [
-          "\"public\".\"inventoryLocation\""
-        ]
-      }
-    ],
-    "execute": [
-      {
-        "description": "create table \"inventoryLocation\"",
-        "sql": "CREATE TABLE \"public\".\"inventoryLocation\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"name\" text NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
-        "params": []
-      }
-    ],
-    "postcheck": [
-      {
-        "description": "verify table \"inventoryLocation\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
-        "params": [
-          "\"public\".\"inventoryLocation\""
-        ]
-      }
-    ]
-  },
-  {
-    "id": "table.inventoryTransfer",
-    "label": "Create table \"inventoryTransfer\"",
-    "summary": "Creates table \"inventoryTransfer\"",
-    "operationClass": "additive",
-    "target": {
-      "id": "postgres",
-      "details": {
-        "schema": "public",
-        "objectType": "table",
-        "name": "inventoryTransfer"
-      }
-    },
-    "precheck": [
-      {
-        "description": "ensure table \"inventoryTransfer\" does not exist",
-        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
-        "params": [
-          "\"public\".\"inventoryTransfer\""
-        ]
-      }
-    ],
-    "execute": [
-      {
-        "description": "create table \"inventoryTransfer\"",
-        "sql": "CREATE TABLE \"public\".\"inventoryTransfer\" (\n  \"batchId\" int4 NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"fromLocationId\" int4 NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"quantity\" numeric NOT NULL,\n  \"toLocationId\" int4 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
-        "params": []
-      }
-    ],
-    "postcheck": [
-      {
-        "description": "verify table \"inventoryTransfer\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
-        "params": [
-          "\"public\".\"inventoryTransfer\""
         ]
       }
     ]
@@ -236,7 +158,7 @@
     "execute": [
       {
         "description": "create table \"product\"",
-        "sql": "CREATE TABLE \"public\".\"product\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"description\" text,\n  \"finishedProductItemId\" int4 NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"isActive\" bool DEFAULT true NOT NULL,\n  \"name\" text NOT NULL,\n  \"sellingPrice\" numeric NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "sql": "CREATE TABLE \"public\".\"product\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"isActive\" bool DEFAULT true NOT NULL,\n  \"name\" text NOT NULL,\n  \"sellingPrice\" numeric NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
         "params": []
       }
     ],
@@ -314,7 +236,7 @@
     "execute": [
       {
         "description": "create table \"productRecipe\"",
-        "sql": "CREATE TABLE \"public\".\"productRecipe\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"productId\" int4 NOT NULL,\n  \"version\" int4 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "sql": "CREATE TABLE \"public\".\"productRecipe\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"isActive\" bool DEFAULT true NOT NULL,\n  \"productId\" int4 NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"version\" int4 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
         "params": []
       }
     ],
@@ -353,7 +275,7 @@
     "execute": [
       {
         "description": "create table \"production\"",
-        "sql": "CREATE TABLE \"public\".\"production\" (\n  \"batchId\" int4 NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"productId\" int4 NOT NULL,\n  \"quantity\" numeric NOT NULL,\n  \"recipeId\" int4 NOT NULL,\n  \"totalHpp\" numeric NOT NULL,\n  \"unitHpp\" numeric NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "sql": "CREATE TABLE \"public\".\"production\" (\n  \"batchId\" int4 NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"inventoryItemId\" int4 NOT NULL,\n  \"outputQuantity\" numeric NOT NULL,\n  \"totalCost\" numeric NOT NULL,\n  \"unitCost\" numeric NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
         "params": []
       }
     ],
@@ -363,6 +285,45 @@
         "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
         "params": [
           "\"public\".\"production\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.productionComponent",
+    "label": "Create table \"productionComponent\"",
+    "summary": "Creates table \"productionComponent\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "productionComponent"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"productionComponent\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"productionComponent\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"productionComponent\"",
+        "sql": "CREATE TABLE \"public\".\"productionComponent\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"inventoryItemId\" int4,\n  \"name\" text NOT NULL,\n  \"productionId\" int4 NOT NULL,\n  \"quantity\" numeric NOT NULL,\n  \"totalCost\" numeric NOT NULL,\n  \"unit\" text NOT NULL,\n  \"unitCost\" numeric NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"productionComponent_unit_check_61ddd923\" CHECK (\"unit\" IN ('ML', 'PCS'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"productionComponent\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"productionComponent\""
         ]
       }
     ]
@@ -431,7 +392,7 @@
     "execute": [
       {
         "description": "create table \"restock\"",
-        "sql": "CREATE TABLE \"public\".\"restock\" (\n  \"batchId\" int4 NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"inventoryItemId\" int4 NOT NULL,\n  \"quantity\" numeric NOT NULL,\n  \"totalCost\" numeric NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "sql": "CREATE TABLE \"public\".\"restock\" (\n  \"batchId\" int4 NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"inventoryItemId\" int4 NOT NULL,\n  \"quantity\" numeric NOT NULL,\n  \"supplierName\" text,\n  \"totalCost\" numeric NOT NULL,\n  \"unitCost\" numeric NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
         "params": []
       }
     ],
@@ -446,85 +407,124 @@
     ]
   },
   {
-    "id": "unique.inventoryBatchStock.inventoryBatchStock_batchId_locationId_key",
-    "label": "Add unique constraint on \"inventoryBatchStock\" (batchId, locationId)",
+    "id": "table.user",
+    "label": "Create table \"user\"",
+    "summary": "Creates table \"user\"",
     "operationClass": "additive",
     "target": {
       "id": "postgres",
       "details": {
         "schema": "public",
-        "objectType": "unique",
-        "name": "inventoryBatchStock_batchId_locationId_key",
-        "table": "inventoryBatchStock"
+        "objectType": "table",
+        "name": "user"
       }
     },
     "precheck": [
       {
-        "description": "ensure constraint \"inventoryBatchStock_batchId_locationId_key\" does not exist",
-        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "ensure table \"user\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
-          "inventoryBatchStock_batchId_locationId_key",
-          "public",
-          "\"public\".\"inventoryBatchStock\""
+          "\"public\".\"user\""
         ]
       }
     ],
     "execute": [
       {
-        "description": "add unique constraint \"inventoryBatchStock_batchId_locationId_key\"",
-        "sql": "ALTER TABLE \"public\".\"inventoryBatchStock\" ADD CONSTRAINT \"inventoryBatchStock_batchId_locationId_key\" UNIQUE (\"batchId\", \"locationId\")"
+        "description": "create table \"user\"",
+        "sql": "CREATE TABLE \"public\".\"user\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"email\" text,\n  \"firebaseUid\" text NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"name\" text NOT NULL,\n  \"phone\" text,\n  \"role\" text NOT NULL,\n  \"status\" text DEFAULT 'ACTIVE' NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"user_role_check_910f31ad\" CHECK (\"role\" IN ('ADMIN', 'CUSTOMER', 'BARISTA')),\n  CONSTRAINT \"user_status_check_ee520df2\" CHECK (\"status\" IN ('ACTIVE', 'INACTIVE'))\n)",
+        "params": []
       }
     ],
     "postcheck": [
       {
-        "description": "verify constraint \"inventoryBatchStock_batchId_locationId_key\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify table \"user\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
         "params": [
-          "inventoryBatchStock_batchId_locationId_key",
-          "public",
-          "\"public\".\"inventoryBatchStock\""
+          "\"public\".\"user\""
         ]
       }
     ]
   },
   {
-    "id": "unique.product.product_finishedProductItemId_key",
-    "label": "Add unique constraint on \"product\" (finishedProductItemId)",
+    "id": "unique.inventoryBatch.inventoryBatch_batchCode_key",
+    "label": "Add unique constraint on \"inventoryBatch\" (batchCode)",
     "operationClass": "additive",
     "target": {
       "id": "postgres",
       "details": {
         "schema": "public",
         "objectType": "unique",
-        "name": "product_finishedProductItemId_key",
-        "table": "product"
+        "name": "inventoryBatch_batchCode_key",
+        "table": "inventoryBatch"
       }
     },
     "precheck": [
       {
-        "description": "ensure constraint \"product_finishedProductItemId_key\" does not exist",
+        "description": "ensure constraint \"inventoryBatch_batchCode_key\" does not exist",
         "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
         "params": [
-          "product_finishedProductItemId_key",
+          "inventoryBatch_batchCode_key",
           "public",
-          "\"public\".\"product\""
+          "\"public\".\"inventoryBatch\""
         ]
       }
     ],
     "execute": [
       {
-        "description": "add unique constraint \"product_finishedProductItemId_key\"",
-        "sql": "ALTER TABLE \"public\".\"product\" ADD CONSTRAINT \"product_finishedProductItemId_key\" UNIQUE (\"finishedProductItemId\")"
+        "description": "add unique constraint \"inventoryBatch_batchCode_key\"",
+        "sql": "ALTER TABLE \"public\".\"inventoryBatch\" ADD CONSTRAINT \"inventoryBatch_batchCode_key\" UNIQUE (\"batchCode\")"
       }
     ],
     "postcheck": [
       {
-        "description": "verify constraint \"product_finishedProductItemId_key\" exists",
+        "description": "verify constraint \"inventoryBatch_batchCode_key\" exists",
         "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
         "params": [
-          "product_finishedProductItemId_key",
+          "inventoryBatch_batchCode_key",
           "public",
-          "\"public\".\"product\""
+          "\"public\".\"inventoryBatch\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.inventoryBatchStock.inventoryBatchStock_batchId_key",
+    "label": "Add unique constraint on \"inventoryBatchStock\" (batchId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "inventoryBatchStock_batchId_key",
+        "table": "inventoryBatchStock"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"inventoryBatchStock_batchId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "inventoryBatchStock_batchId_key",
+          "public",
+          "\"public\".\"inventoryBatchStock\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"inventoryBatchStock_batchId_key\"",
+        "sql": "ALTER TABLE \"public\".\"inventoryBatchStock\" ADD CONSTRAINT \"inventoryBatchStock_batchId_key\" UNIQUE (\"batchId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"inventoryBatchStock_batchId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "inventoryBatchStock_batchId_key",
+          "public",
+          "\"public\".\"inventoryBatchStock\""
         ]
       }
     ]
@@ -614,6 +614,129 @@
     ]
   },
   {
+    "id": "unique.restock.restock_batchId_key",
+    "label": "Add unique constraint on \"restock\" (batchId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "restock_batchId_key",
+        "table": "restock"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"restock_batchId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "restock_batchId_key",
+          "public",
+          "\"public\".\"restock\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"restock_batchId_key\"",
+        "sql": "ALTER TABLE \"public\".\"restock\" ADD CONSTRAINT \"restock_batchId_key\" UNIQUE (\"batchId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"restock_batchId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "restock_batchId_key",
+          "public",
+          "\"public\".\"restock\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.user.user_firebaseUid_key",
+    "label": "Add unique constraint on \"user\" (firebaseUid)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "user_firebaseUid_key",
+        "table": "user"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"user_firebaseUid_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_firebaseUid_key",
+          "public",
+          "\"public\".\"user\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"user_firebaseUid_key\"",
+        "sql": "ALTER TABLE \"public\".\"user\" ADD CONSTRAINT \"user_firebaseUid_key\" UNIQUE (\"firebaseUid\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"user_firebaseUid_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_firebaseUid_key",
+          "public",
+          "\"public\".\"user\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.inventoryBatch.inventoryBatch_inventoryItemId_createdAt_idx_e33c825e",
+    "label": "Create index \"inventoryBatch_inventoryItemId_createdAt_idx_e33c825e\" on \"inventoryBatch\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "inventoryBatch_inventoryItemId_createdAt_idx_e33c825e",
+        "table": "inventoryBatch"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"inventoryBatch_inventoryItemId_createdAt_idx_e33c825e\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"inventoryBatch_inventoryItemId_createdAt_idx_e33c825e\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"inventoryBatch_inventoryItemId_createdAt_idx_e33c825e\"",
+        "sql": "CREATE INDEX \"inventoryBatch_inventoryItemId_createdAt_idx_e33c825e\" ON \"public\".\"inventoryBatch\" (\"inventoryItemId\", \"createdAt\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"inventoryBatch_inventoryItemId_createdAt_idx_e33c825e\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"inventoryBatch_inventoryItemId_createdAt_idx_e33c825e\""
+        ]
+      }
+    ]
+  },
+  {
     "id": "index.inventoryBatch.inventoryBatch_inventoryItemId_idx_ddbb7ccf",
     "label": "Create index \"inventoryBatch_inventoryItemId_idx_ddbb7ccf\" on \"inventoryBatch\"",
     "operationClass": "additive",
@@ -648,201 +771,6 @@
         "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
         "params": [
           "\"public\".\"inventoryBatch_inventoryItemId_idx_ddbb7ccf\""
-        ]
-      }
-    ]
-  },
-  {
-    "id": "index.inventoryBatchStock.inventoryBatchStock_batchId_idx_84d4b0b9",
-    "label": "Create index \"inventoryBatchStock_batchId_idx_84d4b0b9\" on \"inventoryBatchStock\"",
-    "operationClass": "additive",
-    "target": {
-      "id": "postgres",
-      "details": {
-        "schema": "public",
-        "objectType": "index",
-        "name": "inventoryBatchStock_batchId_idx_84d4b0b9",
-        "table": "inventoryBatchStock"
-      }
-    },
-    "precheck": [
-      {
-        "description": "ensure index \"inventoryBatchStock_batchId_idx_84d4b0b9\" does not exist",
-        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
-        "params": [
-          "\"public\".\"inventoryBatchStock_batchId_idx_84d4b0b9\""
-        ]
-      }
-    ],
-    "execute": [
-      {
-        "description": "create index \"inventoryBatchStock_batchId_idx_84d4b0b9\"",
-        "sql": "CREATE INDEX \"inventoryBatchStock_batchId_idx_84d4b0b9\" ON \"public\".\"inventoryBatchStock\" (\"batchId\")",
-        "params": []
-      }
-    ],
-    "postcheck": [
-      {
-        "description": "verify index \"inventoryBatchStock_batchId_idx_84d4b0b9\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
-        "params": [
-          "\"public\".\"inventoryBatchStock_batchId_idx_84d4b0b9\""
-        ]
-      }
-    ]
-  },
-  {
-    "id": "index.inventoryBatchStock.inventoryBatchStock_locationId_idx_7aae3038",
-    "label": "Create index \"inventoryBatchStock_locationId_idx_7aae3038\" on \"inventoryBatchStock\"",
-    "operationClass": "additive",
-    "target": {
-      "id": "postgres",
-      "details": {
-        "schema": "public",
-        "objectType": "index",
-        "name": "inventoryBatchStock_locationId_idx_7aae3038",
-        "table": "inventoryBatchStock"
-      }
-    },
-    "precheck": [
-      {
-        "description": "ensure index \"inventoryBatchStock_locationId_idx_7aae3038\" does not exist",
-        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
-        "params": [
-          "\"public\".\"inventoryBatchStock_locationId_idx_7aae3038\""
-        ]
-      }
-    ],
-    "execute": [
-      {
-        "description": "create index \"inventoryBatchStock_locationId_idx_7aae3038\"",
-        "sql": "CREATE INDEX \"inventoryBatchStock_locationId_idx_7aae3038\" ON \"public\".\"inventoryBatchStock\" (\"locationId\")",
-        "params": []
-      }
-    ],
-    "postcheck": [
-      {
-        "description": "verify index \"inventoryBatchStock_locationId_idx_7aae3038\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
-        "params": [
-          "\"public\".\"inventoryBatchStock_locationId_idx_7aae3038\""
-        ]
-      }
-    ]
-  },
-  {
-    "id": "index.inventoryTransfer.inventoryTransfer_batchId_idx_84d4b0b9",
-    "label": "Create index \"inventoryTransfer_batchId_idx_84d4b0b9\" on \"inventoryTransfer\"",
-    "operationClass": "additive",
-    "target": {
-      "id": "postgres",
-      "details": {
-        "schema": "public",
-        "objectType": "index",
-        "name": "inventoryTransfer_batchId_idx_84d4b0b9",
-        "table": "inventoryTransfer"
-      }
-    },
-    "precheck": [
-      {
-        "description": "ensure index \"inventoryTransfer_batchId_idx_84d4b0b9\" does not exist",
-        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
-        "params": [
-          "\"public\".\"inventoryTransfer_batchId_idx_84d4b0b9\""
-        ]
-      }
-    ],
-    "execute": [
-      {
-        "description": "create index \"inventoryTransfer_batchId_idx_84d4b0b9\"",
-        "sql": "CREATE INDEX \"inventoryTransfer_batchId_idx_84d4b0b9\" ON \"public\".\"inventoryTransfer\" (\"batchId\")",
-        "params": []
-      }
-    ],
-    "postcheck": [
-      {
-        "description": "verify index \"inventoryTransfer_batchId_idx_84d4b0b9\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
-        "params": [
-          "\"public\".\"inventoryTransfer_batchId_idx_84d4b0b9\""
-        ]
-      }
-    ]
-  },
-  {
-    "id": "index.inventoryTransfer.inventoryTransfer_fromLocationId_idx_b4e88e40",
-    "label": "Create index \"inventoryTransfer_fromLocationId_idx_b4e88e40\" on \"inventoryTransfer\"",
-    "operationClass": "additive",
-    "target": {
-      "id": "postgres",
-      "details": {
-        "schema": "public",
-        "objectType": "index",
-        "name": "inventoryTransfer_fromLocationId_idx_b4e88e40",
-        "table": "inventoryTransfer"
-      }
-    },
-    "precheck": [
-      {
-        "description": "ensure index \"inventoryTransfer_fromLocationId_idx_b4e88e40\" does not exist",
-        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
-        "params": [
-          "\"public\".\"inventoryTransfer_fromLocationId_idx_b4e88e40\""
-        ]
-      }
-    ],
-    "execute": [
-      {
-        "description": "create index \"inventoryTransfer_fromLocationId_idx_b4e88e40\"",
-        "sql": "CREATE INDEX \"inventoryTransfer_fromLocationId_idx_b4e88e40\" ON \"public\".\"inventoryTransfer\" (\"fromLocationId\")",
-        "params": []
-      }
-    ],
-    "postcheck": [
-      {
-        "description": "verify index \"inventoryTransfer_fromLocationId_idx_b4e88e40\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
-        "params": [
-          "\"public\".\"inventoryTransfer_fromLocationId_idx_b4e88e40\""
-        ]
-      }
-    ]
-  },
-  {
-    "id": "index.inventoryTransfer.inventoryTransfer_toLocationId_idx_d9ceb078",
-    "label": "Create index \"inventoryTransfer_toLocationId_idx_d9ceb078\" on \"inventoryTransfer\"",
-    "operationClass": "additive",
-    "target": {
-      "id": "postgres",
-      "details": {
-        "schema": "public",
-        "objectType": "index",
-        "name": "inventoryTransfer_toLocationId_idx_d9ceb078",
-        "table": "inventoryTransfer"
-      }
-    },
-    "precheck": [
-      {
-        "description": "ensure index \"inventoryTransfer_toLocationId_idx_d9ceb078\" does not exist",
-        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
-        "params": [
-          "\"public\".\"inventoryTransfer_toLocationId_idx_d9ceb078\""
-        ]
-      }
-    ],
-    "execute": [
-      {
-        "description": "create index \"inventoryTransfer_toLocationId_idx_d9ceb078\"",
-        "sql": "CREATE INDEX \"inventoryTransfer_toLocationId_idx_d9ceb078\" ON \"public\".\"inventoryTransfer\" (\"toLocationId\")",
-        "params": []
-      }
-    ],
-    "postcheck": [
-      {
-        "description": "verify index \"inventoryTransfer_toLocationId_idx_d9ceb078\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
-        "params": [
-          "\"public\".\"inventoryTransfer_toLocationId_idx_d9ceb078\""
         ]
       }
     ]
@@ -926,79 +854,118 @@
     ]
   },
   {
-    "id": "index.production.production_productId_idx_5858600a",
-    "label": "Create index \"production_productId_idx_5858600a\" on \"production\"",
+    "id": "index.production.production_inventoryItemId_idx_ddbb7ccf",
+    "label": "Create index \"production_inventoryItemId_idx_ddbb7ccf\" on \"production\"",
     "operationClass": "additive",
     "target": {
       "id": "postgres",
       "details": {
         "schema": "public",
         "objectType": "index",
-        "name": "production_productId_idx_5858600a",
+        "name": "production_inventoryItemId_idx_ddbb7ccf",
         "table": "production"
       }
     },
     "precheck": [
       {
-        "description": "ensure index \"production_productId_idx_5858600a\" does not exist",
+        "description": "ensure index \"production_inventoryItemId_idx_ddbb7ccf\" does not exist",
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
-          "\"public\".\"production_productId_idx_5858600a\""
+          "\"public\".\"production_inventoryItemId_idx_ddbb7ccf\""
         ]
       }
     ],
     "execute": [
       {
-        "description": "create index \"production_productId_idx_5858600a\"",
-        "sql": "CREATE INDEX \"production_productId_idx_5858600a\" ON \"public\".\"production\" (\"productId\")",
+        "description": "create index \"production_inventoryItemId_idx_ddbb7ccf\"",
+        "sql": "CREATE INDEX \"production_inventoryItemId_idx_ddbb7ccf\" ON \"public\".\"production\" (\"inventoryItemId\")",
         "params": []
       }
     ],
     "postcheck": [
       {
-        "description": "verify index \"production_productId_idx_5858600a\" exists",
+        "description": "verify index \"production_inventoryItemId_idx_ddbb7ccf\" exists",
         "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
         "params": [
-          "\"public\".\"production_productId_idx_5858600a\""
+          "\"public\".\"production_inventoryItemId_idx_ddbb7ccf\""
         ]
       }
     ]
   },
   {
-    "id": "index.production.production_recipeId_idx_037d8d32",
-    "label": "Create index \"production_recipeId_idx_037d8d32\" on \"production\"",
+    "id": "index.productionComponent.productionComponent_inventoryItemId_idx_ddbb7ccf",
+    "label": "Create index \"productionComponent_inventoryItemId_idx_ddbb7ccf\" on \"productionComponent\"",
     "operationClass": "additive",
     "target": {
       "id": "postgres",
       "details": {
         "schema": "public",
         "objectType": "index",
-        "name": "production_recipeId_idx_037d8d32",
-        "table": "production"
+        "name": "productionComponent_inventoryItemId_idx_ddbb7ccf",
+        "table": "productionComponent"
       }
     },
     "precheck": [
       {
-        "description": "ensure index \"production_recipeId_idx_037d8d32\" does not exist",
+        "description": "ensure index \"productionComponent_inventoryItemId_idx_ddbb7ccf\" does not exist",
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
-          "\"public\".\"production_recipeId_idx_037d8d32\""
+          "\"public\".\"productionComponent_inventoryItemId_idx_ddbb7ccf\""
         ]
       }
     ],
     "execute": [
       {
-        "description": "create index \"production_recipeId_idx_037d8d32\"",
-        "sql": "CREATE INDEX \"production_recipeId_idx_037d8d32\" ON \"public\".\"production\" (\"recipeId\")",
+        "description": "create index \"productionComponent_inventoryItemId_idx_ddbb7ccf\"",
+        "sql": "CREATE INDEX \"productionComponent_inventoryItemId_idx_ddbb7ccf\" ON \"public\".\"productionComponent\" (\"inventoryItemId\")",
         "params": []
       }
     ],
     "postcheck": [
       {
-        "description": "verify index \"production_recipeId_idx_037d8d32\" exists",
+        "description": "verify index \"productionComponent_inventoryItemId_idx_ddbb7ccf\" exists",
         "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
         "params": [
-          "\"public\".\"production_recipeId_idx_037d8d32\""
+          "\"public\".\"productionComponent_inventoryItemId_idx_ddbb7ccf\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.productionComponent.productionComponent_productionId_idx_76cd023d",
+    "label": "Create index \"productionComponent_productionId_idx_76cd023d\" on \"productionComponent\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "productionComponent_productionId_idx_76cd023d",
+        "table": "productionComponent"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"productionComponent_productionId_idx_76cd023d\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"productionComponent_productionId_idx_76cd023d\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"productionComponent_productionId_idx_76cd023d\"",
+        "sql": "CREATE INDEX \"productionComponent_productionId_idx_76cd023d\" ON \"public\".\"productionComponent\" (\"productionId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"productionComponent_productionId_idx_76cd023d\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"productionComponent_productionId_idx_76cd023d\""
         ]
       }
     ]
@@ -1077,45 +1044,6 @@
         "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
         "params": [
           "\"public\".\"recipeItem_recipeId_idx_037d8d32\""
-        ]
-      }
-    ]
-  },
-  {
-    "id": "index.restock.restock_batchId_idx_84d4b0b9",
-    "label": "Create index \"restock_batchId_idx_84d4b0b9\" on \"restock\"",
-    "operationClass": "additive",
-    "target": {
-      "id": "postgres",
-      "details": {
-        "schema": "public",
-        "objectType": "index",
-        "name": "restock_batchId_idx_84d4b0b9",
-        "table": "restock"
-      }
-    },
-    "precheck": [
-      {
-        "description": "ensure index \"restock_batchId_idx_84d4b0b9\" does not exist",
-        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
-        "params": [
-          "\"public\".\"restock_batchId_idx_84d4b0b9\""
-        ]
-      }
-    ],
-    "execute": [
-      {
-        "description": "create index \"restock_batchId_idx_84d4b0b9\"",
-        "sql": "CREATE INDEX \"restock_batchId_idx_84d4b0b9\" ON \"public\".\"restock\" (\"batchId\")",
-        "params": []
-      }
-    ],
-    "postcheck": [
-      {
-        "description": "verify index \"restock_batchId_idx_84d4b0b9\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
-        "params": [
-          "\"public\".\"restock_batchId_idx_84d4b0b9\""
         ]
       }
     ]
@@ -1244,216 +1172,6 @@
     ]
   },
   {
-    "id": "foreignKey.inventoryBatchStock.inventoryBatchStock_locationId_fkey",
-    "label": "Add foreign key \"inventoryBatchStock_locationId_fkey\" on \"inventoryBatchStock\"",
-    "operationClass": "additive",
-    "target": {
-      "id": "postgres",
-      "details": {
-        "schema": "public",
-        "objectType": "foreignKey",
-        "name": "inventoryBatchStock_locationId_fkey",
-        "table": "inventoryBatchStock"
-      }
-    },
-    "precheck": [
-      {
-        "description": "ensure FK \"inventoryBatchStock_locationId_fkey\" does not exist",
-        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
-        "params": [
-          "inventoryBatchStock_locationId_fkey",
-          "public",
-          "\"public\".\"inventoryBatchStock\""
-        ]
-      }
-    ],
-    "execute": [
-      {
-        "description": "add FK \"inventoryBatchStock_locationId_fkey\"",
-        "sql": "ALTER TABLE \"public\".\"inventoryBatchStock\"\nADD CONSTRAINT \"inventoryBatchStock_locationId_fkey\"\nFOREIGN KEY (\"locationId\")\nREFERENCES \"public\".\"inventoryLocation\" (\"id\")"
-      }
-    ],
-    "postcheck": [
-      {
-        "description": "verify FK \"inventoryBatchStock_locationId_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
-        "params": [
-          "inventoryBatchStock_locationId_fkey",
-          "public",
-          "\"public\".\"inventoryBatchStock\""
-        ]
-      }
-    ]
-  },
-  {
-    "id": "foreignKey.inventoryTransfer.inventoryTransfer_batchId_fkey",
-    "label": "Add foreign key \"inventoryTransfer_batchId_fkey\" on \"inventoryTransfer\"",
-    "operationClass": "additive",
-    "target": {
-      "id": "postgres",
-      "details": {
-        "schema": "public",
-        "objectType": "foreignKey",
-        "name": "inventoryTransfer_batchId_fkey",
-        "table": "inventoryTransfer"
-      }
-    },
-    "precheck": [
-      {
-        "description": "ensure FK \"inventoryTransfer_batchId_fkey\" does not exist",
-        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
-        "params": [
-          "inventoryTransfer_batchId_fkey",
-          "public",
-          "\"public\".\"inventoryTransfer\""
-        ]
-      }
-    ],
-    "execute": [
-      {
-        "description": "add FK \"inventoryTransfer_batchId_fkey\"",
-        "sql": "ALTER TABLE \"public\".\"inventoryTransfer\"\nADD CONSTRAINT \"inventoryTransfer_batchId_fkey\"\nFOREIGN KEY (\"batchId\")\nREFERENCES \"public\".\"inventoryBatch\" (\"id\")"
-      }
-    ],
-    "postcheck": [
-      {
-        "description": "verify FK \"inventoryTransfer_batchId_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
-        "params": [
-          "inventoryTransfer_batchId_fkey",
-          "public",
-          "\"public\".\"inventoryTransfer\""
-        ]
-      }
-    ]
-  },
-  {
-    "id": "foreignKey.inventoryTransfer.inventoryTransfer_fromLocationId_fkey",
-    "label": "Add foreign key \"inventoryTransfer_fromLocationId_fkey\" on \"inventoryTransfer\"",
-    "operationClass": "additive",
-    "target": {
-      "id": "postgres",
-      "details": {
-        "schema": "public",
-        "objectType": "foreignKey",
-        "name": "inventoryTransfer_fromLocationId_fkey",
-        "table": "inventoryTransfer"
-      }
-    },
-    "precheck": [
-      {
-        "description": "ensure FK \"inventoryTransfer_fromLocationId_fkey\" does not exist",
-        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
-        "params": [
-          "inventoryTransfer_fromLocationId_fkey",
-          "public",
-          "\"public\".\"inventoryTransfer\""
-        ]
-      }
-    ],
-    "execute": [
-      {
-        "description": "add FK \"inventoryTransfer_fromLocationId_fkey\"",
-        "sql": "ALTER TABLE \"public\".\"inventoryTransfer\"\nADD CONSTRAINT \"inventoryTransfer_fromLocationId_fkey\"\nFOREIGN KEY (\"fromLocationId\")\nREFERENCES \"public\".\"inventoryLocation\" (\"id\")"
-      }
-    ],
-    "postcheck": [
-      {
-        "description": "verify FK \"inventoryTransfer_fromLocationId_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
-        "params": [
-          "inventoryTransfer_fromLocationId_fkey",
-          "public",
-          "\"public\".\"inventoryTransfer\""
-        ]
-      }
-    ]
-  },
-  {
-    "id": "foreignKey.inventoryTransfer.inventoryTransfer_toLocationId_fkey",
-    "label": "Add foreign key \"inventoryTransfer_toLocationId_fkey\" on \"inventoryTransfer\"",
-    "operationClass": "additive",
-    "target": {
-      "id": "postgres",
-      "details": {
-        "schema": "public",
-        "objectType": "foreignKey",
-        "name": "inventoryTransfer_toLocationId_fkey",
-        "table": "inventoryTransfer"
-      }
-    },
-    "precheck": [
-      {
-        "description": "ensure FK \"inventoryTransfer_toLocationId_fkey\" does not exist",
-        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
-        "params": [
-          "inventoryTransfer_toLocationId_fkey",
-          "public",
-          "\"public\".\"inventoryTransfer\""
-        ]
-      }
-    ],
-    "execute": [
-      {
-        "description": "add FK \"inventoryTransfer_toLocationId_fkey\"",
-        "sql": "ALTER TABLE \"public\".\"inventoryTransfer\"\nADD CONSTRAINT \"inventoryTransfer_toLocationId_fkey\"\nFOREIGN KEY (\"toLocationId\")\nREFERENCES \"public\".\"inventoryLocation\" (\"id\")"
-      }
-    ],
-    "postcheck": [
-      {
-        "description": "verify FK \"inventoryTransfer_toLocationId_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
-        "params": [
-          "inventoryTransfer_toLocationId_fkey",
-          "public",
-          "\"public\".\"inventoryTransfer\""
-        ]
-      }
-    ]
-  },
-  {
-    "id": "foreignKey.product.product_finishedProductItemId_fkey",
-    "label": "Add foreign key \"product_finishedProductItemId_fkey\" on \"product\"",
-    "operationClass": "additive",
-    "target": {
-      "id": "postgres",
-      "details": {
-        "schema": "public",
-        "objectType": "foreignKey",
-        "name": "product_finishedProductItemId_fkey",
-        "table": "product"
-      }
-    },
-    "precheck": [
-      {
-        "description": "ensure FK \"product_finishedProductItemId_fkey\" does not exist",
-        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
-        "params": [
-          "product_finishedProductItemId_fkey",
-          "public",
-          "\"public\".\"product\""
-        ]
-      }
-    ],
-    "execute": [
-      {
-        "description": "add FK \"product_finishedProductItemId_fkey\"",
-        "sql": "ALTER TABLE \"public\".\"product\"\nADD CONSTRAINT \"product_finishedProductItemId_fkey\"\nFOREIGN KEY (\"finishedProductItemId\")\nREFERENCES \"public\".\"inventoryItem\" (\"id\")"
-      }
-    ],
-    "postcheck": [
-      {
-        "description": "verify FK \"product_finishedProductItemId_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
-        "params": [
-          "product_finishedProductItemId_fkey",
-          "public",
-          "\"public\".\"product\""
-        ]
-      }
-    ]
-  },
-  {
     "id": "foreignKey.productCostHistory.productCostHistory_productId_fkey",
     "label": "Add foreign key \"productCostHistory_productId_fkey\" on \"productCostHistory\"",
     "operationClass": "additive",
@@ -1538,24 +1256,24 @@
     ]
   },
   {
-    "id": "foreignKey.production.production_productId_fkey",
-    "label": "Add foreign key \"production_productId_fkey\" on \"production\"",
+    "id": "foreignKey.production.production_inventoryItemId_fkey",
+    "label": "Add foreign key \"production_inventoryItemId_fkey\" on \"production\"",
     "operationClass": "additive",
     "target": {
       "id": "postgres",
       "details": {
         "schema": "public",
         "objectType": "foreignKey",
-        "name": "production_productId_fkey",
+        "name": "production_inventoryItemId_fkey",
         "table": "production"
       }
     },
     "precheck": [
       {
-        "description": "ensure FK \"production_productId_fkey\" does not exist",
+        "description": "ensure FK \"production_inventoryItemId_fkey\" does not exist",
         "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
         "params": [
-          "production_productId_fkey",
+          "production_inventoryItemId_fkey",
           "public",
           "\"public\".\"production\""
         ]
@@ -1563,58 +1281,16 @@
     ],
     "execute": [
       {
-        "description": "add FK \"production_productId_fkey\"",
-        "sql": "ALTER TABLE \"public\".\"production\"\nADD CONSTRAINT \"production_productId_fkey\"\nFOREIGN KEY (\"productId\")\nREFERENCES \"public\".\"product\" (\"id\")"
+        "description": "add FK \"production_inventoryItemId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"production\"\nADD CONSTRAINT \"production_inventoryItemId_fkey\"\nFOREIGN KEY (\"inventoryItemId\")\nREFERENCES \"public\".\"inventoryItem\" (\"id\")"
       }
     ],
     "postcheck": [
       {
-        "description": "verify FK \"production_productId_fkey\" exists",
+        "description": "verify FK \"production_inventoryItemId_fkey\" exists",
         "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
         "params": [
-          "production_productId_fkey",
-          "public",
-          "\"public\".\"production\""
-        ]
-      }
-    ]
-  },
-  {
-    "id": "foreignKey.production.production_recipeId_fkey",
-    "label": "Add foreign key \"production_recipeId_fkey\" on \"production\"",
-    "operationClass": "additive",
-    "target": {
-      "id": "postgres",
-      "details": {
-        "schema": "public",
-        "objectType": "foreignKey",
-        "name": "production_recipeId_fkey",
-        "table": "production"
-      }
-    },
-    "precheck": [
-      {
-        "description": "ensure FK \"production_recipeId_fkey\" does not exist",
-        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
-        "params": [
-          "production_recipeId_fkey",
-          "public",
-          "\"public\".\"production\""
-        ]
-      }
-    ],
-    "execute": [
-      {
-        "description": "add FK \"production_recipeId_fkey\"",
-        "sql": "ALTER TABLE \"public\".\"production\"\nADD CONSTRAINT \"production_recipeId_fkey\"\nFOREIGN KEY (\"recipeId\")\nREFERENCES \"public\".\"productRecipe\" (\"id\")"
-      }
-    ],
-    "postcheck": [
-      {
-        "description": "verify FK \"production_recipeId_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
-        "params": [
-          "production_recipeId_fkey",
+          "production_inventoryItemId_fkey",
           "public",
           "\"public\".\"production\""
         ]
@@ -1659,6 +1335,90 @@
           "production_batchId_fkey",
           "public",
           "\"public\".\"production\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.productionComponent.productionComponent_productionId_fkey",
+    "label": "Add foreign key \"productionComponent_productionId_fkey\" on \"productionComponent\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "productionComponent_productionId_fkey",
+        "table": "productionComponent"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"productionComponent_productionId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "productionComponent_productionId_fkey",
+          "public",
+          "\"public\".\"productionComponent\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"productionComponent_productionId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"productionComponent\"\nADD CONSTRAINT \"productionComponent_productionId_fkey\"\nFOREIGN KEY (\"productionId\")\nREFERENCES \"public\".\"production\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"productionComponent_productionId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "productionComponent_productionId_fkey",
+          "public",
+          "\"public\".\"productionComponent\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.productionComponent.productionComponent_inventoryItemId_fkey",
+    "label": "Add foreign key \"productionComponent_inventoryItemId_fkey\" on \"productionComponent\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "productionComponent_inventoryItemId_fkey",
+        "table": "productionComponent"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"productionComponent_inventoryItemId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "productionComponent_inventoryItemId_fkey",
+          "public",
+          "\"public\".\"productionComponent\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"productionComponent_inventoryItemId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"productionComponent\"\nADD CONSTRAINT \"productionComponent_inventoryItemId_fkey\"\nFOREIGN KEY (\"inventoryItemId\")\nREFERENCES \"public\".\"inventoryItem\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"productionComponent_inventoryItemId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "productionComponent_inventoryItemId_fkey",
+          "public",
+          "\"public\".\"productionComponent\""
         ]
       }
     ]
