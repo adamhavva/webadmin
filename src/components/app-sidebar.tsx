@@ -15,6 +15,7 @@ import {
   PackagePlus,
   Plus,
   ScrollText,
+  ShoppingBag,
 } from "lucide-react"
 
 import { NavMain, type NavItem } from "@/components/nav-main"
@@ -74,12 +75,19 @@ const data: {
 
     // =========================================================
     // PERSEDIAAN
-    // Urutan mengikuti proses bisnis:
-    // Bahan → Pengadaan → Batch → Resep → Produksi → Produk Jadi
+    //
+    // Alur bisnis:
+    // Bahan Baku
+    // → Pengadaan
+    // → Batch Bahan
+    // → Produk
+    // → Resep
+    // → Produksi
+    // → Produk Jadi
     // =========================================================
     {
       title: "Persediaan",
-      description: "Kelola bahan, produksi, dan stok",
+      description: "Kelola bahan, produk, resep, dan produksi",
       url: "#",
       icon: (
         <Boxes
@@ -182,7 +190,51 @@ const data: {
         },
 
         // =====================================================
-        // 4. RESEP
+        // 4. PRODUK
+        //
+        // Produk harus dibuat terlebih dahulu sebelum resep.
+        // Recipe mengacu ke Product yang sudah ada.
+        // =====================================================
+        {
+          title: "Produk",
+          description: "Kelola produk yang dijual",
+          url: "#",
+          icon: (
+            <ShoppingBag
+              className="size-4 shrink-0"
+              strokeWidth={1.8}
+            />
+          ),
+          items: [
+            {
+              title: "Daftar Produk",
+              description: "Lihat seluruh produk",
+              url: "/inventory/products",
+              icon: (
+                <ClipboardList
+                  className="size-4 shrink-0"
+                  strokeWidth={1.8}
+                />
+              ),
+            },
+            {
+              title: "Tambah Produk",
+              description: "Tambahkan produk baru",
+              url: "/inventory/products/new",
+              icon: (
+                <Plus
+                  className="size-4 shrink-0"
+                  strokeWidth={1.8}
+                />
+              ),
+            },
+          ],
+        },
+
+        // =====================================================
+        // 5. RESEP
+        //
+        // Resep dibuat berdasarkan Product yang sudah ada.
         // =====================================================
         {
           title: "Resep",
@@ -221,7 +273,9 @@ const data: {
         },
 
         // =====================================================
-        // 5. PRODUKSI
+        // 6. PRODUKSI
+        //
+        // Produksi menggunakan Product + Recipe.
         // =====================================================
         {
           title: "Produksi",
@@ -260,7 +314,7 @@ const data: {
         },
 
         // =====================================================
-        // 6. PRODUK JADI
+        // 7. PRODUK JADI
         // =====================================================
         {
           title: "Produk Jadi",
