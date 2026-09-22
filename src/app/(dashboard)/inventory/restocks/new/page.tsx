@@ -318,7 +318,7 @@ export default function NewRestockPage() {
 
       <form
         onSubmit={handleSubmit}
-        className="max-w-2xl"
+        className="w-full"
       >
         <Card>
           <CardHeader>

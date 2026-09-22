@@ -2,6 +2,21 @@
 
 import * as React from "react"
 
+import {
+  Boxes,
+  ClipboardList,
+  Factory,
+  GalleryVerticalEnd,
+  History,
+  Layers3,
+  LayoutDashboard,
+  Package,
+  PackageCheck,
+  PackagePlus,
+  Plus,
+  ScrollText,
+} from "lucide-react"
+
 import { NavMain, type NavItem } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import { TeamSwitcher } from "@/components/team-switcher"
@@ -13,15 +28,6 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-
-import {
-  Boxes,
-  Factory,
-  GalleryVerticalEnd,
-  LayoutDashboard,
-  Package,
-  PackagePlus,
-} from "lucide-react"
 
 const data: {
   user: {
@@ -36,18 +42,12 @@ const data: {
   }[]
   navMain: NavItem[]
 } = {
-  /*
-    Data user yang ditampilkan pada bagian bawah sidebar.
-  */
   user: {
     name: "Admin",
     email: "admin@ascend.com",
     avatar: "/avatars/admin.jpg",
   },
 
-  /*
-    Workspace ASCEND yang ditampilkan pada bagian atas sidebar.
-  */
   teams: [
     {
       name: "ASCEND Coffee",
@@ -56,127 +56,233 @@ const data: {
     },
   ],
 
-  /*
-    Navigasi yang tersedia saat ini hanya untuk
-    fitur yang memang sudah kita kembangkan.
-  */
   navMain: [
-    /*
-      Dashboard utama.
-    */
+    // =========================================================
+    // DASHBOARD
+    // =========================================================
     {
       title: "Dashboard",
+      description: "Ringkasan aktivitas ASCEND",
       url: "/",
       icon: (
         <LayoutDashboard
-          className="size-[18px]"
+          className="size-[18px] shrink-0"
           strokeWidth={1.8}
         />
       ),
     },
 
-    /*
-      Modul persediaan ASCEND.
-
-      Struktur:
-      - Bahan
-      - Restock
-      - Produksi
-
-      Batch tidak ditampilkan sebagai menu karena
-      batch dibuat otomatis oleh Restock atau Produksi.
-    */
+    // =========================================================
+    // PERSEDIAAN
+    // Urutan mengikuti proses bisnis:
+    // Bahan → Pengadaan → Batch → Resep → Produksi → Produk Jadi
+    // =========================================================
     {
       title: "Persediaan",
+      description: "Kelola bahan, produksi, dan stok",
       url: "#",
       icon: (
         <Boxes
-          className="size-[18px]"
+          className="size-[18px] shrink-0"
           strokeWidth={1.8}
         />
       ),
       items: [
-        /*
-          Master Inventory Item.
-
-          Halaman ini hanya mengelola master bahan:
-          nama, tipe, satuan, dan status aktif.
-        */
+        // =====================================================
+        // 1. BAHAN BAKU
+        // =====================================================
         {
-          title: "Bahan",
+          title: "Bahan Baku",
+          description: "Kelola bahan yang digunakan",
           url: "#",
           icon: (
             <Package
-              className="size-4"
+              className="size-4 shrink-0"
               strokeWidth={1.8}
             />
           ),
           items: [
             {
-              title: "Semua Bahan",
+              title: "Daftar Bahan",
+              description: "Lihat seluruh bahan baku",
               url: "/inventory/items",
+              icon: (
+                <ClipboardList
+                  className="size-4 shrink-0"
+                  strokeWidth={1.8}
+                />
+              ),
             },
             {
               title: "Tambah Bahan",
+              description: "Tambahkan bahan baku baru",
               url: "/inventory/items/new",
+              icon: (
+                <Plus
+                  className="size-4 shrink-0"
+                  strokeWidth={1.8}
+                />
+              ),
             },
           ],
         },
 
-        /*
-          Restock.
-
-          Admin memasukkan stok dan harga pembelian
-          melalui modul ini.
-
-          Backend kemudian otomatis membuat batch.
-        */
+        // =====================================================
+        // 2. PENGADAAN
+        // =====================================================
         {
-          title: "Restock",
+          title: "Pengadaan",
+          description: "Beli dan terima bahan baku",
           url: "#",
           icon: (
             <PackagePlus
-              className="size-4"
+              className="size-4 shrink-0"
               strokeWidth={1.8}
             />
           ),
           items: [
             {
-              title: "Semua Restock",
+              title: "Riwayat Pengadaan",
+              description: "Lihat transaksi pengadaan",
               url: "/inventory/restocks",
+              icon: (
+                <History
+                  className="size-4 shrink-0"
+                  strokeWidth={1.8}
+                />
+              ),
             },
             {
-              title: "Tambah Restock",
+              title: "Penerimaan Barang",
+              description: "Catat bahan yang diterima",
               url: "/inventory/restocks/new",
+              icon: (
+                <PackageCheck
+                  className="size-4 shrink-0"
+                  strokeWidth={1.8}
+                />
+              ),
             },
           ],
         },
 
-        /*
-          Produksi.
-
-          Digunakan untuk mencatat proses produksi
-          semi-finished inventory seperti Espresso.
-
-          Batch hasil produksi dibuat otomatis oleh backend.
-        */
+        // =====================================================
+        // 3. BATCH BAHAN
+        // =====================================================
         {
-          title: "Produksi",
+          title: "Batch Bahan",
+          description: "Lihat stok setiap batch bahan",
+          url: "/inventory/batches",
+          icon: (
+            <Layers3
+              className="size-4 shrink-0"
+              strokeWidth={1.8}
+            />
+          ),
+        },
+
+        // =====================================================
+        // 4. RESEP
+        // =====================================================
+        {
+          title: "Resep",
+          description: "Atur bahan untuk setiap produk",
           url: "#",
           icon: (
-            <Factory
-              className="size-4"
+            <ScrollText
+              className="size-4 shrink-0"
               strokeWidth={1.8}
             />
           ),
           items: [
             {
-              title: "Semua Produksi",
-              url: "/inventory/production",
+              title: "Daftar Resep",
+              description: "Lihat seluruh resep produk",
+              url: "/inventory/recipes",
+              icon: (
+                <ClipboardList
+                  className="size-4 shrink-0"
+                  strokeWidth={1.8}
+                />
+              ),
             },
             {
-              title: "Tambah Produksi",
+              title: "Tambah Resep",
+              description: "Buat resep produk baru",
+              url: "/inventory/recipes/new",
+              icon: (
+                <Plus
+                  className="size-4 shrink-0"
+                  strokeWidth={1.8}
+                />
+              ),
+            },
+          ],
+        },
+
+        // =====================================================
+        // 5. PRODUKSI
+        // =====================================================
+        {
+          title: "Produksi",
+          description: "Ubah bahan menjadi produk jadi",
+          url: "#",
+          icon: (
+            <Factory
+              className="size-4 shrink-0"
+              strokeWidth={1.8}
+            />
+          ),
+          items: [
+            {
+              title: "Riwayat Produksi",
+              description: "Lihat seluruh aktivitas produksi",
+              url: "/inventory/production",
+              icon: (
+                <History
+                  className="size-4 shrink-0"
+                  strokeWidth={1.8}
+                />
+              ),
+            },
+            {
+              title: "Buat Produksi",
+              description: "Catat produksi produk baru",
               url: "/inventory/production/new",
+              icon: (
+                <Plus
+                  className="size-4 shrink-0"
+                  strokeWidth={1.8}
+                />
+              ),
+            },
+          ],
+        },
+
+        // =====================================================
+        // 6. PRODUK JADI
+        // =====================================================
+        {
+          title: "Produk Jadi",
+          description: "Kelola stok produk siap dijual",
+          url: "#",
+          icon: (
+            <PackageCheck
+              className="size-4 shrink-0"
+              strokeWidth={1.8}
+            />
+          ),
+          items: [
+            {
+              title: "Stok Produk Jadi",
+              description: "Lihat stok produk hasil produksi",
+              url: "/inventory/finished-products",
+              icon: (
+                <ClipboardList
+                  className="size-4 shrink-0"
+                  strokeWidth={1.8}
+                />
+              ),
             },
           ],
         },
@@ -191,17 +297,39 @@ export function AppSidebar({
   return (
     <Sidebar
       collapsible="icon"
+      variant="sidebar"
+      className="border-r bg-background"
       {...props}
     >
-      <SidebarHeader className="px-2 pt-3">
+      <SidebarHeader
+        className="
+          border-b
+          px-2
+          py-3
+          group-data-[collapsible=icon]:px-2
+        "
+      >
         <TeamSwitcher teams={data.teams} />
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent
+        className="
+          px-2
+          py-3
+          group-data-[collapsible=icon]:px-1
+        "
+      >
         <NavMain items={data.navMain} />
       </SidebarContent>
 
-      <SidebarFooter className="px-2 pb-3">
+      <SidebarFooter
+        className="
+          border-t
+          px-2
+          py-3
+          group-data-[collapsible=icon]:px-2
+        "
+      >
         <NavUser user={data.user} />
       </SidebarFooter>
 
