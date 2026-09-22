@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { Prisma } from "../../../../../prisma/generated/client"
 
 import { prisma } from "@/lib/db"
+import { is } from "date-fns/locale"
 
 const DEFAULT_PAGE = 1
 const DEFAULT_LIMIT = 10
@@ -131,6 +132,7 @@ export async function GET(
               contains: search,
               mode: "insensitive" as const,
             },
+            
           }
         : {}),
       ...(isActive !== undefined
@@ -164,10 +166,7 @@ export async function GET(
           where,
           orderBy: [
             {
-              isActive: "desc",
-            },
-            {
-              name: "asc",
+              createdAt: "desc"
             },
           ],
           skip,

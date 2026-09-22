@@ -248,7 +248,7 @@ export default function EditProductPage({
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         <div className="h-8 w-56 animate-pulse rounded bg-muted" />
 
         <Card>
@@ -288,7 +288,7 @@ export default function EditProductPage({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-start gap-3">
         <Button
           type="button"

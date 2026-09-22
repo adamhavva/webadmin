@@ -325,7 +325,7 @@ export default function BatchDetailPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 animate-pulse rounded-md bg-muted" />
           <div className="h-7 w-48 animate-pulse rounded-md bg-muted" />
@@ -343,7 +343,7 @@ export default function BatchDetailPage() {
 
   if (error || !batch) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         <Button
           type="button"
           variant="ghost"

@@ -85,7 +85,7 @@ function formatCurrency(value: string) {
 
 function ProductDetailSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="h-8 w-56 animate-pulse rounded bg-muted" />
       <div className="grid gap-4 md:grid-cols-3">
         {[1, 2, 3].map(
@@ -244,7 +244,7 @@ export default function ProductDetailPage({
     ) ?? null
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex items-start gap-3">
           <Button

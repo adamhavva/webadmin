@@ -63,8 +63,8 @@ type InventoryBatch = {
   id: string;
   batchCode: string;
   sourceType:
-    | "RESTOCK"
-    | "PRODUCTION";
+  | "RESTOCK"
+  | "PRODUCTION";
   quantity: string | number;
   remainingQuantity: string | number;
   unitCost: string | number;
@@ -438,7 +438,7 @@ export default function RestocksPage() {
           ) {
             throw new Error(
               result.message ??
-                "Gagal mengambil data restock.",
+              "Gagal mengambil data restock.",
             );
           }
 
@@ -542,7 +542,7 @@ export default function RestocksPage() {
       ) {
         throw new Error(
           result.message ??
-            "Gagal menghapus restock.",
+          "Gagal menghapus restock.",
         );
       }
 
@@ -604,11 +604,10 @@ export default function RestocksPage() {
               }
             >
               <RefreshCw
-                className={`mr-2 size-4 ${
-                  isRefreshing
+                className={`mr-2 size-4 ${isRefreshing
                     ? "animate-spin"
                     : ""
-                }`}
+                  }`}
               />
 
               Refresh
@@ -902,7 +901,7 @@ export default function RestocksPage() {
                             Math.max(
                               1,
                               current -
-                                1,
+                              1,
                             ),
                         );
                       }}
@@ -925,9 +924,9 @@ export default function RestocksPage() {
                       size="sm"
                       disabled={
                         totalPages ===
-                          0 ||
+                        0 ||
                         page >=
-                          totalPages
+                        totalPages
                       }
                       onClick={() => {
                         setPage(

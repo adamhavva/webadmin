@@ -157,7 +157,7 @@ export default function NewProductPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-start gap-3">
         <Button
           type="button"
