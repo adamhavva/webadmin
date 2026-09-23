@@ -1,11 +1,5 @@
 // ============================================================
 // API: /api/dashboard/stats
-// GET → ringkasan dashboard
-//
-// Query params (opsional):
-//   - trendDays         (default 7, max 30)
-//   - recentLimit       (default 5, max 20)
-//   - lowStockThreshold (default 100)
 // ============================================================
 
 import { handleAuth, ok } from "@/lib/api-response";
@@ -19,6 +13,8 @@ export const GET = handleAuth(async (req) => {
     recentLimit: url.searchParams.get("recentLimit") ?? undefined,
     lowStockThreshold:
       url.searchParams.get("lowStockThreshold") ?? undefined,
+    topProductsLimit:
+      url.searchParams.get("topProductsLimit") ?? undefined,
   });
 
   const stats = await getDashboardStats(query);
