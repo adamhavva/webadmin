@@ -112,6 +112,19 @@ function truncate(s: string | null, len: number): string {
   return s.slice(0, len) + "...";
 }
 
+/**
+ * Warna margin:
+ * - null → netral
+ * - ≥ 0 (profit) → hijau
+ * - < 0 (rugi) → merah
+ */
+function marginBadgeClass(margin: number | null): string {
+  if (margin === null) return "bg-muted text-muted-foreground";
+  return margin >= 0
+    ? "bg-green-500/15 text-green-700 dark:text-green-400"
+    : "bg-red-500/15 text-red-700 dark:text-red-400";
+}
+
 // ============================================================
 // Skeleton / Error / Empty
 // ============================================================
@@ -513,11 +526,7 @@ export function ProductListPage() {
                                 <Badge
                                   className={cn(
                                     "text-xs",
-                                    margin >= 50
-                                      ? "bg-green-500/15 text-green-700 dark:text-green-400"
-                                      : margin >= 25
-                                        ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
-                                        : "bg-red-500/15 text-red-700 dark:text-red-400"
+                                    marginBadgeClass(margin)
                                   )}
                                 >
                                   {margin.toFixed(1)}%

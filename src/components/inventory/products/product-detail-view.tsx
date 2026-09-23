@@ -144,6 +144,19 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
+/**
+ * Warna margin:
+ * - null → netral
+ * - ≥ 0 (profit) → hijau
+ * - < 0 (rugi) → merah
+ */
+function marginTextClass(margin: number | null): string {
+  if (margin === null) return "text-muted-foreground";
+  return margin >= 0
+    ? "text-green-600 dark:text-green-400"
+    : "text-red-600 dark:text-red-400";
+}
+
 // ============================================================
 // Skeleton / Error
 // ============================================================
@@ -467,18 +480,19 @@ export function ProductDetailView({ productId }: { productId: string }) {
             </CardHeader>
             <CardContent>
               {margin !== null ? (
-                <div
-                  className={cn(
-                    "text-2xl font-bold",
-                    margin >= 50
-                      ? "text-green-600 dark:text-green-400"
-                      : margin >= 25
-                        ? "text-amber-600 dark:text-amber-400"
-                        : "text-red-600 dark:text-red-400"
-                  )}
-                >
-                  {margin.toFixed(1)}%
-                </div>
+                <>
+                  <div
+                    className={cn(
+                      "text-2xl font-bold",
+                      marginTextClass(margin)
+                    )}
+                  >
+                    {margin.toFixed(1)}%
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {margin >= 0 ? "Profit" : "Rugi"}
+                  </p>
+                </>
               ) : (
                 <div className="text-sm text-muted-foreground">-</div>
               )}
