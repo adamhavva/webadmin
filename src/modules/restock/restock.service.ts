@@ -4,6 +4,7 @@ import type { Prisma } from "../../../prisma/generated/client";
 import type {
   CreateRestockInput,
   ListRestockQuery,
+  VoidRestockInput,
 } from "./restock.validator";
 
 // ------------------------------------------------------------
@@ -30,7 +31,7 @@ async function generateBatchCode(
 }
 
 // ------------------------------------------------------------
-// Create — single + bulk (unified)
+// Create
 // ------------------------------------------------------------
 
 export async function createRestock(input: CreateRestockInput) {
@@ -38,7 +39,6 @@ export async function createRestock(input: CreateRestockInput) {
     throw ApiError.unprocessable("Minimal 1 baris");
   }
 
-  // ---------- 1. Cek duplikat bahan ----------
   const itemIds = input.items.map((i) => i.inventoryItemId);
   const uniqueIds = new Set(itemIds);
 
@@ -49,7 +49,6 @@ export async function createRestock(input: CreateRestockInput) {
     );
   }
 
-  // ---------- 2. Validasi semua bahan ----------
   const inventoryItems = await prisma.inventoryItem.findMany({
     where: { id: { in: itemIds } },
     select: { id: true, name: true, unit: true, isActive: true },
@@ -83,7 +82,6 @@ export async function createRestock(input: CreateRestockInput) {
     }
   }
 
-  // ---------- 3. Eksekusi dalam transaction ----------
   const created = await prisma.$transaction(
     async (tx) => {
       const results: Array<{
@@ -213,6 +211,7 @@ export async function listRestocks(query: ListRestockQuery) {
         supplierName: true,
         status: true,
         voidedAt: true,
+        voidNote: true,
         createdAt: true,
         inventoryItem: {
           select: { id: true, name: true, unit: true },
@@ -294,6 +293,7 @@ export async function getRestockById(id: string) {
       supplierName: true,
       status: true,
       voidedAt: true,
+      voidNote: true,
       createdAt: true,
       inventoryItem: {
         select: { id: true, name: true, unit: true, isActive: true },
@@ -332,7 +332,7 @@ export async function getRestockById(id: string) {
 // Void
 // ------------------------------------------------------------
 
-export async function voidRestock(id: string) {
+export async function voidRestock(id: string, input: VoidRestockInput) {
   const restock = await prisma.restock.findUnique({
     where: { id },
     select: {
@@ -356,6 +356,13 @@ export async function voidRestock(id: string) {
 
   if (restock.status === "VOIDED") {
     throw ApiError.unprocessable("Restock ini sudah di-void sebelumnya.");
+  }
+
+  // ---------- Konfirmasi batchCode ----------
+  if (input.batchCode !== restock.batch.batchCode) {
+    throw ApiError.unprocessable(
+      `Batch code tidak cocok. Harus: "${restock.batch.batchCode}"`
+    );
   }
 
   if (
@@ -389,7 +396,11 @@ export async function voidRestock(id: string) {
 
     await tx.restock.update({
       where: { id: restock.id },
-      data: { status: "VOIDED", voidedAt: now },
+      data: {
+        status: "VOIDED",
+        voidedAt: now,
+        voidNote: input.voidNote ?? null,
+      },
     });
   });
 

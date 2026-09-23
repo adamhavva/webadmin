@@ -1,13 +1,13 @@
 // ============================================================
 // API: /api/inventory/batches
-// GET → list inventory batches (material stock per batch)
+// GET → list inventory batches (stock material per batch)
 // ============================================================
 
-import { handle, ok } from "@/lib/api-response";
+import { handleAuth, ok } from "@/lib/api-response";
 import { listInventoryBatchQuerySchema } from "@/modules/inventory-batch/inventory-batch.validator";
 import { listInventoryBatches } from "@/modules/inventory-batch/inventory-batch.service";
 
-export const GET = handle(async (req) => {
+export const GET = handleAuth(async (req) => {
   const url = new URL(req.url);
   const query = listInventoryBatchQuerySchema.parse({
     inventoryItemId: url.searchParams.get("inventoryItemId") ?? undefined,

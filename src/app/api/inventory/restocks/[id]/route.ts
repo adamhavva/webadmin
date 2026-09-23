@@ -1,10 +1,11 @@
 // ============================================================
 // API: /api/inventory/restocks/[id]
 // GET    → detail restock
-// DELETE → void restock (hapus restock + batch kalau belum dikonsumsi)
+// DELETE → void restock (butuh konfirmasi batchCode)
 // ============================================================
 
 import { handleAuth, ok } from "@/lib/api-response";
+import { voidRestockSchema } from "@/modules/restock/restock.validator";
 import {
   getRestockById,
   voidRestock,
@@ -16,8 +17,11 @@ export const GET = handleAuth(async (_req, ctx) => {
   return ok(restock);
 });
 
-export const DELETE = handleAuth(async (_req, ctx) => {
+export const DELETE = handleAuth(async (req, ctx) => {
   const { id } = await ctx.params;
-  const result = await voidRestock(id);
+  const body = await req.json();
+  const input = voidRestockSchema.parse(body);
+
+  const result = await voidRestock(id, input);
   return ok(result);
 });

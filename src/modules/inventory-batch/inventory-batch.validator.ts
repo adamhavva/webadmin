@@ -1,7 +1,3 @@
-// ============================================================
-// INVENTORY BATCH VALIDATOR
-// ============================================================
-
 import { z } from "zod";
 
 export const listInventoryBatchQuerySchema = z.object({

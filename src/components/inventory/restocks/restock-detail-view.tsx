@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Ban,
+  CheckCircle2,
   Loader2,
   RefreshCw,
 } from "lucide-react";
@@ -28,6 +29,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 // ============================================================
@@ -46,6 +49,7 @@ type RestockDetail = {
   supplierName: string | null;
   status: RestockStatus;
   voidedAt: string | null;
+  voidNote: string | null;
   createdAt: string;
   canVoid: boolean;
   consumptionCount: number;
@@ -166,6 +170,8 @@ export function RestockDetailView({ restockId }: { restockId: string }) {
   const [error, setError] = React.useState<string | null>(null);
 
   const [voidOpen, setVoidOpen] = React.useState(false);
+  const [voidBatchInput, setVoidBatchInput] = React.useState("");
+  const [voidNote, setVoidNote] = React.useState("");
   const [isVoiding, setIsVoiding] = React.useState(false);
   const [voidError, setVoidError] = React.useState<string | null>(null);
 
@@ -203,6 +209,21 @@ export function RestockDetailView({ restockId }: { restockId: string }) {
     void load();
   }, [load]);
 
+  function openVoidDialog() {
+    setVoidBatchInput("");
+    setVoidNote("");
+    setVoidError(null);
+    setVoidOpen(true);
+  }
+
+  function closeVoidDialog() {
+    if (isVoiding) return;
+    setVoidOpen(false);
+    setVoidBatchInput("");
+    setVoidNote("");
+    setVoidError(null);
+  }
+
   async function handleVoid() {
     if (!data || isVoiding) return;
 
@@ -214,7 +235,14 @@ export function RestockDetailView({ restockId }: { restockId: string }) {
         `/api/inventory/restocks/${encodeURIComponent(data.id)}`,
         {
           method: "DELETE",
-          headers: { Accept: "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            batchCode: voidBatchInput.trim(),
+            voidNote: voidNote.trim() || undefined,
+          }),
         }
       );
 
@@ -260,6 +288,8 @@ export function RestockDetailView({ restockId }: { restockId: string }) {
   const consumedPct =
     initialQty > 0 ? ((initialQty - remaining) / initialQty) * 100 : 0;
   const isVoided = data.status === "VOIDED";
+  const batchMatch =
+    data !== null && voidBatchInput.trim() === data.batch.batchCode;
 
   return (
     <>
@@ -291,10 +321,7 @@ export function RestockDetailView({ restockId }: { restockId: string }) {
             <Button
               type="button"
               variant="destructive"
-              onClick={() => {
-                setVoidError(null);
-                setVoidOpen(true);
-              }}
+              onClick={openVoidDialog}
             >
               <Ban className="mr-2 size-4" />
               Void Restock
@@ -333,13 +360,20 @@ export function RestockDetailView({ restockId }: { restockId: string }) {
           <div className="rounded-md border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
             <div className="flex items-start gap-2">
               <Ban className="mt-0.5 size-4 shrink-0" />
-              <div>
+              <div className="flex-1">
                 <p className="font-medium">Restock telah di-void</p>
                 <p className="mt-1 text-xs">
                   Di-void pada {formatDateTime(data.voidedAt)}. Stok
                   batch sudah dikosongkan dan tidak akan dipakai FIFO.
-                  Riwayat tetap tersimpan untuk audit.
                 </p>
+                {data.voidNote && (
+                  <div className="mt-2 rounded border border-red-500/20 bg-red-500/5 px-2.5 py-1.5">
+                    <p className="text-[11px] font-medium uppercase tracking-wide opacity-70">
+                      Alasan
+                    </p>
+                    <p className="mt-0.5 text-xs">{data.voidNote}</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -504,7 +538,6 @@ export function RestockDetailView({ restockId }: { restockId: string }) {
               <div className="rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-700 dark:text-amber-400">
                 Batch ini sudah dikonsumsi di produksi. Restock tidak
                 dapat di-void untuk menjaga konsistensi HPP historis.
-                Kalau ada kesalahan input, buat restock koreksi.
               </div>
             )}
 
@@ -526,35 +559,105 @@ export function RestockDetailView({ restockId }: { restockId: string }) {
       <Dialog
         open={voidOpen}
         onOpenChange={(open) => {
-          if (!open && !isVoiding) {
-            setVoidOpen(false);
-            setVoidError(null);
-          }
+          if (!open) closeVoidDialog();
         }}
       >
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Void Restock?</DialogTitle>
             <DialogDescription>
               Restock <strong>{data.inventoryItem.name}</strong> batch{" "}
-              <strong>{data.batch.batchCode}</strong> akan di-void. Stok
-              batch akan dikosongkan, tapi riwayat restock tetap
-              tersimpan di tab Void.
+              <strong className="font-mono">
+                {data.batch.batchCode}
+              </strong>{" "}
+              akan di-void. Stok batch akan dikosongkan, tapi riwayat
+              tetap tersimpan di tab Void.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="rounded-md border bg-muted/40 p-4 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Quantity</span>
-              <span className="font-medium">
-                {formatNumber(data.quantity)} {data.inventoryItem.unit}
-              </span>
+          <div className="space-y-4">
+            <div className="rounded-md border bg-muted/40 p-4 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Quantity</span>
+                <span className="font-medium">
+                  {formatNumber(data.quantity)} {data.inventoryItem.unit}
+                </span>
+              </div>
+              <div className="mt-2 flex justify-between">
+                <span className="text-muted-foreground">Total Biaya</span>
+                <span className="font-medium">
+                  {formatRupiah(data.totalCost)}
+                </span>
+              </div>
             </div>
-            <div className="mt-2 flex justify-between">
-              <span className="text-muted-foreground">Total Biaya</span>
-              <span className="font-medium">
-                {formatRupiah(data.totalCost)}
-              </span>
+
+            {/* Konfirmasi batch code */}
+            <div className="grid gap-2">
+              <Label htmlFor="void-batch">
+                Konfirmasi Batch Code{" "}
+                <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="void-batch"
+                value={voidBatchInput}
+                onChange={(e) => setVoidBatchInput(e.target.value)}
+                placeholder={`Ketik: ${data.batch.batchCode}`}
+                autoComplete="off"
+                disabled={isVoiding}
+                className={cn(
+                  voidBatchInput.length > 0 &&
+                    (batchMatch
+                      ? "border-green-500 focus-visible:ring-green-500/30"
+                      : "border-red-500 focus-visible:ring-red-500/30")
+                )}
+              />
+              {voidBatchInput.length > 0 && (
+                <p
+                  className={cn(
+                    "flex items-center gap-1.5 text-xs",
+                    batchMatch
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  )}
+                >
+                  {batchMatch ? (
+                    <>
+                      <CheckCircle2 className="size-3.5" />
+                      Batch code cocok
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="size-3.5" />
+                      Batch code belum cocok
+                    </>
+                  )}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Ketik batch code persis sama untuk mengaktifkan tombol
+                void.
+              </p>
+            </div>
+
+            {/* Catatan alasan (optional) */}
+            <div className="grid gap-2">
+              <Label htmlFor="void-note">
+                Alasan Void{" "}
+                <span className="text-muted-foreground">(opsional)</span>
+              </Label>
+              <textarea
+                id="void-note"
+                value={voidNote}
+                onChange={(e) => setVoidNote(e.target.value)}
+                placeholder="Contoh: Salah input quantity, supplier salah kirim, dsb."
+                disabled={isVoiding}
+                maxLength={500}
+                rows={3}
+                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <p className="text-xs text-muted-foreground">
+                {voidNote.length}/500 karakter
+              </p>
             </div>
           </div>
 
@@ -568,7 +671,7 @@ export function RestockDetailView({ restockId }: { restockId: string }) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setVoidOpen(false)}
+              onClick={closeVoidDialog}
               disabled={isVoiding}
             >
               Batal
@@ -577,7 +680,7 @@ export function RestockDetailView({ restockId }: { restockId: string }) {
               type="button"
               variant="destructive"
               onClick={() => void handleVoid()}
-              disabled={isVoiding}
+              disabled={isVoiding || !batchMatch}
             >
               {isVoiding ? (
                 <>

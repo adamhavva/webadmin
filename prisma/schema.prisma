@@ -225,6 +225,7 @@ model Restock {
 
   status   RestockStatus @default(ACTIVE)
   voidedAt DateTime?
+  voidNote String?
 
   createdAt DateTime @default(now())
 

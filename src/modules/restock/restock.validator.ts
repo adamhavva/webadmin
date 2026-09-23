@@ -2,10 +2,6 @@ import { z } from "zod";
 
 // ============================================================
 // Item schema
-//
-// Semua nilai dari FE sudah number murni (bukan string rupiah).
-// Pakai z.coerce.number() supaya string angka tetap aman
-// (jaring pengaman kalau FE kirim "150000").
 // ============================================================
 
 const restockItemSchema = z.object({
@@ -19,12 +15,11 @@ const restockItemSchema = z.object({
 });
 
 // ============================================================
-// Create — terima single atau bulk
+// Create — single atau bulk
 // ============================================================
 
 export const createRestockSchema = z
   .union([
-    // Single
     restockItemSchema.extend({
       supplierName: z
         .string()
@@ -33,7 +28,6 @@ export const createRestockSchema = z
         .optional()
         .or(z.literal("").transform(() => undefined)),
     }),
-    // Bulk
     z.object({
       supplierName: z
         .string()
@@ -67,6 +61,23 @@ export const createRestockSchema = z
   });
 
 // ============================================================
+// Void — wajib konfirmasi batchCode
+// ============================================================
+
+export const voidRestockSchema = z.object({
+  batchCode: z
+    .string()
+    .trim()
+    .min(1, "Batch code wajib diisi untuk konfirmasi"),
+  voidNote: z
+    .string()
+    .trim()
+    .max(500, "Catatan maksimal 500 karakter")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+});
+
+// ============================================================
 // List
 // ============================================================
 
@@ -96,4 +107,5 @@ export const listRestockQuerySchema = z.object({
 
 export type CreateRestockInput = z.infer<typeof createRestockSchema>;
 export type RestockItemInput = z.infer<typeof restockItemSchema>;
+export type VoidRestockInput = z.infer<typeof voidRestockSchema>;
 export type ListRestockQuery = z.infer<typeof listRestockQuerySchema>;

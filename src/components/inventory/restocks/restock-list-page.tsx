@@ -43,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 // ============================================================
@@ -50,8 +51,6 @@ import { cn } from "@/lib/utils";
 // ============================================================
 
 type TabValue = "ACTIVE" | "VOIDED";
-
-type RestockStatus = "ACTIVE" | "VOIDED";
 
 type Restock = {
   id: string;
@@ -61,8 +60,9 @@ type Restock = {
   unitCost: string;
   totalCost: string;
   supplierName: string | null;
-  status: RestockStatus;
+  status: "ACTIVE" | "VOIDED";
   voidedAt: string | null;
+  voidNote: string | null;
   createdAt: string;
   canVoid: boolean;
   inventoryItem: { id: string; name: string; unit: string };
@@ -241,7 +241,10 @@ export function RestockListPage() {
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Void dialog
   const [voidTarget, setVoidTarget] = React.useState<Restock | null>(null);
+  const [voidBatchInput, setVoidBatchInput] = React.useState("");
+  const [voidNote, setVoidNote] = React.useState("");
   const [isVoiding, setIsVoiding] = React.useState(false);
   const [voidError, setVoidError] = React.useState<string | null>(null);
 
@@ -331,6 +334,21 @@ export function RestockListPage() {
     setPage(1);
   }
 
+  function openVoidDialog(r: Restock) {
+    setVoidTarget(r);
+    setVoidBatchInput("");
+    setVoidNote("");
+    setVoidError(null);
+  }
+
+  function closeVoidDialog() {
+    if (isVoiding) return;
+    setVoidTarget(null);
+    setVoidBatchInput("");
+    setVoidNote("");
+    setVoidError(null);
+  }
+
   async function handleVoid() {
     if (!voidTarget || isVoiding) return;
 
@@ -342,7 +360,14 @@ export function RestockListPage() {
         `/api/inventory/restocks/${encodeURIComponent(voidTarget.id)}`,
         {
           method: "DELETE",
-          headers: { Accept: "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            batchCode: voidBatchInput.trim(),
+            voidNote: voidNote.trim() || undefined,
+          }),
         }
       );
 
@@ -353,6 +378,8 @@ export function RestockListPage() {
       }
 
       setVoidTarget(null);
+      setVoidBatchInput("");
+      setVoidNote("");
       await fetchRestocks(page, tab, debouncedSearch, dateFrom, dateTo, {
         showRefreshing: true,
       });
@@ -369,6 +396,11 @@ export function RestockListPage() {
     search.trim().length > 0 || dateFrom !== "" || dateTo !== "";
   const totalPages = pagination?.totalPages ?? 0;
   const isVoidTab = tab === "VOIDED";
+
+  // Validasi input batch code
+  const batchMatch =
+    voidTarget !== null &&
+    voidBatchInput.trim() === voidTarget.batch.batchCode;
 
   return (
     <>
@@ -461,7 +493,7 @@ export function RestockListPage() {
 
         {/* Table Card with Tabs */}
         <Card>
-          {/* Tab Switcher */}
+          {/* Tab switcher */}
           <div className="flex border-b">
             <button
               type="button"
@@ -682,10 +714,7 @@ export function RestockListPage() {
                                 {r.canVoid && (
                                   <DropdownMenuItem
                                     variant="destructive"
-                                    onClick={() => {
-                                      setVoidError(null);
-                                      setVoidTarget(r);
-                                    }}
+                                    onClick={() => openVoidDialog(r)}
                                   >
                                     <Ban className="mr-2 size-4" />
                                     Void Restock
@@ -742,44 +771,118 @@ export function RestockListPage() {
         </Card>
       </div>
 
-      {/* Void dialog */}
+      {/* ================= VOID DIALOG ================= */}
       <Dialog
         open={voidTarget !== null}
         onOpenChange={(open) => {
-          if (!open && !isVoiding) {
-            setVoidTarget(null);
-            setVoidError(null);
-          }
+          if (!open) closeVoidDialog();
         }}
       >
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Void Restock?</DialogTitle>
             <DialogDescription>
-              Restock <strong>{voidTarget?.inventoryItem.name}</strong>{" "}
-              batch <strong>{voidTarget?.batch.batchCode}</strong> akan
-              di-void. Stok batch akan dikosongkan, tapi riwayat restock
+              Restock{" "}
+              <strong>{voidTarget?.inventoryItem.name}</strong> batch{" "}
+              <strong className="font-mono">
+                {voidTarget?.batch.batchCode}
+              </strong>{" "}
+              akan di-void. Stok batch akan dikosongkan, tapi riwayat
               tetap tersimpan di tab Void.
             </DialogDescription>
           </DialogHeader>
 
-          {voidTarget && (
-            <div className="rounded-md border bg-muted/40 p-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Quantity</span>
-                <span className="font-medium">
-                  {formatNumber(voidTarget.quantity)}{" "}
-                  {voidTarget.inventoryItem.unit}
-                </span>
+          <div className="space-y-4">
+            {/* Ringkasan */}
+            {voidTarget && (
+              <div className="rounded-md border bg-muted/40 p-4 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Quantity</span>
+                  <span className="font-medium">
+                    {formatNumber(voidTarget.quantity)}{" "}
+                    {voidTarget.inventoryItem.unit}
+                  </span>
+                </div>
+                <div className="mt-2 flex justify-between">
+                  <span className="text-muted-foreground">
+                    Total Biaya
+                  </span>
+                  <span className="font-medium">
+                    {formatRupiah(voidTarget.totalCost)}
+                  </span>
+                </div>
               </div>
-              <div className="mt-2 flex justify-between">
-                <span className="text-muted-foreground">Total Biaya</span>
-                <span className="font-medium">
-                  {formatRupiah(voidTarget.totalCost)}
-                </span>
-              </div>
+            )}
+
+            {/* Konfirmasi batch code */}
+            <div className="grid gap-2">
+              <Label htmlFor="void-batch">
+                Konfirmasi Batch Code{" "}
+                <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="void-batch"
+                value={voidBatchInput}
+                onChange={(e) => setVoidBatchInput(e.target.value)}
+                placeholder={`Masukan batch code diatas`}
+                autoComplete="off"
+                disabled={isVoiding}
+                className={cn(
+                  voidBatchInput.length > 0 &&
+                    (batchMatch
+                      ? "border-green-500 focus-visible:ring-green-500/30"
+                      : "border-red-500 focus-visible:ring-red-500/30")
+                )}
+              />
+              {voidBatchInput.length > 0 && (
+                <p
+                  className={cn(
+                    "flex items-center gap-1.5 text-xs",
+                    batchMatch
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  )}
+                >
+                  {batchMatch ? (
+                    <>
+                      <CheckCircle2 className="size-3.5" />
+                      Batch code cocok
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="size-3.5" />
+                      Batch code belum cocok
+                    </>
+                  )}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Ketik batch code persis sama untuk mengaktifkan tombol
+                void.
+              </p>
             </div>
-          )}
+
+            {/* Catatan alasan (optional) */}
+            <div className="grid gap-2">
+              <Label htmlFor="void-note">
+                Alasan Void{" "}
+                <span className="text-muted-foreground">(opsional)</span>
+              </Label>
+              <textarea
+                id="void-note"
+                value={voidNote}
+                onChange={(e) => setVoidNote(e.target.value)}
+                placeholder="Contoh: Salah input quantity, supplier salah kirim, dsb."
+                disabled={isVoiding}
+                maxLength={500}
+                rows={3}
+                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <p className="text-xs text-muted-foreground">
+                {voidNote.length}/500 karakter
+              </p>
+            </div>
+          </div>
 
           {voidError && (
             <div className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
@@ -791,7 +894,7 @@ export function RestockListPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setVoidTarget(null)}
+              onClick={closeVoidDialog}
               disabled={isVoiding}
             >
               Batal
@@ -800,7 +903,7 @@ export function RestockListPage() {
               type="button"
               variant="destructive"
               onClick={() => void handleVoid()}
-              disabled={isVoiding}
+              disabled={isVoiding || !batchMatch}
             >
               {isVoiding ? (
                 <>
