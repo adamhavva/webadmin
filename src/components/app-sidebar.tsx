@@ -28,6 +28,7 @@ import {
   MapPin,
   LayoutDashboardIcon,
   ShoppingBag,
+  Receipt,
 } from "lucide-react";
 
 import { NavMain, type NavItem } from "@/components/nav-main";
@@ -255,6 +256,12 @@ const reports: NavItem[] = [
     description: "Analisis lengkap produk & HPP",
     url: "/reports/products",
     icon: <LineChart className="size-4" strokeWidth={1.8} />,
+  },
+  {
+    title: "Laporan Order",
+    description: "Laporan lengkap transaksi & profit",
+    url: "/reports/orders",
+    icon: <Receipt className="size-4" strokeWidth={1.8} />,
   },
 ];
 

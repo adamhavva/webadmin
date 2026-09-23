@@ -1,9 +1,5 @@
 import { z } from "zod";
 
-// ============================================================
-// Filter contract — dipakai di semua endpoint report
-// ============================================================
-
 export const reportFilterSchema = z.object({
   productId: z.string().optional(),
   isActive: z.enum(["all", "true", "false"]).default("all"),

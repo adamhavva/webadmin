@@ -3,7 +3,7 @@ import type { Prisma } from "../../../prisma/generated/client";
 import type { ReportFilter } from "./report.validator";
 
 // ============================================================
-// Helper — build product where clause
+// Helper
 // ============================================================
 
 function buildProductWhere(filter: ReportFilter): Prisma.ProductWhereInput {
@@ -23,88 +23,6 @@ function buildDateWhere(
   if (filter.dateTo) w.lte = filter.dateTo;
   return w;
 }
-
-// ============================================================
-// Types
-// ============================================================
-
-export type MasterProductRow = {
-  id: string;
-  name: string;
-  isActive: boolean;
-  sellingPrice: number;
-  hppLatest: number | null;
-  hppAvg: number | null;
-  hppMin: number | null;
-  hppMax: number | null;
-  marginLatest: number | null;
-  marginAvg: number | null;
-  stockFinished: number;
-  batchActive: number;
-  batchTotal: number;
-  productionCount: number;
-  productionTotalOutput: number;
-  productionTotalCost: number;
-  totalValueStock: number;
-  totalValueProduction: number;
-  lastProductionAt: string | null;
-};
-
-export type FinishedBatchRow = {
-  id: string;
-  batchCode: string;
-  productId: string;
-  productName: string;
-  productionId: string;
-  productionAt: string;
-  quantity: number;
-  remainingQuantity: number;
-  consumed: number;
-  consumedPct: number;
-  unitCost: number;
-  totalCost: number;
-  remainingValue: number;
-  status: "available" | "low" | "empty";
-};
-
-export type ProductionRow = {
-  id: string;
-  createdAt: string;
-  productId: string;
-  productName: string;
-  batchCode: string | null;
-  outputQuantity: number;
-  componentCount: number;
-  totalCost: number;
-  unitCost: number;
-  componentSummary: string;
-};
-
-export type CostHistoryRow = {
-  id: string;
-  createdAt: string;
-  productId: string;
-  productName: string;
-  hpp: number;
-  delta: number | null;
-  deltaPct: number | null;
-  sellingPrice: number;
-  profitPerUnit: number;
-  margin: number | null;
-  status: "first" | "up" | "down" | "same";
-};
-
-export type MarginAnalysisRow = {
-  productId: string;
-  productName: string;
-  isActive: boolean;
-  sellingPrice: number;
-  hppLatest: number | null;
-  profitPerUnit: number | null;
-  margin: number | null;
-  category: "sehat" | "sedang" | "rendah" | "rugi" | "unknown";
-  recommendedPrice: number | null;
-};
 
 // ============================================================
 // 1. Master Produk
@@ -139,12 +57,14 @@ export async function getMasterProductsReport(filter: ReportFilter) {
     },
   });
 
-  const items: MasterProductRow[] = products.map((p) => {
+  const items = products.map((p) => {
     const selling = Number(p.sellingPrice);
     const hpps = p.costHistories.map((c) => Number(c.hpp));
     const hppLatest = hpps[0] ?? null;
     const hppAvg =
-      hpps.length > 0 ? hpps.reduce((s, h) => s + h, 0) / hpps.length : null;
+      hpps.length > 0
+        ? hpps.reduce((s, h) => s + h, 0) / hpps.length
+        : null;
     const hppMin = hpps.length > 0 ? Math.min(...hpps) : null;
     const hppMax = hpps.length > 0 ? Math.max(...hpps) : null;
 
@@ -210,20 +130,21 @@ export async function getMasterProductsReport(filter: ReportFilter) {
     };
   });
 
-  const summary = {
-    totalProducts: items.length,
-    activeProducts: items.filter((i) => i.isActive).length,
-    totalStockValue: items.reduce((s, i) => s + i.totalValueStock, 0),
-    totalProductionValue: items.reduce(
-      (s, i) => s + i.totalValueProduction,
-      0
-    ),
-    rugiCount: items.filter(
-      (i) => i.marginLatest !== null && i.marginLatest < 0
-    ).length,
+  return {
+    items,
+    summary: {
+      totalProducts: items.length,
+      activeProducts: items.filter((i) => i.isActive).length,
+      totalStockValue: items.reduce((s, i) => s + i.totalValueStock, 0),
+      totalProductionValue: items.reduce(
+        (s, i) => s + i.totalValueProduction,
+        0
+      ),
+      rugiCount: items.filter(
+        (i) => i.marginLatest !== null && i.marginLatest < 0
+      ).length,
+    },
   };
-
-  return { items, summary };
 }
 
 // ============================================================
@@ -256,7 +177,7 @@ export async function getFinishedBatchesReport(filter: ReportFilter) {
     },
   });
 
-  const items: FinishedBatchRow[] = batches.map((b) => {
+  const items = batches.map((b) => {
     const quantity = Number(b.quantity);
     const remaining = Number(b.remainingQuantity);
     const consumed = quantity - remaining;
@@ -264,7 +185,7 @@ export async function getFinishedBatchesReport(filter: ReportFilter) {
     const unitCost = Number(b.unitCost);
     const remainingValue = remaining * unitCost;
 
-    let status: FinishedBatchRow["status"] = "available";
+    let status: "available" | "low" | "empty" = "available";
     if (remaining === 0) status = "empty";
     else if (consumedPct >= 75) status = "low";
 
@@ -286,14 +207,15 @@ export async function getFinishedBatchesReport(filter: ReportFilter) {
     };
   });
 
-  const summary = {
-    totalBatches: items.length,
-    availableBatches: items.filter((i) => i.status !== "empty").length,
-    totalRemaining: items.reduce((s, i) => s + i.remainingQuantity, 0),
-    totalValue: items.reduce((s, i) => s + i.remainingValue, 0),
+  return {
+    items,
+    summary: {
+      totalBatches: items.length,
+      availableBatches: items.filter((i) => i.status !== "empty").length,
+      totalRemaining: items.reduce((s, i) => s + i.remainingQuantity, 0),
+      totalValue: items.reduce((s, i) => s + i.remainingValue, 0),
+    },
   };
-
-  return { items, summary };
 }
 
 // ============================================================
@@ -321,17 +243,12 @@ export async function getProductionsReport(filter: ReportFilter) {
       product: { select: { name: true } },
       finishedProductBatch: { select: { batchCode: true } },
       components: {
-        select: {
-          name: true,
-          quantity: true,
-          unit: true,
-        },
+        select: { name: true, quantity: true, unit: true },
       },
     },
   });
 
-  const items: ProductionRow[] = productions.map((p) => {
-    // Aggregate component per nama
+  const items = productions.map((p) => {
     const nameCount = new Map<string, number>();
     for (const c of p.components) {
       nameCount.set(c.name, (nameCount.get(c.name) ?? 0) + 1);
@@ -357,14 +274,15 @@ export async function getProductionsReport(filter: ReportFilter) {
   const totalOutput = items.reduce((s, i) => s + i.outputQuantity, 0);
   const totalCost = items.reduce((s, i) => s + i.totalCost, 0);
 
-  const summary = {
-    totalProductions: items.length,
-    totalOutput,
-    totalCost,
-    avgHpp: totalOutput > 0 ? totalCost / totalOutput : 0,
+  return {
+    items,
+    summary: {
+      totalProductions: items.length,
+      totalOutput,
+      totalCost,
+      avgHpp: totalOutput > 0 ? totalCost / totalOutput : 0,
+    },
   };
-
-  return { items, summary };
 }
 
 // ============================================================
@@ -391,19 +309,16 @@ export async function getCostHistoryReport(filter: ReportFilter) {
     },
   });
 
-  // Hitung delta per produk (walk ascending)
   const runningPrev = new Map<string, number>();
-  const rows: CostHistoryRow[] = entries.map((e) => {
+  const rows = entries.map((e) => {
     const hpp = Number(e.hpp);
     const selling = Number(e.product.sellingPrice);
     const prev = runningPrev.get(e.productId);
     const delta = prev !== undefined ? hpp - prev : null;
     const deltaPct =
-      prev !== undefined && prev > 0
-        ? ((hpp - prev) / prev) * 100
-        : null;
+      prev !== undefined && prev > 0 ? ((hpp - prev) / prev) * 100 : null;
 
-    let status: CostHistoryRow["status"] = "first";
+    let status: "first" | "up" | "down" | "same" = "first";
     if (delta !== null) {
       if (delta > 0) status = "up";
       else if (delta < 0) status = "down";
@@ -430,7 +345,6 @@ export async function getCostHistoryReport(filter: ReportFilter) {
     };
   });
 
-  // Sort desc untuk display
   rows.sort(
     (a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -439,15 +353,16 @@ export async function getCostHistoryReport(filter: ReportFilter) {
   const uniqueProducts = new Set(rows.map((r) => r.productId)).size;
   const totalHpp = rows.reduce((s, r) => s + r.hpp, 0);
 
-  const summary = {
-    totalEntries: rows.length,
-    uniqueProducts,
-    avgHpp: rows.length > 0 ? totalHpp / rows.length : 0,
-    upCount: rows.filter((r) => r.status === "up").length,
-    downCount: rows.filter((r) => r.status === "down").length,
+  return {
+    items: rows,
+    summary: {
+      totalEntries: rows.length,
+      uniqueProducts,
+      avgHpp: rows.length > 0 ? totalHpp / rows.length : 0,
+      upCount: rows.filter((r) => r.status === "up").length,
+      downCount: rows.filter((r) => r.status === "down").length,
+    },
   };
-
-  return { items: rows, summary };
 }
 
 // ============================================================
@@ -473,7 +388,7 @@ export async function getMarginAnalysisReport(filter: ReportFilter) {
     },
   });
 
-  const items: MarginAnalysisRow[] = products.map((p) => {
+  const items = products.map((p) => {
     const selling = Number(p.sellingPrice);
     const hppLatest = p.costHistories[0]
       ? Number(p.costHistories[0].hpp)
@@ -483,7 +398,8 @@ export async function getMarginAnalysisReport(filter: ReportFilter) {
     const margin =
       profit !== null && selling > 0 ? (profit / selling) * 100 : null;
 
-    let category: MarginAnalysisRow["category"] = "unknown";
+    let category: "sehat" | "sedang" | "rendah" | "rugi" | "unknown" =
+      "unknown";
     if (margin !== null) {
       if (margin < 0) category = "rugi";
       else if (margin < 25) category = "rendah";
@@ -491,7 +407,6 @@ export async function getMarginAnalysisReport(filter: ReportFilter) {
       else category = "sehat";
     }
 
-    // Rekomendasi harga jual untuk margin 50%: price = hpp / (1 - 0.5) = 2 * hpp
     const recommendedPrice =
       margin !== null && margin < 25 && hppLatest !== null
         ? Math.ceil(hppLatest * 2)
@@ -510,13 +425,14 @@ export async function getMarginAnalysisReport(filter: ReportFilter) {
     };
   });
 
-  const summary = {
-    totalProducts: items.length,
-    sehat: items.filter((i) => i.category === "sehat").length,
-    sedang: items.filter((i) => i.category === "sedang").length,
-    rendah: items.filter((i) => i.category === "rendah").length,
-    rugi: items.filter((i) => i.category === "rugi").length,
+  return {
+    items,
+    summary: {
+      totalProducts: items.length,
+      sehat: items.filter((i) => i.category === "sehat").length,
+      sedang: items.filter((i) => i.category === "sedang").length,
+      rendah: items.filter((i) => i.category === "rendah").length,
+      rugi: items.filter((i) => i.category === "rugi").length,
+    },
   };
-
-  return { items, summary };
 }
