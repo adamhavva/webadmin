@@ -1,10 +1,20 @@
 // ============================================================
 // API: /api/inventory/products
-// GET  → list products
-// POST → create product
+//
+// GET  → list products (dengan filter search, isActive, pagination)
+// POST → create product baru (termasuk description + metadata)
+//
+// Body POST:
+//   {
+//     name: string,
+//     description?: string | null,
+//     sellingPrice: number,
+//     isActive?: boolean,
+//     metadata?: Array<{ key: string, value: string }>
+//   }
 // ============================================================
 
-import { handle, ok, created } from "@/lib/api-response";
+import { handleAuth, ok, created } from "@/lib/api-response";
 import {
   createProductSchema,
   listProductQuerySchema,
@@ -14,7 +24,7 @@ import {
   listProducts,
 } from "@/modules/product/product.service";
 
-export const GET = handle(async (req) => {
+export const GET = handleAuth(async (req) => {
   const url = new URL(req.url);
   const query = listProductQuerySchema.parse({
     search: url.searchParams.get("search") ?? undefined,
@@ -27,7 +37,7 @@ export const GET = handle(async (req) => {
   return ok(result);
 });
 
-export const POST = handle(async (req) => {
+export const POST = handleAuth(async (req) => {
   const body = await req.json();
   const input = createProductSchema.parse(body);
 

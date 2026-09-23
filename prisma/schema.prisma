@@ -50,8 +50,8 @@ enum RestockStatus {
 // ============================================================
 
 model User {
-  id          String   @id @default(cuid())
-  firebaseUid String   @unique
+  id          String @id @default(cuid())
+  firebaseUid String @unique
 
   role   UserRole
   status UserStatus @default(ACTIVE)
@@ -59,14 +59,14 @@ model User {
   name      String
   phone     String?
   address   String?
-  avatarUrl String?  @db.Text
+  avatarUrl String? @db.Text
 
   // Metadata karyawan — relevan untuk BARISTA & CUSTOMER.
   // Semua optional.
-  idNumber   String?   // No KTP
+  idNumber   String? // No KTP
   birthDate  DateTime? // Tanggal lahir
   joinDate   DateTime? // Tanggal masuk kerja
-  addressKtp String?   // Alamat sesuai KTP
+  addressKtp String? // Alamat sesuai KTP
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -80,21 +80,98 @@ model Product {
   id String @id @default(cuid())
 
   name         String
-  sellingPrice Decimal
+  sellingPrice Decimal @default(0)
+  description  String? @db.Text
 
   isActive Boolean @default(true)
 
-  recipes       ProductRecipe[]
-  productions   Production[]
-  costHistories ProductCostHistory[]
-
+  recipes                ProductRecipe[]
+  productions            Production[]
+  costHistories          ProductCostHistory[]
   finishedProductBatches FinishedProductBatch[]
+
+  images   ProductImage[]
+  metadata ProductMetadata[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([isActive])
   @@index([name])
+}
+
+// ============================================================
+// PRODUCT IMAGE
+//
+// Menyimpan referensi gambar produk yang disimpan di R2.
+// File fisik ada di R2, DB hanya menyimpan key & metadata.
+//
+// Struktur R2:
+//   ascend-product-images/products/{productId}/{uuid}.{ext}
+// ============================================================
+
+model ProductImage {
+  id String @id @default(cuid())
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+
+  // Key object di R2 (path lengkap tanpa domain)
+  // Contoh: "products/abc123/uuid.jpg"
+  key String @unique
+
+  // Public URL (computed dari key + R2_PUBLIC_URL)
+  url String
+
+  fileName String
+  fileSize Int
+  mimeType String
+
+  // Satu product sebaiknya hanya punya 1 primary image
+  isPrimary Boolean @default(false)
+
+  // Urutan tampilan (asc)
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@index([productId, isPrimary])
+  @@index([productId, sortOrder])
+}
+
+// ============================================================
+// PRODUCT METADATA
+//
+// Key-value pair untuk atribut produk yang dinamis.
+// Bisa ditambah kapan saja tanpa mengubah schema.
+//
+// Contoh:
+//   key="Origin"      value="Gunung Puntang"
+//   key="Gilingan"    value="Halus"
+//   key="Roast Level" value="Medium"
+//
+// Satu product tidak boleh punya key duplikat.
+// ============================================================
+
+model ProductMetadata {
+  id String @id @default(cuid())
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+
+  key   String
+  value String @db.Text
+
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, key])
+  @@index([productId])
+  @@index([productId, sortOrder])
 }
 
 // ============================================================
@@ -234,6 +311,7 @@ model Restock {
   @@index([status])
   @@index([voidedAt])
 }
+
 // ============================================================
 // PRODUCTION
 // ============================================================
