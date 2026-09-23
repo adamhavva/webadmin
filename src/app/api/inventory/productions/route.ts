@@ -1,7 +1,10 @@
 // ============================================================
 // API: /api/inventory/productions
-// GET  → list productions (dengan filter tanggal)
-// POST → create production (eksekusi FIFO + HPP)
+// GET  → list productions
+// POST → create production
+//
+// Body create:
+//   { productId: "...", outputQuantity: 10 }
 // ============================================================
 
 import { handleAuth, ok, created } from "@/lib/api-response";
@@ -32,7 +35,6 @@ export const GET = handleAuth(async (req) => {
 export const POST = handleAuth(async (req) => {
   const body = await req.json();
   const input = createProductionSchema.parse(body);
-
-  const production = await createProduction(input);
-  return created(production);
+  const result = await createProduction(input);
+  return created(result);
 });
