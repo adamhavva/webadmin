@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-error";
 import type { Prisma } from "../../../prisma/generated/client";
-import type { ListInventoryBatchQuery } from "./inventory-batch.validator";
+import type {
+  ListInventoryBatchQuery,
+  UpdateInventoryBatchInput,
+} from "./inventory-batch.validator";
 
 // ============================================================
 // List
@@ -50,6 +53,9 @@ export async function listInventoryBatches(query: ListInventoryBatchQuery) {
         inventoryItem: {
           select: { id: true, name: true, unit: true, isActive: true },
         },
+        restock: {
+          select: { id: true, status: true },
+        },
       },
     }),
     prisma.inventoryBatch.count({ where }),
@@ -74,7 +80,10 @@ export async function listInventoryBatches(query: ListInventoryBatchQuery) {
   ).length;
 
   return {
-    items,
+    items: items.map((b) => ({
+      ...b,
+      canEdit: b.restock?.status !== "VOIDED",
+    })),
     pagination: {
       page: query.page,
       limit: query.limit,
@@ -169,8 +178,11 @@ export async function getInventoryBatchById(id: string) {
 
   const remainingValue = remaining * Number(batch.unitCost);
 
+  const canEdit = batch.restock?.status !== "VOIDED";
+
   return {
     ...batch,
+    canEdit,
     stats: {
       initial,
       remaining,
@@ -181,5 +193,68 @@ export async function getInventoryBatchById(id: string) {
       consumedValue,
       remainingValue,
     },
+  };
+}
+
+// ============================================================
+// Update remainingQuantity (stock opname)
+// ============================================================
+
+export async function updateInventoryBatch(
+  id: string,
+  input: UpdateInventoryBatchInput
+) {
+  const batch = await prisma.inventoryBatch.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      batchCode: true,
+      quantity: true,
+      remainingQuantity: true,
+      restock: { select: { status: true } },
+    },
+  });
+
+  if (!batch) throw ApiError.notFound("Batch tidak ditemukan");
+
+  if (batch.restock?.status === "VOIDED") {
+    throw ApiError.unprocessable(
+      "Batch ini sudah di-void. Tidak bisa dikoreksi."
+    );
+  }
+
+  const maxQuantity = Number(batch.quantity);
+
+  if (input.remainingQuantity > maxQuantity) {
+    throw ApiError.unprocessable(
+      `Sisa tidak boleh melebihi quantity awal (${maxQuantity}).`
+    );
+  }
+
+  const previousRemaining = Number(batch.remainingQuantity);
+
+  if (previousRemaining === input.remainingQuantity) {
+    return {
+      success: true,
+      message: "Tidak ada perubahan",
+      batchId: batch.id,
+      batchCode: batch.batchCode,
+      previousRemaining,
+      newRemaining: input.remainingQuantity,
+    };
+  }
+
+  await prisma.inventoryBatch.update({
+    where: { id },
+    data: { remainingQuantity: input.remainingQuantity },
+  });
+
+  return {
+    success: true,
+    batchId: batch.id,
+    batchCode: batch.batchCode,
+    previousRemaining,
+    newRemaining: input.remainingQuantity,
+    delta: input.remainingQuantity - previousRemaining,
   };
 }

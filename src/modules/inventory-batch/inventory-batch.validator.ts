@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+// ============================================================
+// List
+// ============================================================
+
 export const listInventoryBatchQuerySchema = z.object({
   inventoryItemId: z.string().optional(),
   search: z.string().trim().optional(),
@@ -11,6 +15,23 @@ export const listInventoryBatchQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+// ============================================================
+// Update remainingQuantity (stock opname)
+// ============================================================
+
+export const updateInventoryBatchSchema = z.object({
+  remainingQuantity: z.coerce
+    .number({ error: "Sisa harus berupa angka" })
+    .nonnegative("Sisa tidak boleh negatif"),
+});
+
+// ============================================================
+// Types
+// ============================================================
+
 export type ListInventoryBatchQuery = z.infer<
   typeof listInventoryBatchQuerySchema
+>;
+export type UpdateInventoryBatchInput = z.infer<
+  typeof updateInventoryBatchSchema
 >;

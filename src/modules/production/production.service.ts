@@ -496,3 +496,62 @@ export async function getProductionById(id: string) {
     createdAt: production.createdAt.toISOString(),
   };
 }
+
+// ============================================================
+// Options — produk yang bisa diproduksi
+//
+// Return produk aktif yang punya resep aktif + info stock
+// produk jadi (untuk dropdown form produksi).
+// ============================================================
+
+export async function getProductionOptions() {
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+      recipes: {
+        some: { isActive: true },
+      },
+    },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      sellingPrice: true,
+      recipes: {
+        where: { isActive: true },
+        take: 1,
+        select: { id: true, version: true },
+      },
+      finishedProductBatches: {
+        where: { remainingQuantity: { gt: 0 } },
+        select: {
+          id: true,
+          batchCode: true,
+          remainingQuantity: true,
+          unitCost: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+
+  return {
+    items: products.map((p) => {
+      const recipe = p.recipes[0] ?? null;
+      const totalStock = p.finishedProductBatches.reduce(
+        (sum, b) => sum + Number(b.remainingQuantity),
+        0
+      );
+
+      return {
+        id: p.id,
+        name: p.name,
+        sellingPrice: Number(p.sellingPrice),
+        activeRecipeId: recipe?.id ?? null,
+        activeRecipeVersion: recipe?.version ?? null,
+        totalStock,
+        availableBatchCount: p.finishedProductBatches.length,
+      };
+    }),
+  };
+}
