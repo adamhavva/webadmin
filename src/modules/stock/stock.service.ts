@@ -1,191 +1,306 @@
+import { prisma } from "@/lib/db";
+import type {
+  LowStockQuery,
+  StockSummaryQuery,
+} from "./stock.validator";
+
 // ============================================================
-// STOCK SERVICE
-//
-// Endpoint agregat untuk dashboard.
-//
-// - getStockSummary  → total stok material & product + nilai inventory
-// - getLowStockItems → material yang stoknya di bawah threshold
+// Types
 // ============================================================
 
-import { prisma } from "@/lib/db";
+export type MaterialStockStatus = "in_stock" | "low" | "out";
+
+export type MaterialStockItem = {
+  id: string;
+  name: string;
+  unit: string;
+  isActive: boolean;
+  totalStock: number;
+  batchCount: number;
+  availableBatchCount: number;
+  totalValue: number;
+  status: MaterialStockStatus;
+};
+
+export type FinishedStockItem = {
+  productId: string;
+  productName: string;
+  productIsActive: boolean;
+  totalStock: number;
+  batchCount: number;
+  availableBatchCount: number;
+  totalValue: number;
+  status: "available" | "empty";
+};
 
 export type StockSummary = {
-  inventory: {
+  material: {
     totalItems: number;
     activeItems: number;
     totalBatches: number;
     availableBatches: number;
     totalValue: number;
+    items: MaterialStockItem[];
   };
-  products: {
+  finished: {
     totalProducts: number;
     activeProducts: number;
     totalBatches: number;
     availableBatches: number;
     totalValue: number;
+    totalStock: number;
+    items: FinishedStockItem[];
   };
-  restocks: {
-    totalRestocks: number;
-    lastRestockAt: string | null;
+  stockStatus: {
+    inStock: number;
+    lowStock: number;
+    outOfStock: number;
   };
-  productions: {
-    totalProductions: number;
-    lastProductionAt: string | null;
-  };
+  lowStockThreshold: number;
 };
 
-/**
- * Ringkasan agregat seluruh stock.
- */
-export async function getStockSummary(): Promise<StockSummary> {
-  const [
-    totalItems,
-    activeItems,
-    inventoryBatches,
-    inventoryAvailableBatches,
-    totalProducts,
-    activeProducts,
-    finishedBatches,
-    finishedAvailableBatches,
-    totalRestocks,
-    lastRestock,
-    totalProductions,
-    lastProduction,
-  ] = await Promise.all([
-    prisma.inventoryItem.count(),
-    prisma.inventoryItem.count({ where: { isActive: true } }),
+// ============================================================
+// Summary — material + finished + status
+// ============================================================
 
-    // Semua batch (untuk hitung total value)
-    prisma.inventoryBatch.findMany({
-      select: {
-        quantity: true,
-        remainingQuantity: true,
-        totalCost: true,
-        unitCost: true,
-      },
-    }),
-
-    prisma.inventoryBatch.count({
-      where: { remainingQuantity: { gt: 0 } },
-    }),
-
-    prisma.product.count(),
-    prisma.product.count({ where: { isActive: true } }),
-
-    prisma.finishedProductBatch.findMany({
-      select: {
-        quantity: true,
-        remainingQuantity: true,
-        totalCost: true,
-        unitCost: true,
-      },
-    }),
-
-    prisma.finishedProductBatch.count({
-      where: { remainingQuantity: { gt: 0 } },
-    }),
-
-    prisma.restock.count(),
-    prisma.restock.findFirst({
-      orderBy: { createdAt: "desc" },
-      select: { createdAt: true },
-    }),
-
-    prisma.production.count(),
-    prisma.production.findFirst({
-      orderBy: { createdAt: "desc" },
-      select: { createdAt: true },
-    }),
-  ]);
-
-  // Nilai inventory = sum dari (remainingQuantity × unitCost)
-  const inventoryValue = inventoryBatches.reduce((sum, b) => {
-    return sum + Number(b.remainingQuantity) * Number(b.unitCost);
-  }, 0);
-
-  // Nilai finished product = sum dari (remainingQuantity × unitCost)
-  const finishedValue = finishedBatches.reduce((sum, b) => {
-    return sum + Number(b.remainingQuantity) * Number(b.unitCost);
-  }, 0);
-
-  return {
-    inventory: {
-      totalItems,
-      activeItems,
-      totalBatches: inventoryBatches.length,
-      availableBatches: inventoryAvailableBatches,
-      totalValue: inventoryValue,
-    },
-    products: {
-      totalProducts,
-      activeProducts,
-      totalBatches: finishedBatches.length,
-      availableBatches: finishedAvailableBatches,
-      totalValue: finishedValue,
-    },
-    restocks: {
-      totalRestocks,
-      lastRestockAt: lastRestock?.createdAt.toISOString() ?? null,
-    },
-    productions: {
-      totalProductions,
-      lastProductionAt: lastProduction?.createdAt.toISOString() ?? null,
-    },
-  };
-}
-
-/**
- * Daftar material yang total remainingQuantity-nya di bawah threshold.
- *
- * Total stock dihitung dari sum remainingQuantity semua batch
- * milik material tersebut.
- */
-export async function getLowStockItems(threshold: number) {
-  // Group inventoryBatch by inventoryItemId, sum remainingQuantity
-  const grouped = await prisma.inventoryBatch.groupBy({
-    by: ["inventoryItemId"],
-    _sum: { remainingQuantity: true },
-  });
-
-  // Item yang total stok di bawah threshold
-  const lowItemIds = grouped
-    .filter((g) => Number(g._sum.remainingQuantity ?? 0) < threshold)
-    .map((g) => g.inventoryItemId);
-
-  if (lowItemIds.length === 0) {
-    return {
-      threshold,
-      items: [],
-    };
-  }
-
-  const items = await prisma.inventoryItem.findMany({
-    where: {
-      id: { in: lowItemIds },
-      isActive: true,
-    },
+export async function getStockSummary(
+  query: StockSummaryQuery
+): Promise<StockSummary> {
+  // ---------- Material ----------
+  const inventoryItems = await prisma.inventoryItem.findMany({
     orderBy: { name: "asc" },
     select: {
       id: true,
       name: true,
       unit: true,
       isActive: true,
+      batches: {
+        select: {
+          id: true,
+          quantity: true,
+          remainingQuantity: true,
+          unitCost: true,
+        },
+      },
     },
   });
 
-  // Map dari hasil groupBy
-  const totalMap = new Map(
-    grouped.map((g) => [
-      g.inventoryItemId,
-      Number(g._sum.remainingQuantity ?? 0),
-    ])
+  const materialItems: MaterialStockItem[] = inventoryItems.map((item) => {
+    const batchCount = item.batches.length;
+    const availableBatches = item.batches.filter(
+      (b) => Number(b.remainingQuantity) > 0
+    );
+
+    const totalStock = item.batches.reduce(
+      (sum, b) => sum + Number(b.remainingQuantity),
+      0
+    );
+    const totalValue = item.batches.reduce(
+      (sum, b) =>
+        sum + Number(b.remainingQuantity) * Number(b.unitCost),
+      0
+    );
+
+    let status: MaterialStockStatus = "in_stock";
+    if (totalStock === 0) status = "out";
+    else if (totalStock < query.lowStockThreshold) status = "low";
+
+    return {
+      id: item.id,
+      name: item.name,
+      unit: item.unit,
+      isActive: item.isActive,
+      totalStock,
+      batchCount,
+      availableBatchCount: availableBatches.length,
+      totalValue,
+      status,
+    };
+  });
+
+  // Filter berdasarkan query
+  let filteredMaterial = materialItems;
+  if (query.search) {
+    const q = query.search.toLowerCase();
+    filteredMaterial = filteredMaterial.filter((m) =>
+      m.name.toLowerCase().includes(q)
+    );
+  }
+  if (query.materialStatus !== "all") {
+    filteredMaterial = filteredMaterial.filter(
+      (m) => m.status === query.materialStatus
+    );
+  }
+
+  // ---------- Finished ----------
+  const products = await prisma.product.findMany({
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      isActive: true,
+      finishedProductBatches: {
+        select: {
+          id: true,
+          remainingQuantity: true,
+          unitCost: true,
+        },
+      },
+    },
+  });
+
+  const finishedItems: FinishedStockItem[] = products.map((p) => {
+    const batchCount = p.finishedProductBatches.length;
+    const availableBatches = p.finishedProductBatches.filter(
+      (b) => Number(b.remainingQuantity) > 0
+    );
+
+    const totalStock = p.finishedProductBatches.reduce(
+      (sum, b) => sum + Number(b.remainingQuantity),
+      0
+    );
+    const totalValue = p.finishedProductBatches.reduce(
+      (sum, b) =>
+        sum + Number(b.remainingQuantity) * Number(b.unitCost),
+      0
+    );
+
+    return {
+      productId: p.id,
+      productName: p.name,
+      productIsActive: p.isActive,
+      totalStock,
+      batchCount,
+      availableBatchCount: availableBatches.length,
+      totalValue,
+      status: totalStock > 0 ? "available" : "empty",
+    };
+  });
+
+  // Filter
+  let filteredFinished = finishedItems;
+  if (query.search) {
+    const q = query.search.toLowerCase();
+    filteredFinished = filteredFinished.filter((f) =>
+      f.productName.toLowerCase().includes(q)
+    );
+  }
+  if (query.finishedStatus !== "all") {
+    filteredFinished = filteredFinished.filter(
+      (f) => f.status === query.finishedStatus
+    );
+  }
+
+  // ---------- Summary aggregates (dari semua, bukan filtered) ----------
+  const activeMaterial = materialItems.filter((m) => m.isActive);
+  const materialValue = materialItems.reduce(
+    (sum, m) => sum + m.totalValue,
+    0
+  );
+  const totalMaterialBatches = materialItems.reduce(
+    (sum, m) => sum + m.batchCount,
+    0
+  );
+  const availableMaterialBatches = materialItems.reduce(
+    (sum, m) => sum + m.availableBatchCount,
+    0
   );
 
+  const activeProducts = finishedItems.filter((f) => f.productIsActive);
+  const finishedValue = finishedItems.reduce(
+    (sum, f) => sum + f.totalValue,
+    0
+  );
+  const totalFinishedBatches = finishedItems.reduce(
+    (sum, f) => sum + f.batchCount,
+    0
+  );
+  const availableFinishedBatches = finishedItems.reduce(
+    (sum, f) => sum + f.availableBatchCount,
+    0
+  );
+  const totalFinishedStock = finishedItems.reduce(
+    (sum, f) => sum + f.totalStock,
+    0
+  );
+
+  // ---------- Stock status ----------
+  const stockStatus = {
+    inStock: activeMaterial.filter((m) => m.status === "in_stock").length,
+    lowStock: activeMaterial.filter((m) => m.status === "low").length,
+    outOfStock: activeMaterial.filter((m) => m.status === "out").length,
+  };
+
   return {
-    threshold,
-    items: items.map((item) => ({
-      ...item,
-      totalStock: totalMap.get(item.id) ?? 0,
-    })),
+    material: {
+      totalItems: materialItems.length,
+      activeItems: activeMaterial.length,
+      totalBatches: totalMaterialBatches,
+      availableBatches: availableMaterialBatches,
+      totalValue: materialValue,
+      items: filteredMaterial,
+    },
+    finished: {
+      totalProducts: finishedItems.length,
+      activeProducts: activeProducts.length,
+      totalBatches: totalFinishedBatches,
+      availableBatches: availableFinishedBatches,
+      totalValue: finishedValue,
+      totalStock: totalFinishedStock,
+      items: filteredFinished,
+    },
+    stockStatus,
+    lowStockThreshold: query.lowStockThreshold,
+  };
+}
+
+// ============================================================
+// Low stock items
+// ============================================================
+
+export async function getLowStockItems(query: LowStockQuery) {
+  const inventoryItems = await prisma.inventoryItem.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      unit: true,
+      batches: {
+        select: { remainingQuantity: true },
+      },
+    },
+  });
+
+  const items = inventoryItems
+    .map((item) => {
+      const totalStock = item.batches.reduce(
+        (sum, b) => sum + Number(b.remainingQuantity),
+        0
+      );
+      return {
+        id: item.id,
+        name: item.name,
+        unit: item.unit,
+        totalStock,
+        threshold: query.threshold,
+        shortage: Math.max(query.threshold - totalStock, 0),
+        isOut: totalStock === 0,
+      };
+    })
+    .filter((item) => item.totalStock < query.threshold);
+
+  let filtered = items;
+  if (query.search) {
+    const q = query.search.toLowerCase();
+    filtered = filtered.filter((i) => i.name.toLowerCase().includes(q));
+  }
+
+  return {
+    threshold: query.threshold,
+    count: filtered.length,
+    outOfStockCount: filtered.filter((i) => i.isOut).length,
+    lowStockCount: filtered.filter((i) => !i.isOut).length,
+    items: filtered,
   };
 }

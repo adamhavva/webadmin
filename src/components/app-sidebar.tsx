@@ -176,6 +176,12 @@ const inventoryFlow: NavItem[] = [
 // =============================================================
 const reports: NavItem[] = [
   {
+    title: "Ringkasan Stok",
+    description: "Overview stok bahan & produk jadi",
+    url: "/inventory/stock",
+    icon: <BarChart3 className="size-4" strokeWidth={1.8} />,
+  },
+  {
     title: "Riwayat HPP",
     description: "Histori biaya produksi produk",
     url: "/inventory/cost-history",

@@ -1,7 +1,6 @@
 // ============================================================
-// API: /api/inventory/stock/low-stock
-// GET → material yang stoknya di bawah threshold
-// Query: ?threshold=100 (default 100)
+// API: /api/stock/low-stock
+// GET → daftar bahan yang stok di bawah threshold
 // ============================================================
 
 import { handleAuth, ok } from "@/lib/api-response";
@@ -12,8 +11,9 @@ export const GET = handleAuth(async (req) => {
   const url = new URL(req.url);
   const query = lowStockQuerySchema.parse({
     threshold: url.searchParams.get("threshold") ?? undefined,
+    search: url.searchParams.get("search") ?? undefined,
   });
 
-  const result = await getLowStockItems(query.threshold);
+  const result = await getLowStockItems(query);
   return ok(result);
 });
