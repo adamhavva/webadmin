@@ -27,6 +27,7 @@ import {
   Users,
   MapPin,
   LayoutDashboardIcon,
+  ShoppingBag,
 } from "lucide-react";
 
 import { NavMain, type NavItem } from "@/components/nav-main";
@@ -215,6 +216,23 @@ const inventoryFlow: NavItem[] = [
   },
 ];
 
+const orders: NavItem[] = [
+  {
+    title: "Order",
+    description: "Monitor order customer",
+    url: "#",
+    icon: <ShoppingBag className="size-4" strokeWidth={1.8} />,
+    items: [
+      {
+        title: "Daftar Order",
+        description: "Lihat semua order customer",
+        url: "/orders",
+        icon: <ClipboardList className="size-4" strokeWidth={1.8} />,
+      }
+    ],
+  },
+];
+
 // =============================================================
 // LAPORAN & ANALITIK
 // Flat links — tidak perlu nested, karena semua leaf.
@@ -326,6 +344,10 @@ export function AppSidebar({
           <NavMain items={inventoryFlow} />
         </SidebarGroup>
 
+<SidebarGroup className="px-0">
+  <SidebarGroupLabel>Order</SidebarGroupLabel>
+  <NavMain items={orders} />
+</SidebarGroup> 
         {/* Laporan */}
         <SidebarGroup className="px-0">
           <SidebarGroupLabel>Laporan</SidebarGroupLabel>

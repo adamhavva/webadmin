@@ -18,6 +18,31 @@ datasource db {
 // ENUMS
 // ============================================================
 
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  CASH      // Bayar di tempat
+  DOKU      // Payment gateway DOKU
+}
+
+enum PaymentFeeType {
+  NONE
+  PERCENTAGE
+  NOMINAL
+}
+
+enum PaymentChannel {
+  COD         // Bayar di tempat
+  PREPAID     // Bayar dulu via DOKU
+}
+
 enum UserRole {
   ADMIN
   CUSTOMER
@@ -663,14 +688,43 @@ model Order {
   items         OrderItem[]
   statusHistory OrderStatusHistory[]
 
+  // ---------- PAYMENT ----------
+  paymentStatus     PaymentStatus   @default(PENDING)
+  paymentProvider   PaymentProvider @default(CASH)
+  paymentChannel    PaymentChannel  @default(COD)
+
+  // Snapshot method (dari PaymentMethodConfig)
+  paymentMethodCode String?         // "VA_BCA", "QRIS", "OVO"
+  paymentMethodName String?         // "BCA Virtual Account"
+  paymentMethodGroup String?        // optional snapshot displayGroup
+
+  // Fee snapshot
+  paymentFeeAmount Decimal @default(0)
+
+  // DOKU specific
+  dokuInvoiceNumber  String?   @unique
+  dokuPaymentUrl     String?   @db.Text
+  dokuPaymentMethod  String?   // snapshot dokuChannelCode
+  dokuPaidAt         DateTime?
+  dokuExpiredAt      DateTime?
+  dokuCallbackPayload Json?
+
+  paidAt DateTime?
+
+  payment Payment?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([customerId])
-  @@index([baristaId])
-  @@index([status])
-  @@index([channel])
   @@index([createdAt])
+  @@index([paymentStatus])       // kalau ada report payment
+  @@index([paymentMethodCode])   // kalau ada report channel
+
+  // Composite — untuk query utama
+  @@index([baristaId, status])   // barista lihat order mereka
+  @@index([customerId, status])  // customer lihat order mereka
+  @@index([status, createdAt])   // admin dashboard (recent by status)
+  @@index([baristaId, createdAt]) // riwayat barista
 }
 
 model OrderItem {
@@ -738,4 +792,78 @@ model OrderCharge {
   @@index([orderId])
   @@index([settingKey])
   @@index([createdAt])
+}
+
+
+model PaymentMethodConfig {
+  id String @id @default(cuid())
+
+  // Identitas
+  code String @unique       // "CASH", "VA_BCA", "QRIS", "OVO"
+  name String               // "Tunai", "BCA Virtual Account", "QRIS"
+
+  // Provider
+  provider PaymentProvider  // CASH / DOKU
+
+  // Mapping ke DOKU (kosongkan kalau provider = CASH)
+  dokuChannelCode String?   // "VIRTUAL_ACCOUNT_BCA", "QRIS", "EMONEY_OVO"
+
+  // Biaya tambahan (opsional)
+  feeType  PaymentFeeType @default(NONE)
+  feeValue Decimal        @default(0)
+
+  // UI metadata
+  icon        String?       // emoji atau URL
+  description String?  @db.Text
+  // Display group untuk UI (optional, admin input manual)
+  displayGroup String?      // "VA", "E-Wallet", "QRIS" — hanya untuk UI
+
+  // Control
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([provider])
+  @@index([sortOrder])
+}
+
+model Payment {
+  id String @id @default(cuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  amount   Decimal
+  currency String  @default("IDR")
+
+  provider   PaymentProvider
+  methodCode String           // "VA_BCA", "QRIS", "OVO", "CASH"
+  methodName String           // snapshot
+  methodGroup String?         // optional
+
+  methodFeeAmount Decimal @default(0)
+
+  status PaymentStatus @default(PENDING)
+
+  dokuInvoiceNumber String? @unique
+  dokuTransactionId String?
+  dokuPaymentUrl    String? @db.Text
+  dokuChannelCode   String?
+
+  requestPayload  Json?
+  callbackPayload Json?
+
+  paidAt        DateTime?
+  expiredAt     DateTime?
+  failedAt      DateTime?
+  failureReason String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([provider])
+  @@index([methodCode])
 }
