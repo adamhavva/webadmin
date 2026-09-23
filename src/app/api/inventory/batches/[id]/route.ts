@@ -1,111 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+// ============================================================
+// API: /api/inventory/batches/[id]
+// GET → detail inventory batch
+// ============================================================
 
-import { prisma } from "@/lib/db";
+import { handle, ok } from "@/lib/api-response";
+import { getInventoryBatchById } from "@/modules/inventory-batch/inventory-batch.service";
 
-/*
-  Mengambil detail satu batch.
-
-  Endpoint ini read-only.
-  Batch tidak boleh diedit atau dihapus karena menjadi
-  bagian dari histori inventory.
-*/
-export async function GET(
-  _request: NextRequest,
-  context: {
-    params: Promise<{
-      id: string;
-    }>;
-  },
-) {
-  try {
-    const { id } = await context.params;
-
-    if (!id) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "ID batch wajib diisi.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const batch =
-      await prisma.inventoryBatch.findUnique({
-        where: {
-          id,
-        },
-        include: {
-          inventoryItem: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-              unit: true,
-              isActive: true,
-            },
-          },
-
-          stock: {
-            select: {
-              id: true,
-              quantity: true,
-              remainingQuantity: true,
-              createdAt: true,
-              updatedAt: true,
-            },
-          },
-
-          restock: {
-            select: {
-              id: true,
-              quantity: true,
-              totalCost: true,
-              unitCost: true,
-              supplierName: true,
-              createdAt: true,
-            },
-          },
-
-          production: {
-            select: {
-              id: true,
-              outputQuantity: true,
-              totalCost: true,
-              unitCost: true,
-              createdAt: true,
-            },
-          },
-        },
-      });
-
-    if (!batch) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Batch tidak ditemukan.",
-        },
-        { status: 404 },
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: batch,
-    });
-  } catch (error) {
-    console.error(
-      "[InventoryBatchAPI] GET:",
-      error,
-    );
-
-    return NextResponse.json(
-      {
-        success: false,
-        message:
-          "Gagal mengambil detail batch.",
-      },
-      { status: 500 },
-    );
-  }
-}
+export const GET = handle(async (_req, ctx) => {
+  const { id } = await ctx.params;
+  const batch = await getInventoryBatchById(id);
+  return ok(batch);
+});

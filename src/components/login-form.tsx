@@ -2,7 +2,11 @@
 
 import * as React from "react"
 import { Eye, EyeOff } from "lucide-react"
-import { signInWithEmailAndPassword } from "firebase/auth"
+import {
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth"
+import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 
 import { cn } from "@/lib/utils"
@@ -24,6 +28,30 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 
+type Feedback = {
+  type: "error" | "success"
+  message: string
+}
+
+function getFirebaseErrorMessage(code: string): string {
+  switch (code) {
+    case "auth/invalid-credential":
+    case "auth/user-not-found":
+    case "auth/wrong-password":
+      return "Email atau kata sandi salah."
+    case "auth/invalid-email":
+      return "Format email tidak valid."
+    case "auth/user-disabled":
+      return "Akun ini telah dinonaktifkan."
+    case "auth/too-many-requests":
+      return "Terlalu banyak percobaan login. Silakan coba lagi nanti."
+    case "auth/network-request-failed":
+      return "Koneksi gagal. Periksa jaringan Anda."
+    default:
+      return "Login gagal. Silakan coba lagi."
+  }
+}
+
 export function LoginForm({
   className,
   ...props
@@ -34,67 +62,73 @@ export function LoginForm({
   const [password, setPassword] = React.useState("")
   const [showPassword, setShowPassword] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
-  const [error, setError] = React.useState("")
+  const [feedback, setFeedback] = React.useState<Feedback | null>(null)
 
   async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>
   ) {
     event.preventDefault()
 
-    setError("")
+    if (loading) return
+
+    setFeedback(null)
     setLoading(true)
 
     try {
-      await signInWithEmailAndPassword(
+      // 1. Login Firebase
+      const credential = await signInWithEmailAndPassword(
         auth,
         email,
         password
       )
 
-      router.push("/dashboard")
-    } catch (error: unknown) {
-      console.error("Kesalahan login Firebase:", error)
+      // 2. Ambil ID token
+      const idToken = await credential.user.getIdToken()
 
-      if (
-        error &&
-        typeof error === "object" &&
-        "code" in error
-      ) {
-        const firebaseError = error as {
-          code: string
-        }
+      // 3. Tukar ke NextAuth (set session cookie)
+      const result = await signIn("credentials", {
+        idToken,
+        redirect: false,
+      })
 
-        switch (firebaseError.code) {
-          case "auth/invalid-credential":
-          case "auth/user-not-found":
-          case "auth/wrong-password":
-            setError("Email atau kata sandi salah.")
-            break
+      // 4. NextAuth menolak → bukan ADMIN / tidak terdaftar / non-aktif
+      if (!result || result.error) {
+        await signOut(auth).catch(() => { })
 
-          case "auth/invalid-email":
-            setError("Format email tidak valid.")
-            break
-
-          case "auth/user-disabled":
-            setError("Akun ini telah dinonaktifkan.")
-            break
-
-          case "auth/too-many-requests":
-            setError(
-              "Terlalu banyak percobaan login. Silakan coba lagi nanti."
-            )
-            break
-
-          default:
-            setError(
-              "Login gagal. Silakan coba lagi."
-            )
-        }
-      } else {
-        setError(
-          "Login gagal. Silakan coba lagi."
-        )
+        setFeedback({
+          type: "error",
+          message:
+            "Akses ditolak. WebAdmin hanya untuk administrator yang terdaftar.",
+        })
+        return
       }
+
+      // 5. Sukses
+      setFeedback({
+        type: "success",
+        message: "Login berhasil. Mengalihkan...",
+      })
+
+      router.replace("/")
+      router.refresh()
+    } catch (error: unknown) {
+      // Kalau Firebase berhasil tapi langkah berikutnya gagal → bersihkan sesi Firebase
+      if (auth.currentUser) {
+        await signOut(auth).catch(() => { })
+      }
+
+      const code =
+        error &&
+          typeof error === "object" &&
+          "code" in error &&
+          typeof (error as { code: unknown }).code === "string"
+          ? (error as { code: string }).code
+          : ""
+
+      setFeedback({
+        type: "error",
+        message: getFirebaseErrorMessage(code),
+      })
     } finally {
       setLoading(false)
     }
@@ -102,31 +136,38 @@ export function LoginForm({
 
   return (
     <div
-      className={cn(
-        "flex flex-col gap-6",
-        className
-      )}
+      className={cn("flex flex-col gap-6", className)}
       {...props}
     >
       <Card>
         <CardHeader>
-          <CardTitle>
-            Masuk ke akun Anda
-          </CardTitle>
+          <CardTitle>Masuk ke akun Anda</CardTitle>
 
           <CardDescription>
-            Masukkan email dan kata sandi untuk masuk
-            ke akun Anda
+            Masukkan email dan kata sandi untuk masuk ke akun Anda
           </CardDescription>
         </CardHeader>
 
         <CardContent>
+          {feedback && (
+            <div
+              role="alert"
+              className={cn(
+                "rounded-md px-3 py-2 text-sm",
+                feedback.type === "error" &&
+                "bg-red-500/10 text-red-600 dark:bg-red-500/15 dark:text-red-400",
+                feedback.type === "success" &&
+                "bg-green-500/10 text-green-700 dark:bg-green-500/15 dark:text-green-400"
+              )}
+            >
+              {feedback.message}
+            </div>
+          )}
+          <br />
           <form onSubmit={handleSubmit}>
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="email">
-                  Email
-                </FieldLabel>
+                <FieldLabel htmlFor="email">Email</FieldLabel>
 
                 <Input
                   id="email"
@@ -159,11 +200,7 @@ export function LoginForm({
                 <div className="relative">
                   <Input
                     id="password"
-                    type={
-                      showPassword
-                        ? "text"
-                        : "password"
-                    }
+                    type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(event) =>
                       setPassword(event.target.value)
@@ -178,9 +215,7 @@ export function LoginForm({
                   <button
                     type="button"
                     onClick={() =>
-                      setShowPassword(
-                        (current) => !current
-                      )
+                      setShowPassword((current) => !current)
                     }
                     disabled={loading}
                     aria-label={
@@ -199,23 +234,11 @@ export function LoginForm({
                 </div>
               </Field>
 
-              {error && (
-                <div
-                  role="alert"
-                  className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-                >
-                  {error}
-                </div>
-              )}
+
 
               <Field>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                >
-                  {loading
-                    ? "Sedang masuk..."
-                    : "Masuk"}
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Sedang masuk..." : "Masuk"}
                 </Button>
 
                 <FieldDescription className="text-center">

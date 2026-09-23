@@ -1,7 +1,7 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// ============================================================
+// ASCEND PRISMA SCHEMA
+// Product + Inventory + Recipe + Production + HPP
+// ============================================================
 
 generator client {
   provider = "prisma-client"
@@ -10,6 +10,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // url dari prisma7.config.ts atau env("DATABASE_URL")
 }
 
 // ============================================================
@@ -27,19 +28,16 @@ enum UserStatus {
   INACTIVE
 }
 
-enum InventoryItemType {
-  SEMI_FINISHED
-  DIRECT_USE
-}
-
 enum InventoryUnit {
   ML
   PCS
 }
 
+// InventoryBatch hanya untuk stock MATERIAL.
+// Product jadi TIDAK masuk ke sini.
+// Product jadi ada di FinishedProductBatch.
 enum InventoryBatchSourceType {
   RESTOCK
-  PRODUCTION
 }
 
 // ============================================================
@@ -47,14 +45,26 @@ enum InventoryBatchSourceType {
 // ============================================================
 
 model User {
-  id          String     @id @default(cuid())
-  firebaseUid String     @unique
-  role        UserRole
-  status      UserStatus @default(ACTIVE)
-  name        String
-  phone       String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id          String   @id @default(cuid())
+  firebaseUid String   @unique
+
+  role   UserRole
+  status UserStatus @default(ACTIVE)
+
+  name      String
+  phone     String?
+  address   String?
+  avatarUrl String?  @db.Text
+
+  // Metadata karyawan — relevan untuk BARISTA & CUSTOMER.
+  // Semua optional.
+  idNumber   String?   // No KTP
+  birthDate  DateTime? // Tanggal lahir
+  joinDate   DateTime? // Tanggal masuk kerja
+  addressKtp String?   // Alamat sesuai KTP
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ============================================================
@@ -62,14 +72,24 @@ model User {
 // ============================================================
 
 model Product {
-  id            String               @id @default(cuid())
-  name          String
-  sellingPrice  Decimal
+  id String @id @default(cuid())
+
+  name         String
+  sellingPrice Decimal
+
+  isActive Boolean @default(true)
+
   recipes       ProductRecipe[]
+  productions   Production[]
   costHistories ProductCostHistory[]
-  isActive      Boolean              @default(true)
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+
+  finishedProductBatches FinishedProductBatch[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([name])
 }
 
 // ============================================================
@@ -77,16 +97,23 @@ model Product {
 // ============================================================
 
 model ProductRecipe {
-  id        String       @id @default(cuid())
-  product   Product      @relation(fields: [productId], references: [id])
+  id String @id @default(cuid())
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId String
-  version   Int
-  isActive  Boolean      @default(true)
-  items     RecipeItem[]
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+
+  version Int
+
+  isActive Boolean @default(true)
+
+  items RecipeItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([productId, version])
+  @@index([productId])
+  @@index([productId, isActive])
 }
 
 // ============================================================
@@ -94,12 +121,22 @@ model ProductRecipe {
 // ============================================================
 
 model RecipeItem {
-  id              String        @id @default(cuid())
-  recipe          ProductRecipe @relation(fields: [recipeId], references: [id])
-  recipeId        String
-  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  id String @id @default(cuid())
+
+  recipe   ProductRecipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
   inventoryItemId String
-  quantity        Decimal
+
+  quantity Decimal
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([recipeId, inventoryItemId])
+  @@index([recipeId])
+  @@index([inventoryItemId])
 }
 
 // ============================================================
@@ -107,18 +144,26 @@ model RecipeItem {
 // ============================================================
 
 model InventoryItem {
-  id                   String                @id @default(cuid())
-  name                 String
-  type                 InventoryItemType
-  unit                 InventoryUnit
-  isActive             Boolean               @default(true)
-  batches              InventoryBatch[]
-  recipeItems          RecipeItem[]
-  restocks             Restock[]
-  productions          Production[]
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
+  id String @id @default(cuid())
+
+  name String
+  unit InventoryUnit
+
+  isActive Boolean @default(true)
+
+  batches InventoryBatch[]
+
+  recipeItems RecipeItem[]
+
+  restocks Restock[]
+
   productionComponents ProductionComponent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([name])
 }
 
 // ============================================================
@@ -126,37 +171,32 @@ model InventoryItem {
 // ============================================================
 
 model InventoryBatch {
-  id                String                   @id @default(cuid())
-  inventoryItem     InventoryItem            @relation(fields: [inventoryItemId], references: [id])
-  inventoryItemId   String
-  batchCode         String                   @unique
-  sourceType        InventoryBatchSourceType
+  id String @id @default(cuid())
+
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  inventoryItemId String
+
+  batchCode String @unique
+
+  sourceType InventoryBatchSourceType
+
   quantity          Decimal
   remainingQuantity Decimal
-  unitCost          Decimal
-  totalCost         Decimal
-  stock             InventoryBatchStock?
-  production        Production?
-  restock           Restock?
-  createdAt         DateTime                 @default(now())
-  updatedAt         DateTime                 @updatedAt
+
+  unitCost  Decimal
+  totalCost Decimal
+
+  restock Restock?
+
+  productionComponents ProductionComponent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([inventoryItemId])
   @@index([inventoryItemId, createdAt])
-}
-
-// ============================================================
-// INVENTORY BATCH STOCK
-// ============================================================
-
-model InventoryBatchStock {
-  id                String         @id @default(cuid())
-  batch             InventoryBatch @relation(fields: [batchId], references: [id])
-  batchId           String         @unique
-  quantity          Decimal
-  remainingQuantity Decimal
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  @@index([inventoryItemId, remainingQuantity])
+  @@index([sourceType])
 }
 
 // ============================================================
@@ -164,16 +204,24 @@ model InventoryBatchStock {
 // ============================================================
 
 model Restock {
-  id              String         @id @default(cuid())
-  inventoryItem   InventoryItem  @relation(fields: [inventoryItemId], references: [id])
+  id String @id @default(cuid())
+
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
   inventoryItemId String
-  batch           InventoryBatch @relation(fields: [batchId], references: [id])
-  batchId         String         @unique
-  quantity        Decimal
-  totalCost       Decimal
-  unitCost        Decimal
-  supplierName    String?
-  createdAt       DateTime       @default(now())
+
+  batch   InventoryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  batchId String         @unique
+
+  quantity  Decimal
+  totalCost Decimal
+  unitCost  Decimal
+
+  supplierName String?
+
+  createdAt DateTime @default(now())
+
+  @@index([inventoryItemId])
+  @@index([createdAt])
 }
 
 // ============================================================
@@ -181,16 +229,24 @@ model Restock {
 // ============================================================
 
 model Production {
-  id              String                @id @default(cuid())
-  inventoryItem   InventoryItem         @relation(fields: [inventoryItemId], references: [id])
-  inventoryItemId String
-  batch           InventoryBatch        @relation(fields: [batchId], references: [id])
-  batchId         String                @unique
-  outputQuantity  Decimal
-  totalCost       Decimal
-  unitCost        Decimal
-  components      ProductionComponent[]
-  createdAt       DateTime              @default(now())
+  id String @id @default(cuid())
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productId String
+
+  outputQuantity Decimal
+
+  totalCost Decimal
+  unitCost  Decimal
+
+  components ProductionComponent[]
+
+  finishedProductBatch FinishedProductBatch?
+
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@index([createdAt])
 }
 
 // ============================================================
@@ -198,17 +254,63 @@ model Production {
 // ============================================================
 
 model ProductionComponent {
-  id              String         @id @default(cuid())
-  production      Production     @relation(fields: [productionId], references: [id])
-  productionId    String
-  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
-  inventoryItemId String?
-  name            String
-  quantity        Decimal
-  unit            InventoryUnit
-  unitCost        Decimal
-  totalCost       Decimal
-  createdAt       DateTime       @default(now())
+  id String @id @default(cuid())
+
+  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  productionId String
+
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  inventoryItemId String
+
+  inventoryBatch   InventoryBatch @relation(fields: [inventoryBatchId], references: [id], onDelete: Restrict)
+  inventoryBatchId String
+
+  name String
+
+  quantity Decimal
+
+  unit InventoryUnit
+
+  unitCost Decimal
+
+  totalCost Decimal
+
+  createdAt DateTime @default(now())
+
+  @@index([productionId])
+  @@index([inventoryItemId])
+  @@index([inventoryBatchId])
+  @@index([productionId, inventoryItemId])
+}
+
+// ============================================================
+// FINISHED PRODUCT BATCH
+// ============================================================
+
+model FinishedProductBatch {
+  id String @id @default(cuid())
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productId String
+
+  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  productionId String     @unique
+
+  batchCode String @unique
+
+  quantity          Decimal
+  remainingQuantity Decimal
+
+  unitCost Decimal
+
+  totalCost Decimal
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@index([productId, remainingQuantity])
+  @@index([createdAt])
 }
 
 // ============================================================
@@ -216,9 +318,15 @@ model ProductionComponent {
 // ============================================================
 
 model ProductCostHistory {
-  id        String   @id @default(cuid())
-  product   Product  @relation(fields: [productId], references: [id])
+  id String @id @default(cuid())
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId String
-  hpp       Decimal
+
+  hpp Decimal
+
   createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@index([productId, createdAt])
 }

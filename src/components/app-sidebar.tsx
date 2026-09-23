@@ -384,7 +384,7 @@ export function AppSidebar({
           group-data-[collapsible=icon]:px-2
         "
       >
-        <NavUser user={data.user} />
+        <NavUser/>
       </SidebarFooter>
 
       <SidebarRail />
