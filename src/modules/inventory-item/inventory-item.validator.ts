@@ -1,7 +1,3 @@
-// ============================================================
-// INVENTORY ITEM VALIDATOR
-// ============================================================
-
 import { z } from "zod";
 
 export const inventoryUnitSchema = z.enum(["ML", "PCS"]);
@@ -28,6 +24,12 @@ export const listInventoryItemQuerySchema = z.object({
     .union([z.literal("true"), z.literal("false")])
     .optional()
     .transform((v) => (v === undefined ? undefined : v === "true")),
+  stockStatus: z
+    .enum(["all", "in-stock", "low-stock", "out-of-stock"])
+    .default("all"),
+  lowStockThreshold: z.coerce.number().nonnegative().default(100),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export type CreateInventoryItemInput = z.infer<
