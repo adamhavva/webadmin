@@ -3,19 +3,28 @@
 import * as React from "react"
 
 import {
+  Archive,
+  BookOpen,
   Boxes,
   ClipboardList,
+  Coffee,
   Factory,
   GalleryVerticalEnd,
   History,
-  Layers3,
   LayoutDashboard,
+  Layers,
   Package,
   PackageCheck,
   PackagePlus,
+  Play,
   Plus,
-  ScrollText,
-  ShoppingBag,
+  Settings2,
+  ShieldCheck,
+  ShoppingCart,
+  UserCog,
+  UserPlus,
+  Users,
+  Warehouse,
 } from "lucide-react"
 
 import { NavMain, type NavItem } from "@/components/nav-main"
@@ -31,11 +40,6 @@ import {
 } from "@/components/ui/sidebar"
 
 const data: {
-  user: {
-    name: string
-    email: string
-    avatar: string
-  }
   teams: {
     name: string
     logo: React.ReactNode
@@ -43,12 +47,6 @@ const data: {
   }[]
   navMain: NavItem[]
 } = {
-  user: {
-    name: "Admin",
-    email: "admin@ascend.com",
-    avatar: "/avatars/admin.jpg",
-  },
-
   teams: [
     {
       name: "ASCEND Coffee",
@@ -59,284 +57,219 @@ const data: {
 
   navMain: [
     // =========================================================
-    // DASHBOARD
+    // 0. DASHBOARD
     // =========================================================
     {
       title: "Dashboard",
       description: "Ringkasan aktivitas ASCEND",
       url: "/",
-      icon: (
-        <LayoutDashboard
-          className="size-[18px] shrink-0"
-          strokeWidth={1.8}
-        />
-      ),
+      icon: <LayoutDashboard className="size-[18px]" strokeWidth={1.8} />,
     },
 
     // =========================================================
-    // PERSEDIAAN
-    //
-    // Alur bisnis:
-    // Bahan Baku
-    // → Pengadaan
-    // → Batch Bahan
-    // → Produk
-    // → Resep
-    // → Produksi
-    // → Produk Jadi
+    // 1. PERSEDIAAN
     // =========================================================
     {
       title: "Persediaan",
       description: "Kelola bahan, produk, resep, dan produksi",
       url: "#",
-      icon: (
-        <Boxes
-          className="size-[18px] shrink-0"
-          strokeWidth={1.8}
-        />
-      ),
+      icon: <Warehouse className="size-[18px]" strokeWidth={1.8} />,
+      defaultOpen: true,
       items: [
-        // =====================================================
-        // 1. BAHAN BAKU
-        // =====================================================
+        // ---------- 1.1 Bahan Baku ----------
         {
           title: "Bahan Baku",
           description: "Kelola bahan yang digunakan",
           url: "#",
-          icon: (
-            <Package
-              className="size-4 shrink-0"
-              strokeWidth={1.8}
-            />
-          ),
+          icon: <Package className="size-4" strokeWidth={1.8} />,
+          defaultOpen: true,
           items: [
             {
               title: "Daftar Bahan",
               description: "Lihat seluruh bahan baku",
               url: "/inventory/items",
-              icon: (
-                <ClipboardList
-                  className="size-4 shrink-0"
-                  strokeWidth={1.8}
-                />
-              ),
+              icon: <ClipboardList className="size-4" strokeWidth={1.8} />,
             },
             {
               title: "Tambah Bahan",
               description: "Tambahkan bahan baku baru",
               url: "/inventory/items/new",
-              icon: (
-                <Plus
-                  className="size-4 shrink-0"
-                  strokeWidth={1.8}
-                />
-              ),
+              icon: <PackagePlus className="size-4" strokeWidth={1.8} />,
             },
           ],
         },
 
-        // =====================================================
-        // 2. PENGADAAN
-        // =====================================================
+        // ---------- 1.2 Pengadaan ----------
         {
           title: "Pengadaan",
           description: "Beli dan terima bahan baku",
           url: "#",
-          icon: (
-            <PackagePlus
-              className="size-4 shrink-0"
-              strokeWidth={1.8}
-            />
-          ),
+          icon: <ShoppingCart className="size-4" strokeWidth={1.8} />,
+          defaultOpen: true,
           items: [
             {
               title: "Riwayat Pengadaan",
               description: "Lihat transaksi pengadaan",
               url: "/inventory/restocks",
-              icon: (
-                <History
-                  className="size-4 shrink-0"
-                  strokeWidth={1.8}
-                />
-              ),
+              icon: <History className="size-4" strokeWidth={1.8} />,
             },
             {
               title: "Penerimaan Barang",
               description: "Catat bahan yang diterima",
               url: "/inventory/restocks/new",
-              icon: (
-                <PackageCheck
-                  className="size-4 shrink-0"
-                  strokeWidth={1.8}
-                />
-              ),
+              icon: <PackageCheck className="size-4" strokeWidth={1.8} />,
             },
           ],
         },
 
-        // =====================================================
-        // 3. BATCH BAHAN
-        // =====================================================
+        // ---------- 1.3 Batch Bahan ----------
         {
           title: "Batch Bahan",
           description: "Lihat stok setiap batch bahan",
           url: "/inventory/batches",
-          icon: (
-            <Layers3
-              className="size-4 shrink-0"
-              strokeWidth={1.8}
-            />
-          ),
+          icon: <Layers className="size-4" strokeWidth={1.8} />,
         },
 
-        // =====================================================
-        // 4. PRODUK
-        //
-        // Produk harus dibuat terlebih dahulu sebelum resep.
-        // Recipe mengacu ke Product yang sudah ada.
-        // =====================================================
+        // ---------- 1.4 Produk ----------
         {
           title: "Produk",
           description: "Kelola produk yang dijual",
           url: "#",
-          icon: (
-            <ShoppingBag
-              className="size-4 shrink-0"
-              strokeWidth={1.8}
-            />
-          ),
+          icon: <Coffee className="size-4" strokeWidth={1.8} />,
+          defaultOpen: true,
           items: [
             {
               title: "Daftar Produk",
               description: "Lihat seluruh produk",
               url: "/inventory/products",
-              icon: (
-                <ClipboardList
-                  className="size-4 shrink-0"
-                  strokeWidth={1.8}
-                />
-              ),
+              icon: <ClipboardList className="size-4" strokeWidth={1.8} />,
             },
             {
               title: "Tambah Produk",
               description: "Tambahkan produk baru",
               url: "/inventory/products/new",
-              icon: (
-                <Plus
-                  className="size-4 shrink-0"
-                  strokeWidth={1.8}
-                />
-              ),
+              icon: <Plus className="size-4" strokeWidth={1.8} />,
             },
           ],
         },
 
-        // =====================================================
-        // 5. RESEP
-        //
-        // Resep dibuat berdasarkan Product yang sudah ada.
-        // =====================================================
+        // ---------- 1.5 Resep ----------
         {
           title: "Resep",
           description: "Atur bahan untuk setiap produk",
           url: "#",
-          icon: (
-            <ScrollText
-              className="size-4 shrink-0"
-              strokeWidth={1.8}
-            />
-          ),
+          icon: <BookOpen className="size-4" strokeWidth={1.8} />,
+          defaultOpen: true,
           items: [
             {
               title: "Daftar Resep",
               description: "Lihat seluruh resep produk",
               url: "/inventory/recipes",
-              icon: (
-                <ClipboardList
-                  className="size-4 shrink-0"
-                  strokeWidth={1.8}
-                />
-              ),
+              icon: <ClipboardList className="size-4" strokeWidth={1.8} />,
             },
             {
               title: "Tambah Resep",
               description: "Buat resep produk baru",
               url: "/inventory/recipes/new",
-              icon: (
-                <Plus
-                  className="size-4 shrink-0"
-                  strokeWidth={1.8}
-                />
-              ),
+              icon: <Plus className="size-4" strokeWidth={1.8} />,
             },
           ],
         },
 
-        // =====================================================
-        // 6. PRODUKSI
-        //
-        // Produksi menggunakan Product + Recipe.
-        // =====================================================
+        // ---------- 1.6 Produksi ----------
         {
           title: "Produksi",
           description: "Ubah bahan menjadi produk jadi",
           url: "#",
-          icon: (
-            <Factory
-              className="size-4 shrink-0"
-              strokeWidth={1.8}
-            />
-          ),
+          icon: <Factory className="size-4" strokeWidth={1.8} />,
+          defaultOpen: true,
           items: [
             {
               title: "Riwayat Produksi",
               description: "Lihat seluruh aktivitas produksi",
               url: "/inventory/production",
-              icon: (
-                <History
-                  className="size-4 shrink-0"
-                  strokeWidth={1.8}
-                />
-              ),
+              icon: <History className="size-4" strokeWidth={1.8} />,
             },
             {
               title: "Buat Produksi",
               description: "Catat produksi produk baru",
               url: "/inventory/production/new",
-              icon: (
-                <Plus
-                  className="size-4 shrink-0"
-                  strokeWidth={1.8}
-                />
-              ),
+              icon: <Play className="size-4" strokeWidth={1.8} />,
             },
           ],
         },
 
-        // =====================================================
-        // 7. PRODUK JADI
-        // =====================================================
+        // ---------- 1.7 Produk Jadi ----------
         {
           title: "Produk Jadi",
           description: "Kelola stok produk siap dijual",
           url: "#",
-          icon: (
-            <PackageCheck
-              className="size-4 shrink-0"
-              strokeWidth={1.8}
-            />
-          ),
+          icon: <Boxes className="size-4" strokeWidth={1.8} />,
+          defaultOpen: true,
           items: [
             {
               title: "Stok Produk Jadi",
               description: "Lihat stok produk hasil produksi",
               url: "/inventory/finished-products",
-              icon: (
-                <ClipboardList
-                  className="size-4 shrink-0"
-                  strokeWidth={1.8}
-                />
-              ),
+              icon: <Archive className="size-4" strokeWidth={1.8} />,
+            },
+          ],
+        },
+      ],
+    },
+
+    // =========================================================
+    // 2. ADMINISTRASI
+    // =========================================================
+    {
+      title: "Administrasi",
+      description: "Kelola pengguna dan akses sistem",
+      url: "#",
+      icon: <Settings2 className="size-[18px]" strokeWidth={1.8} />,
+      defaultOpen: true,
+      items: [
+        // ---------- 2.1 Management User ----------
+        {
+          title: "Management User",
+          description: "Kelola akun Barista dan Customer",
+          url: "#",
+          icon: <UserCog className="size-4" strokeWidth={1.8} />,
+          defaultOpen: true,
+          items: [
+            {
+              title: "Daftar Pengguna",
+              description: "Lihat Barista dan Customer",
+              url: "/users",
+              icon: <Users className="size-4" strokeWidth={1.8} />,
+            },
+            {
+              title: "Tambah Pengguna",
+              description: "Buat akun Barista atau Customer",
+              url: "/users/new",
+              icon: <UserPlus className="size-4" strokeWidth={1.8} />,
+            },
+          ],
+        },
+
+        // ---------- 2.2 Admin ----------
+        {
+          title: "Admin",
+          description: "Kelola akun administrator",
+          url: "#",
+          icon: <ShieldCheck className="size-4" strokeWidth={1.8} />,
+          defaultOpen: true,
+          items: [
+            {
+              title: "Daftar Admin",
+              description: "Lihat seluruh administrator",
+              url: "/admins",
+              icon: <Users className="size-4" strokeWidth={1.8} />,
+            },
+            {
+              title: "Tambah Admin",
+              description: "Buat akun administrator baru",
+              url: "/admins/new",
+              icon: <UserPlus className="size-4" strokeWidth={1.8} />,
             },
           ],
         },
@@ -352,39 +285,19 @@ export function AppSidebar({
     <Sidebar
       collapsible="icon"
       variant="sidebar"
-      className="border-r bg-background"
+      className="border-r bg-sidebar"
       {...props}
     >
-      <SidebarHeader
-        className="
-          border-b
-          px-2
-          py-3
-          group-data-[collapsible=icon]:px-2
-        "
-      >
+      <SidebarHeader className="border-b border-sidebar-border p-3">
         <TeamSwitcher teams={data.teams} />
       </SidebarHeader>
 
-      <SidebarContent
-        className="
-          px-2
-          py-3
-          group-data-[collapsible=icon]:px-1
-        "
-      >
+      <SidebarContent className="gap-0 overflow-y-auto px-2 py-3">
         <NavMain items={data.navMain} />
       </SidebarContent>
 
-      <SidebarFooter
-        className="
-          border-t
-          px-2
-          py-3
-          group-data-[collapsible=icon]:px-2
-        "
-      >
-        <NavUser/>
+      <SidebarFooter className="border-t border-sidebar-border p-3">
+        <NavUser />
       </SidebarFooter>
 
       <SidebarRail />

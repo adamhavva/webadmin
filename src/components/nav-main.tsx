@@ -22,6 +22,7 @@ export type NavItem = {
   title: string
   url: string
   description?: string
+  defaultOpen?: boolean
   icon?: React.ReactNode
   isActive?: boolean
   items?: NavItem[]
