@@ -1,8 +1,9 @@
-"use client"
+"use client";
 
-import * as React from "react"
+import * as React from "react";
 
 import {
+  BarChart3,
   BookOpen,
   Boxes,
   ClipboardList,
@@ -14,19 +15,18 @@ import {
   Layers,
   Package,
   PackageCheck,
-  PackagePlus,
   Play,
-  Plus,
   ShieldCheck,
   ShoppingCart,
+  TrendingUp,
   UserCog,
   UserPlus,
   Users,
-} from "lucide-react"
+} from "lucide-react";
 
-import { NavMain, type NavItem } from "@/components/nav-main"
-import { NavUser } from "@/components/nav-user"
-import { TeamSwitcher } from "@/components/team-switcher"
+import { NavMain, type NavItem } from "@/components/nav-main";
+import { NavUser } from "@/components/nav-user";
+import { TeamSwitcher } from "@/components/team-switcher";
 
 import {
   Sidebar,
@@ -36,7 +36,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarRail,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
 const teams = [
   {
@@ -44,23 +44,23 @@ const teams = [
     logo: <GalleryVerticalEnd className="size-4" />,
     plan: "Enterprise",
   },
-]
+];
 
 // =============================================================
-// DASHBOARD — berdiri sendiri, tidak perlu dikelompokkan
+// DASHBOARD — berdiri sendiri
 // =============================================================
 const dashboard: NavItem = {
   title: "Dashboard",
   description: "Ringkasan aktivitas ASCEND",
   url: "/",
   icon: <LayoutDashboard className="size-[18px]" strokeWidth={1.8} />,
-}
+};
 
 // =============================================================
 // ALUR PERSEDIAAN
-// Urutan sengaja mengikuti flow bisnis:
-// Bahan Baku -> Pengadaan -> Batch -> Produk -> Resep -> Produksi -> Produk Jadi
-// Hanya 2 level (parent + leaf), tidak ada nesting 3 level lagi.
+// Urutan mengikuti flow bisnis:
+// Bahan Baku → Pengadaan → Batch → Produk → Resep → Produksi → Produk Jadi
+// Hanya 2 level (parent + leaf).
 // =============================================================
 const inventoryFlow: NavItem[] = [
   {
@@ -76,10 +76,10 @@ const inventoryFlow: NavItem[] = [
         icon: <ClipboardList className="size-4" strokeWidth={1.8} />,
       },
       {
-        title: "Tambah Bahan",
-        description: "Tambahkan bahan baku baru",
-        url: "/inventory/items/new",
-        icon: <PackagePlus className="size-4" strokeWidth={1.8} />,
+        title: "Batch Bahan",
+        description: "Lihat stok per batch bahan",
+        url: "/inventory/batches",
+        icon: <Layers className="size-4" strokeWidth={1.8} />,
       },
     ],
   },
@@ -104,13 +104,6 @@ const inventoryFlow: NavItem[] = [
     ],
   },
   {
-    // Cuma 1 halaman -> langsung jadi link, tidak perlu dropdown
-    title: "Batch Bahan",
-    description: "Lihat stok setiap batch bahan",
-    url: "/inventory/batches",
-    icon: <Layers className="size-4" strokeWidth={1.8} />,
-  },
-  {
     title: "Produk",
     description: "Kelola produk yang dijual",
     url: "#",
@@ -126,7 +119,7 @@ const inventoryFlow: NavItem[] = [
         title: "Tambah Produk",
         description: "Tambahkan produk baru",
         url: "/inventory/products/new",
-        icon: <Plus className="size-4" strokeWidth={1.8} />,
+        icon: <Package className="size-4" strokeWidth={1.8} />,
       },
     ],
   },
@@ -146,7 +139,7 @@ const inventoryFlow: NavItem[] = [
         title: "Tambah Resep",
         description: "Buat resep produk baru",
         url: "/inventory/recipes/new",
-        icon: <Plus className="size-4" strokeWidth={1.8} />,
+        icon: <BookOpen className="size-4" strokeWidth={1.8} />,
       },
     ],
   },
@@ -171,13 +164,24 @@ const inventoryFlow: NavItem[] = [
     ],
   },
   {
-    // Cuma 1 halaman -> langsung jadi link, tidak perlu dropdown
     title: "Produk Jadi",
     description: "Kelola stok produk siap dijual",
     url: "/inventory/finished-products",
     icon: <Boxes className="size-4" strokeWidth={1.8} />,
   },
-]
+];
+
+// =============================================================
+// LAPORAN & ANALITIK
+// =============================================================
+const reports: NavItem[] = [
+  {
+    title: "Riwayat HPP",
+    description: "Histori biaya produksi produk",
+    url: "/inventory/cost-history",
+    icon: <TrendingUp className="size-4" strokeWidth={1.8} />,
+  },
+];
 
 // =============================================================
 // ADMINISTRASI
@@ -223,7 +227,11 @@ const administration: NavItem[] = [
       },
     ],
   },
-]
+];
+
+// =============================================================
+// MAIN COMPONENT
+// =============================================================
 
 export function AppSidebar({
   ...props
@@ -248,6 +256,11 @@ export function AppSidebar({
         </SidebarGroup>
 
         <SidebarGroup className="px-0">
+          <SidebarGroupLabel>Laporan</SidebarGroupLabel>
+          <NavMain items={reports} />
+        </SidebarGroup>
+
+        <SidebarGroup className="px-0">
           <SidebarGroupLabel>Administrasi</SidebarGroupLabel>
           <NavMain items={administration} />
         </SidebarGroup>
@@ -259,5 +272,5 @@ export function AppSidebar({
 
       <SidebarRail />
     </Sidebar>
-  )
+  );
 }

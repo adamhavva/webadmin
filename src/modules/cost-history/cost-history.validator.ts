@@ -1,21 +1,18 @@
-// ============================================================
-// COST HISTORY VALIDATOR
-//
-// ProductCostHistory = histori HPP Product.
-// HPP lama tidak diubah ketika cost material berubah.
-// ============================================================
-
 import { z } from "zod";
 
+// ============================================================
+// List — riwayat pencatatan HPP
+// ============================================================
+
 export const listCostHistoryQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  productId: z.string().optional(),
+  search: z.string().trim().optional(),
   dateFrom: z
     .string()
     .optional()
     .refine(
       (v) => v === undefined || !isNaN(Date.parse(v)),
-      "dateFrom harus format ISO date"
+      "Format tanggal tidak valid"
     )
     .transform((v) => (v ? new Date(v) : undefined)),
   dateTo: z
@@ -23,10 +20,16 @@ export const listCostHistoryQuerySchema = z.object({
     .optional()
     .refine(
       (v) => v === undefined || !isNaN(Date.parse(v)),
-      "dateTo harus format ISO date"
+      "Format tanggal tidak valid"
     )
     .transform((v) => (v ? new Date(v) : undefined)),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
 });
+
+// ============================================================
+// Types
+// ============================================================
 
 export type ListCostHistoryQuery = z.infer<
   typeof listCostHistoryQuerySchema
