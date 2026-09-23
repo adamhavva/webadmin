@@ -1,10 +1,16 @@
 // ============================================================
 // API: /api/inventory/recipes
-// GET  → list recipes (bisa filter productId, isActive)
-// POST → create recipe (dengan items)
+// GET  → list recipes (filter by productId, isActive, search)
+// POST → create recipe baru (versi baru)
+//
+// Body create:
+//   {
+//     productId: "...",
+//     items: [{ inventoryItemId, quantity }, ...]
+//   }
 // ============================================================
 
-import { handle, ok, created } from "@/lib/api-response";
+import { handleAuth, ok, created } from "@/lib/api-response";
 import {
   createRecipeSchema,
   listRecipeQuerySchema,
@@ -14,21 +20,23 @@ import {
   listRecipes,
 } from "@/modules/recipe/recipe.service";
 
-export const GET = handle(async (req) => {
+export const GET = handleAuth(async (req) => {
   const url = new URL(req.url);
   const query = listRecipeQuerySchema.parse({
     productId: url.searchParams.get("productId") ?? undefined,
     isActive: url.searchParams.get("isActive") ?? undefined,
+    search: url.searchParams.get("search") ?? undefined,
+    page: url.searchParams.get("page") ?? undefined,
+    limit: url.searchParams.get("limit") ?? undefined,
   });
 
-  const recipes = await listRecipes(query);
-  return ok(recipes);
+  const result = await listRecipes(query);
+  return ok(result);
 });
 
-export const POST = handle(async (req) => {
+export const POST = handleAuth(async (req) => {
   const body = await req.json();
   const input = createRecipeSchema.parse(body);
-
-  const recipe = await createRecipe(input);
-  return created(recipe);
+  const result = await createRecipe(input);
+  return created(result);
 });

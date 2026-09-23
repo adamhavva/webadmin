@@ -3,8 +3,9 @@
 //
 // Firebase Auth (email/password) sebagai identity provider.
 //
-// CATATAN: avatarUrl TIDAK dimasukkan ke JWT karena base64 image
-// bisa membengkakkan cookie. FE ambil via /api/auth/me.
+// CATATAN: avatarUrl IKUT dimasukkan ke JWT agar tersedia di
+// session (dipakai nav-user.tsx). Kalau cookie jadi terlalu besar,
+// pertimbangkan pindah ke /api/auth/me.
 // ============================================================
 
 import type { NextAuthOptions } from "next-auth";
@@ -19,9 +20,10 @@ export type SessionUser = {
   email: string;
   role: UserRole;
   status: UserStatus;
-  name: string;
+  name: string
   phone: string | null;
   address: string | null;
+  avatarUrl: string | null;
   idNumber: string | null;
   birthDate: string | null;
   joinDate: string | null;
@@ -60,6 +62,7 @@ export const authOptions: NextAuthOptions = {
             name: true,
             phone: true,
             address: true,
+            avatarUrl: true,
             idNumber: true,
             birthDate: true,
             joinDate: true,
@@ -82,6 +85,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           phone: user.phone,
           address: user.address,
+          avatarUrl: user.avatarUrl,
           idNumber: user.idNumber,
           birthDate: user.birthDate ? user.birthDate.toISOString() : null,
           joinDate: user.joinDate ? user.joinDate.toISOString() : null,
@@ -104,6 +108,7 @@ export const authOptions: NextAuthOptions = {
         token.name = u.name;
         token.phone = u.phone;
         token.address = u.address;
+        token.avatarUrl = u.avatarUrl;
         token.idNumber = u.idNumber;
         token.birthDate = u.birthDate;
         token.joinDate = u.joinDate;
@@ -129,6 +134,11 @@ export const authOptions: NextAuthOptions = {
           token.phone = session.phone;
         if (typeof session.address === "string" || session.address === null)
           token.address = session.address;
+        if (
+          typeof session.avatarUrl === "string" ||
+          session.avatarUrl === null
+        )
+          token.avatarUrl = session.avatarUrl;
         if (
           typeof session.idNumber === "string" ||
           session.idNumber === null
@@ -166,6 +176,8 @@ export const authOptions: NextAuthOptions = {
         session.user.name = (token.name as string) ?? "";
         session.user.phone = (token.phone as string | null) ?? null;
         session.user.address = (token.address as string | null) ?? null;
+        session.user.avatarUrl =
+          (token.avatarUrl as string | null) ?? null;
         session.user.idNumber =
           (token.idNumber as string | null) ?? null;
         session.user.birthDate =

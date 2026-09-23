@@ -1,35 +1,34 @@
 // ============================================================
 // API: /api/inventory/recipes/[id]
-// GET    → detail recipe
-// PATCH  → update recipe (bisa replace items / activate)
-// DELETE → soft delete recipe
+// GET    → detail resep
+// PUT    → update resep (replace items, guard: belum dipakai production)
+// DELETE → hapus resep (guard: bukan aktif & belum dipakai production)
 // ============================================================
 
-import { handle, ok } from "@/lib/api-response";
+import { handleAuth, ok } from "@/lib/api-response";
 import { updateRecipeSchema } from "@/modules/recipe/recipe.validator";
 import {
-  deactivateRecipe,
+  deleteRecipe,
   getRecipeById,
   updateRecipe,
 } from "@/modules/recipe/recipe.service";
 
-export const GET = handle(async (_req, ctx) => {
+export const GET = handleAuth(async (_req, ctx) => {
   const { id } = await ctx.params;
-  const recipe = await getRecipeById(id);
-  return ok(recipe);
+  const result = await getRecipeById(id);
+  return ok(result);
 });
 
-export const PATCH = handle(async (req, ctx) => {
+export const PUT = handleAuth(async (req, ctx) => {
   const { id } = await ctx.params;
   const body = await req.json();
   const input = updateRecipeSchema.parse(body);
-
-  const recipe = await updateRecipe(id, input);
-  return ok(recipe);
+  const result = await updateRecipe(id, input);
+  return ok(result);
 });
 
-export const DELETE = handle(async (_req, ctx) => {
+export const DELETE = handleAuth(async (_req, ctx) => {
   const { id } = await ctx.params;
-  const recipe = await deactivateRecipe(id);
-  return ok(recipe);
+  const result = await deleteRecipe(id);
+  return ok(result);
 });

@@ -1,16 +1,11 @@
-// ============================================================
-// RECIPE SERVICE
-//
-// Aturan:
-// - Recipe menunjuk ke InventoryItem, BUKAN InventoryBatch.
-// - Hanya SATU recipe aktif per Product.
-// - Saat set isActive = true → non-aktifkan recipe lain.
-// - Semua InventoryItem harus ada dan aktif.
-// ============================================================
-
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-error";
-import type { Prisma } from "@/prisma/generated/client";
+import {
+  computeFifoForRequests,
+  getTotalStockMap,
+  type FifoAllocation,
+} from "@/modules/inventory-batch/inventory-batch.fifo";
+import type { Prisma } from "../../../prisma/generated/client";
 import type {
   CreateRecipeInput,
   ListRecipeQuery,
@@ -18,44 +13,11 @@ import type {
   UpdateRecipeInput,
 } from "./recipe.validator";
 
-/**
- * Validasi semua inventoryItemId di dalam items:
- * - harus ada
- * - harus aktif
- * - tidak duplikat (sudah dicek Zod, ini double check)
- */
-async function validateInventoryItems(
-  tx: Prisma.TransactionClient,
-  items: RecipeItemInput[]
-) {
-  const ids = items.map((i) => i.inventoryItemId);
+// ============================================================
+// Internal Helpers
+// ============================================================
 
-  const found = await tx.inventoryItem.findMany({
-    where: { id: { in: ids } },
-    select: { id: true, name: true, isActive: true },
-  });
-
-  if (found.length !== ids.length) {
-    const foundIds = new Set(found.map((f) => f.id));
-    const missing = ids.filter((id) => !foundIds.has(id));
-    throw ApiError.unprocessable(
-      `Inventory item tidak ditemukan: ${missing.join(", ")}`
-    );
-  }
-
-  const inactive = found.filter((f) => !f.isActive);
-  if (inactive.length > 0) {
-    throw ApiError.unprocessable(
-      `Inventory item tidak aktif: ${inactive.map((i) => i.name).join(", ")}`
-    );
-  }
-}
-
-/**
- * Auto-generate version kalau tidak dikirim.
- * Version = max(version) + 1 untuk product tsb.
- */
-async function generateVersion(
+async function getNextVersion(
   tx: Prisma.TransactionClient,
   productId: string
 ): Promise<number> {
@@ -64,195 +26,637 @@ async function generateVersion(
     orderBy: { version: "desc" },
     select: { version: true },
   });
-
   return (latest?.version ?? 0) + 1;
 }
 
-const recipeDetailSelect = {
-  id: true,
-  productId: true,
-  version: true,
-  isActive: true,
-  createdAt: true,
-  updatedAt: true,
-  product: {
-    select: { id: true, name: true, sellingPrice: true },
-  },
-  items: {
-    orderBy: { createdAt: "asc" as const },
-    select: {
-      id: true,
-      inventoryItemId: true,
-      quantity: true,
-      inventoryItem: {
-        select: { id: true, name: true, unit: true, isActive: true },
-      },
+async function hasProductionSince(
+  productId: string,
+  since: Date
+): Promise<boolean> {
+  const count = await prisma.production.count({
+    where: {
+      productId,
+      createdAt: { gte: since },
     },
-  },
-};
-
-export async function createRecipe(input: CreateRecipeInput) {
-  // Pastikan product ada
-  const product = await prisma.product.findUnique({
-    where: { id: input.productId },
-    select: { id: true, name: true },
   });
+  return count > 0;
+}
 
-  if (!product) {
-    throw ApiError.notFound("Product tidak ditemukan");
+async function validateItems(items: RecipeItemInput[]) {
+  const itemIds = items.map((i) => i.inventoryItemId);
+  const uniqueIds = new Set(itemIds);
+
+  if (uniqueIds.size !== itemIds.length) {
+    throw ApiError.unprocessable(
+      "Bahan tidak boleh duplikat dalam satu resep. Gabungkan jadi satu baris."
+    );
   }
 
-  return prisma.$transaction(async (tx) => {
-    await validateInventoryItems(tx, input.items);
+  const inventoryItems = await prisma.inventoryItem.findMany({
+    where: { id: { in: itemIds } },
+    select: { id: true, name: true, unit: true, isActive: true },
+  });
+  const itemMap = new Map(inventoryItems.map((i) => [i.id, i]));
 
-    const version = input.version ?? (await generateVersion(tx, product.id));
+  for (let i = 0; i < items.length; i++) {
+    const row = items[i];
+    const inv = itemMap.get(row.inventoryItemId);
 
-    // Cek duplikat version
-    const existingVersion = await tx.productRecipe.findUnique({
-      where: {
-        productId_version: { productId: product.id, version },
-      },
-      select: { id: true },
-    });
-
-    if (existingVersion) {
-      throw ApiError.conflict(
-        `Recipe versi ${version} untuk product "${product.name}" sudah ada`
+    if (!inv) {
+      throw ApiError.unprocessable(`Baris #${i + 1}: bahan tidak ditemukan`);
+    }
+    if (!inv.isActive) {
+      throw ApiError.unprocessable(
+        `Baris #${i + 1}: bahan "${inv.name}" sedang tidak aktif`
       );
     }
-
-    // Kalau isActive true, non-aktifkan yang lain
-    if (input.isActive) {
-      await tx.productRecipe.updateMany({
-        where: { productId: product.id, isActive: true },
-        data: { isActive: false },
-      });
+    if (row.quantity <= 0) {
+      throw ApiError.unprocessable(
+        `Baris #${i + 1}: quantity harus lebih dari 0`
+      );
     }
+  }
 
-    return tx.productRecipe.create({
-      data: {
-        productId: product.id,
-        version,
-        isActive: input.isActive,
-        items: {
-          create: input.items.map((i) => ({
-            inventoryItemId: i.inventoryItemId,
-            quantity: i.quantity,
-          })),
-        },
-      },
-      select: recipeDetailSelect,
-    });
-  });
+  return itemMap;
 }
+
+/**
+ * Hitung margin (%).
+ * - null kalau harga jual ≤ 0 atau HPP = 0 (tidak bisa dihitung)
+ * - bisa negatif (rugi) kalau HPP > harga jual
+ */
+function computeMargin(
+  sellingPrice: number,
+  totalHpp: number
+): number | null {
+  if (sellingPrice <= 0) return null;
+  if (totalHpp <= 0) return null;
+  return ((sellingPrice - totalHpp) / sellingPrice) * 100;
+}
+
+// ============================================================
+// Serializer — enrich items dengan FIFO HPP
+// ============================================================
+
+type RawRecipeItem = {
+  id: string;
+  inventoryItemId: string;
+  quantity: unknown;
+  inventoryItem: {
+    id: string;
+    name: string;
+    unit: string;
+    isActive?: boolean;
+  };
+};
+
+type SerializedRecipeItem = {
+  id: string;
+  inventoryItemId: string;
+  inventoryItemName: string;
+  unit: string;
+  isActive: boolean;
+  quantity: number;
+  unitCost: number | null;
+  subtotal: number | null;
+  availableStock: number;
+  fulfilled: boolean;
+  shortage: number;
+  allocations: FifoAllocation[];
+};
+
+type SerializedRecipe = {
+  items: SerializedRecipeItem[];
+  totalHpp: number;
+  totalFulfilled: boolean;
+  unavailableItems: string[];
+};
+
+async function serializeRecipeItems(
+  items: RawRecipeItem[]
+): Promise<SerializedRecipe> {
+  if (items.length === 0) {
+    return {
+      items: [],
+      totalHpp: 0,
+      totalFulfilled: true,
+      unavailableItems: [],
+    };
+  }
+
+  const requests = items.map((it) => ({
+    inventoryItemId: it.inventoryItemId,
+    quantity: Number(it.quantity),
+  }));
+
+  const itemIds = [...new Set(items.map((it) => it.inventoryItemId))];
+
+  const [fifoMap, stockMap] = await Promise.all([
+    computeFifoForRequests(requests),
+    getTotalStockMap(itemIds),
+  ]);
+
+  const serialized: SerializedRecipeItem[] = items.map((it, idx) => {
+    const qty = Number(it.quantity);
+    const fifo = fifoMap.get(idx);
+    const unitCost = fifo?.effectiveUnitCost ?? null;
+    const subtotal = fifo && fifo.totalQuantity > 0 ? fifo.totalCost : null;
+    const availableStock = stockMap.get(it.inventoryItemId) ?? 0;
+
+    return {
+      id: it.id,
+      inventoryItemId: it.inventoryItemId,
+      inventoryItemName: it.inventoryItem.name,
+      unit: it.inventoryItem.unit,
+      isActive: it.inventoryItem.isActive ?? true,
+      quantity: qty,
+      unitCost,
+      subtotal,
+      availableStock,
+      fulfilled: fifo?.fulfilled ?? false,
+      shortage: fifo?.shortage ?? qty,
+      allocations: fifo?.allocations ?? [],
+    };
+  });
+
+  const totalHpp = serialized.reduce(
+    (sum, it) => sum + (it.subtotal ?? 0),
+    0
+  );
+
+  const totalFulfilled = serialized.every((it) => it.fulfilled);
+
+  const unavailableItems = serialized
+    .filter((it) => !it.fulfilled)
+    .map((it) => it.inventoryItemName);
+
+  return { items: serialized, totalHpp, totalFulfilled, unavailableItems };
+}
+
+// ============================================================
+// Create
+// ============================================================
+
+export async function createRecipe(input: CreateRecipeInput) {
+  const product = await prisma.product.findUnique({
+    where: { id: input.productId },
+    select: { id: true, name: true, isActive: true },
+  });
+
+  if (!product) throw ApiError.notFound("Produk tidak ditemukan");
+  if (!product.isActive) {
+    throw ApiError.unprocessable(
+      `Produk "${product.name}" sedang tidak aktif`
+    );
+  }
+
+  await validateItems(input.items);
+
+  const result = await prisma.$transaction(
+    async (tx) => {
+      const existingActive = await tx.productRecipe.findFirst({
+        where: { productId: input.productId, isActive: true },
+        select: { id: true },
+      });
+
+      const shouldBeActive = !existingActive;
+      const version = await getNextVersion(tx, input.productId);
+
+      const recipe = await tx.productRecipe.create({
+        data: {
+          productId: input.productId,
+          version,
+          isActive: shouldBeActive,
+          items: {
+            create: input.items.map((i) => ({
+              inventoryItemId: i.inventoryItemId,
+              quantity: i.quantity,
+            })),
+          },
+        },
+        include: {
+          items: {
+            include: {
+              inventoryItem: {
+                select: { id: true, name: true, unit: true },
+              },
+            },
+          },
+        },
+      });
+
+      return recipe;
+    },
+    { timeout: 30000 }
+  );
+
+  const serialized = await serializeRecipeItems(result.items);
+
+  return {
+    success: true,
+    recipe: {
+      id: result.id,
+      productId: result.productId,
+      version: result.version,
+      isActive: result.isActive,
+      ...serialized,
+      createdAt: result.createdAt.toISOString(),
+      updatedAt: result.updatedAt.toISOString(),
+    },
+  };
+}
+
+// ============================================================
+// List
+// ============================================================
 
 export async function listRecipes(query: ListRecipeQuery) {
   const where: Prisma.ProductRecipeWhereInput = {};
 
   if (query.productId) where.productId = query.productId;
-  if (query.isActive !== undefined) where.isActive = query.isActive;
 
-  const items = await prisma.productRecipe.findMany({
-    where,
-    orderBy: [{ productId: "asc" }, { version: "desc" }],
+  if (query.isActive === "true") where.isActive = true;
+  else if (query.isActive === "false") where.isActive = false;
+
+  if (query.search) {
+    where.product = {
+      name: { contains: query.search, mode: "insensitive" },
+    };
+  }
+
+  const skip = (query.page - 1) * query.limit;
+
+  const [recipes, total] = await Promise.all([
+    prisma.productRecipe.findMany({
+      where,
+      orderBy: [{ productId: "asc" }, { version: "desc" }],
+      skip,
+      take: query.limit,
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            isActive: true,
+            sellingPrice: true,
+          },
+        },
+        items: {
+          include: {
+            inventoryItem: {
+              select: { id: true, name: true, unit: true },
+            },
+          },
+        },
+        _count: { select: { items: true } },
+      },
+    }),
+    prisma.productRecipe.count({ where }),
+  ]);
+
+  const [activeCount, productCount] = await Promise.all([
+    prisma.productRecipe.count({ where: { ...where, isActive: true } }),
+    prisma.productRecipe
+      .findMany({
+        where,
+        select: { productId: true },
+        distinct: ["productId"],
+      })
+      .then((rows) => rows.length),
+  ]);
+
+  const items = await Promise.all(
+    recipes.map(async (r) => {
+      const serialized = await serializeRecipeItems(r.items);
+      const sellingPrice = Number(r.product.sellingPrice);
+      const estimatedMargin = computeMargin(
+        sellingPrice,
+        serialized.totalHpp
+      );
+
+      return {
+        id: r.id,
+        productId: r.productId,
+        productName: r.product.name,
+        productIsActive: r.product.isActive,
+        productSellingPrice: sellingPrice,
+        version: r.version,
+        isActive: r.isActive,
+        itemCount: r._count.items,
+        items: serialized.items,
+        totalHpp: serialized.totalHpp,
+        totalFulfilled: serialized.totalFulfilled,
+        unavailableItems: serialized.unavailableItems,
+        estimatedMargin,
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
+      };
+    })
+  );
+
+  return {
+    items,
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.ceil(total / query.limit) || 1,
+    },
+    summary: {
+      activeCount,
+      productCount,
+      totalCount: total,
+    },
+  };
+}
+
+// ============================================================
+// Detail
+// ============================================================
+
+export async function getRecipeById(id: string) {
+  const recipe = await prisma.productRecipe.findUnique({
+    where: { id },
+    include: {
+      product: {
+        select: {
+          id: true,
+          name: true,
+          isActive: true,
+          sellingPrice: true,
+        },
+      },
+      items: {
+        include: {
+          inventoryItem: {
+            select: {
+              id: true,
+              name: true,
+              unit: true,
+              isActive: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!recipe) throw ApiError.notFound("Resep tidak ditemukan");
+
+  const usedInProduction = await hasProductionSince(
+    recipe.productId,
+    recipe.createdAt
+  );
+
+  const canEdit = !usedInProduction;
+  const canDelete = !recipe.isActive && !usedInProduction;
+
+  const serialized = await serializeRecipeItems(recipe.items);
+
+  const sellingPrice = Number(recipe.product.sellingPrice);
+  const estimatedMargin = computeMargin(sellingPrice, serialized.totalHpp);
+
+  const latestCost = await prisma.productCostHistory.findFirst({
+    where: { productId: recipe.productId },
+    orderBy: { createdAt: "desc" },
+    select: { hpp: true, createdAt: true },
+  });
+
+  return {
+    id: recipe.id,
+    productId: recipe.productId,
+    product: {
+      id: recipe.product.id,
+      name: recipe.product.name,
+      isActive: recipe.product.isActive,
+      sellingPrice,
+    },
+    version: recipe.version,
+    isActive: recipe.isActive,
+    items: serialized.items,
+    totalHpp: serialized.totalHpp,
+    totalFulfilled: serialized.totalFulfilled,
+    unavailableItems: serialized.unavailableItems,
+    estimatedMargin,
+    latestHpp: latestCost
+      ? {
+          hpp: Number(latestCost.hpp),
+          createdAt: latestCost.createdAt.toISOString(),
+        }
+      : null,
+    canEdit,
+    canDelete,
+    usedInProduction,
+    createdAt: recipe.createdAt.toISOString(),
+    updatedAt: recipe.updatedAt.toISOString(),
+  };
+}
+
+// ============================================================
+// Update (replace all items)
+// ============================================================
+
+export async function updateRecipe(id: string, input: UpdateRecipeInput) {
+  const recipe = await prisma.productRecipe.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      productId: true,
+      isActive: true,
+      createdAt: true,
+    },
+  });
+
+  if (!recipe) throw ApiError.notFound("Resep tidak ditemukan");
+
+  const usedInProduction = await hasProductionSince(
+    recipe.productId,
+    recipe.createdAt
+  );
+
+  if (usedInProduction) {
+    throw ApiError.unprocessable(
+      "Resep ini sudah pernah dipakai di produksi. " +
+        "Buat versi baru untuk mengubah komposisi (agar HPP historis tetap utuh)."
+    );
+  }
+
+  await validateItems(input.items);
+
+  const result = await prisma.$transaction(
+    async (tx) => {
+      await tx.recipeItem.deleteMany({ where: { recipeId: id } });
+
+      const updated = await tx.productRecipe.update({
+        where: { id },
+        data: {
+          items: {
+            create: input.items.map((i) => ({
+              inventoryItemId: i.inventoryItemId,
+              quantity: i.quantity,
+            })),
+          },
+        },
+        include: {
+          items: {
+            include: {
+              inventoryItem: {
+                select: { id: true, name: true, unit: true },
+              },
+            },
+          },
+        },
+      });
+
+      return updated;
+    },
+    { timeout: 30000 }
+  );
+
+  const serialized = await serializeRecipeItems(result.items);
+
+  return {
+    success: true,
+    recipe: {
+      id: result.id,
+      productId: result.productId,
+      version: result.version,
+      isActive: result.isActive,
+      ...serialized,
+      createdAt: result.createdAt.toISOString(),
+      updatedAt: result.updatedAt.toISOString(),
+    },
+  };
+}
+
+// ============================================================
+// Activate
+// ============================================================
+
+export async function activateRecipe(id: string) {
+  const recipe = await prisma.productRecipe.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      productId: true,
+      isActive: true,
+      version: true,
+    },
+  });
+
+  if (!recipe) throw ApiError.notFound("Resep tidak ditemukan");
+
+  if (recipe.isActive) {
+    return {
+      success: true,
+      message: "Resep ini sudah aktif",
+      recipeId: recipe.id,
+      productId: recipe.productId,
+      version: recipe.version,
+    };
+  }
+
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.productRecipe.updateMany({
+        where: { productId: recipe.productId, isActive: true },
+        data: { isActive: false },
+      });
+
+      await tx.productRecipe.update({
+        where: { id: recipe.id },
+        data: { isActive: true },
+      });
+    },
+    { timeout: 30000 }
+  );
+
+  return {
+    success: true,
+    recipeId: recipe.id,
+    productId: recipe.productId,
+    version: recipe.version,
+  };
+}
+
+// ============================================================
+// Deactivate
+// ============================================================
+
+export async function deactivateRecipe(id: string) {
+  const recipe = await prisma.productRecipe.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      productId: true,
+      isActive: true,
+      version: true,
+    },
+  });
+
+  if (!recipe) throw ApiError.notFound("Resep tidak ditemukan");
+
+  if (!recipe.isActive) {
+    throw ApiError.unprocessable("Resep ini sudah nonaktif.");
+  }
+
+  // Set nonaktif (produk jadi tidak punya resep aktif — admin sudah dikasih
+  // warning di FE). Kalau produk tetap isActive=true, Production akan
+  // gagal sampai ada resep aktif lain diaktifkan.
+  await prisma.productRecipe.update({
+    where: { id: recipe.id },
+    data: { isActive: false },
+  });
+
+  return {
+    success: true,
+    recipeId: recipe.id,
+    productId: recipe.productId,
+    version: recipe.version,
+  };
+}
+
+// ============================================================
+// Delete
+// ============================================================
+
+export async function deleteRecipe(id: string) {
+  const recipe = await prisma.productRecipe.findUnique({
+    where: { id },
     select: {
       id: true,
       productId: true,
       version: true,
       isActive: true,
       createdAt: true,
-      updatedAt: true,
-      product: {
-        select: { id: true, name: true, sellingPrice: true },
-      },
-      _count: { select: { items: true } },
     },
   });
 
-  return items;
-}
+  if (!recipe) throw ApiError.notFound("Resep tidak ditemukan");
 
-export async function getRecipeById(id: string) {
-  const recipe = await prisma.productRecipe.findUnique({
-    where: { id },
-    select: recipeDetailSelect,
-  });
-
-  if (!recipe) {
-    throw ApiError.notFound("Recipe tidak ditemukan");
+  if (recipe.isActive) {
+    throw ApiError.unprocessable(
+      "Resep aktif tidak bisa dihapus. Nonaktifkan dulu, baru hapus."
+    );
   }
 
-  return recipe;
-}
+  const usedInProduction = await hasProductionSince(
+    recipe.productId,
+    recipe.createdAt
+  );
 
-export async function updateRecipe(id: string, input: UpdateRecipeInput) {
-  const existing = await prisma.productRecipe.findUnique({
-    where: { id },
-    select: { id: true, productId: true, isActive: true },
-  });
-
-  if (!existing) {
-    throw ApiError.notFound("Recipe tidak ditemukan");
+  if (usedInProduction) {
+    throw ApiError.unprocessable(
+      "Resep ini sudah pernah dipakai di produksi. Tidak bisa dihapus untuk menjaga HPP historis."
+    );
   }
 
-  return prisma.$transaction(async (tx) => {
-    // Kalau update items, validasi item-item baru
-    if (input.items) {
-      await validateInventoryItems(tx, input.items);
-    }
+  await prisma.productRecipe.delete({ where: { id } });
 
-    // Kalau mau aktifkan recipe ini, non-aktifkan yang lain
-    if (input.isActive === true) {
-      await tx.productRecipe.updateMany({
-        where: {
-          productId: existing.productId,
-          isActive: true,
-          NOT: { id },
-        },
-        data: { isActive: false },
-      });
-    }
-
-    // Update recipe + replace items jika dikirim
-    return tx.productRecipe.update({
-      where: { id },
-      data: {
-        ...(input.isActive !== undefined && { isActive: input.isActive }),
-        ...(input.items && {
-          items: {
-            deleteMany: {},
-            create: input.items.map((i) => ({
-              inventoryItemId: i.inventoryItemId,
-              quantity: i.quantity,
-            })),
-          },
-        }),
-      },
-      select: recipeDetailSelect,
-    });
-  });
-}
-
-/**
- * Soft delete: set isActive = false.
- *
- * Recipe tidak dihapus permanen karena:
- * - Recipe dapat direferensikan oleh Production history di masa depan.
- * - Version history harus tetap ada.
- */
-export async function deactivateRecipe(id: string) {
-  const existing = await prisma.productRecipe.findUnique({
-    where: { id },
-    select: { id: true },
-  });
-
-  if (!existing) {
-    throw ApiError.notFound("Recipe tidak ditemukan");
-  }
-
-  return prisma.productRecipe.update({
-    where: { id },
-    data: { isActive: false },
-    select: recipeDetailSelect,
-  });
+  return {
+    success: true,
+    deletedRecipeId: recipe.id,
+    productId: recipe.productId,
+    version: recipe.version,
+  };
 }

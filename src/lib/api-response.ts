@@ -113,6 +113,7 @@ export function handleAuth(
         role: session.user.role,
         status: session.user.status,
         name: session.user.name,
+        avatarUrl: session.user.avatarUrl,
         phone: session.user.phone,
         address: session.user.address,
         idNumber: session.user.idNumber,

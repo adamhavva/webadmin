@@ -7,7 +7,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   BookOpen,
-  Boxes,
+  Eye,
   Image as ImageIcon,
   Loader2,
   Pencil,
@@ -17,7 +17,6 @@ import {
   Trash2,
   TrendingUp,
   Upload,
-  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -204,8 +203,9 @@ export function ProductDetailView({ productId }: { productId: string }) {
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Active image untuk gallery preview
-  const [activeImageId, setActiveImageId] = React.useState<string | null>(
+  // Lightbox state
+  const [lightboxOpen, setLightboxOpen] = React.useState(false);
+  const [lightboxImageId, setLightboxImageId] = React.useState<string | null>(
     null
   );
 
@@ -238,14 +238,6 @@ export function ProductDetailView({ productId }: { productId: string }) {
       }
 
       setData(json.data);
-      // Set default active image
-      if (json.data.images.length > 0) {
-        const primary =
-          json.data.images.find((i) => i.isPrimary) ?? json.data.images[0];
-        setActiveImageId(primary.id);
-      } else {
-        setActiveImageId(null);
-      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Gagal memuat produk."
@@ -339,6 +331,12 @@ export function ProductDetailView({ productId }: { productId: string }) {
     }
   }
 
+  // ---------- Lightbox ----------
+  function openLightbox(imageId: string) {
+    setLightboxImageId(imageId);
+    setLightboxOpen(true);
+  }
+
   // ---------- Render ----------
   if (isLoading) {
     return (
@@ -366,8 +364,9 @@ export function ProductDetailView({ productId }: { productId: string }) {
   const margin =
     hpp !== null && selling > 0 ? ((selling - hpp) / selling) * 100 : null;
 
-  const activeImage =
-    data.images.find((i) => i.id === activeImageId) ??
+  const lightboxImage =
+    data.images.find((i) => i.id === lightboxImageId) ??
+    data.images.find((i) => i.isPrimary) ??
     data.images[0] ??
     null;
 
@@ -502,7 +501,7 @@ export function ProductDetailView({ productId }: { productId: string }) {
 
         {/* Gallery + Description */}
         <div className="grid gap-6 lg:grid-cols-3">
-          {/* Gallery */}
+          {/* Gallery — grid layout */}
           <Card className="lg:col-span-2">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -558,95 +557,71 @@ export function ProductDetailView({ productId }: { productId: string }) {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {/* Active image preview */}
-                  {activeImage && (
-                    <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                  {data.images.map((img) => (
+                    <div
+                      key={img.id}
+                      className="group relative aspect-square overflow-hidden rounded-lg border bg-muted"
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={activeImage.url}
-                        alt={activeImage.fileName}
-                        className="h-full w-full object-contain"
+                        src={img.url}
+                        alt={img.fileName}
+                        className="h-full w-full object-cover"
                       />
-                      {activeImage.isPrimary && (
-                        <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground">
-                          <Star className="size-3 fill-current" />
-                          Gambar Utama
+
+                      {/* Badge utama — selalu tampil */}
+                      {img.isPrimary && (
+                        <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground shadow-sm">
+                          <Star className="size-2.5 fill-current" />
+                          Utama
                         </div>
                       )}
-                    </div>
-                  )}
 
-                  {/* Thumbnail strip */}
-                  <div className="flex gap-2 overflow-x-auto pb-2">
-                    {data.images.map((img) => (
-                      <div
-                        key={img.id}
-                        className={cn(
-                          "group relative size-20 shrink-0 cursor-pointer overflow-hidden rounded-md border-2 transition-all",
-                          activeImage?.id === img.id
-                            ? "border-primary"
-                            : "border-transparent hover:border-muted-foreground/40"
-                        )}
-                        onClick={() => setActiveImageId(img.id)}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={img.url}
-                          alt={img.fileName}
-                          className="h-full w-full object-cover"
-                        />
-                        {img.isPrimary && (
-                          <div className="absolute inset-x-0 bottom-0 bg-primary/90 text-center text-[9px] font-medium text-primary-foreground">
-                            UTAMA
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Active image info + actions */}
-                  {activeImage && (
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {activeImage.fileName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatBytes(activeImage.fileSize)} ·{" "}
-                          {formatDateTime(activeImage.createdAt)}
-                        </p>
-                      </div>
-
-                      <div className="flex shrink-0 gap-2">
-                        {!activeImage.isPrimary && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSetPrimary(activeImage.id)}
-                            disabled={busyImageId === activeImage.id}
-                          >
-                            {busyImageId === activeImage.id ? (
-                              <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                            ) : (
-                              <Star className="mr-1.5 size-3.5" />
-                            )}
-                            Jadikan Utama
-                          </Button>
-                        )}
-                        <Button
+                      {/* Overlay + aksi — muncul saat hover */}
+                      <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 backdrop-blur-[1px] transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+                        {/* Eye — buka lightbox */}
+                        <button
                           type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => setDeleteTarget(activeImage)}
+                          onClick={() => openLightbox(img.id)}
+                          aria-label={`Lihat ${img.fileName}`}
+                          title="Lihat"
+                          className="flex size-9 items-center justify-center rounded-full bg-white/95 text-foreground shadow-md outline-none transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                          <Trash2 className="mr-1.5 size-3.5" />
-                          Hapus
-                        </Button>
+                          <Eye className="size-4" />
+                        </button>
+
+                        {/* Star — set primary (hanya kalau belum primary) */}
+                        {!img.isPrimary && (
+                          <button
+                            type="button"
+                            onClick={() => handleSetPrimary(img.id)}
+                            disabled={busyImageId === img.id}
+                            aria-label={`Jadikan ${img.fileName} sebagai utama`}
+                            title="Jadikan Utama"
+                            className="flex size-9 items-center justify-center rounded-full bg-white/95 text-foreground shadow-md outline-none transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {busyImageId === img.id ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Star className="size-4" />
+                            )}
+                          </button>
+                        )}
+
+                        {/* Trash — hapus */}
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(img)}
+                          aria-label={`Hapus ${img.fileName}`}
+                          title="Hapus"
+                          className="flex size-9 items-center justify-center rounded-full bg-white/95 text-destructive shadow-md outline-none transition-colors hover:bg-destructive hover:text-white focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
                       </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
             </CardContent>
@@ -771,7 +746,10 @@ export function ProductDetailView({ productId }: { productId: string }) {
                   </thead>
                   <tbody>
                     {activeRecipe.items.map((item) => (
-                      <tr key={item.id} className="border-b last:border-b-0">
+                      <tr
+                        key={item.id}
+                        className="border-b last:border-b-0"
+                      >
                         <td className="px-6 py-3 font-medium">
                           {item.inventoryItem.name}
                         </td>
@@ -826,7 +804,10 @@ export function ProductDetailView({ productId }: { productId: string }) {
                   </thead>
                   <tbody>
                     {data.costHistories.map((h, i) => (
-                      <tr key={h.id} className="border-b last:border-b-0">
+                      <tr
+                        key={h.id}
+                        className="border-b last:border-b-0"
+                      >
                         <td className="px-6 py-3 text-muted-foreground">
                           {formatDateTime(h.createdAt)}
                           {i === 0 && (
@@ -851,7 +832,65 @@ export function ProductDetailView({ productId }: { productId: string }) {
         )}
       </div>
 
-      {/* Delete dialog */}
+      {/* ================= LIGHTBOX (full image) ================= */}
+      <Dialog
+        open={lightboxOpen}
+        onOpenChange={(open) => {
+          setLightboxOpen(open);
+          if (!open) setLightboxImageId(null);
+        }}
+      >
+        <DialogContent
+          className="max-w-5xl gap-0 overflow-hidden border-none bg-black/95 p-0 shadow-2xl sm:max-w-5xl"
+          showCloseButton={false}
+        >
+          <DialogTitle className="sr-only">
+            Preview Gambar — {lightboxImage?.fileName}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Tampilan penuh dari gambar produk yang dipilih.
+          </DialogDescription>
+
+          <div className="relative flex h-[85vh] items-center justify-center">
+            {lightboxImage && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={lightboxImage.url}
+                alt={lightboxImage.fileName}
+                className="max-h-full max-w-full object-contain"
+              />
+            )}
+
+            {/* Tombol close custom di pojok */}
+            <button
+              type="button"
+              onClick={() => {
+                setLightboxOpen(false);
+                setLightboxImageId(null);
+              }}
+              aria-label="Tutup"
+              className="absolute right-4 top-4 flex size-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+            >
+              <span className="text-lg leading-none">×</span>
+            </button>
+
+            {/* Info nama file di bawah */}
+            {lightboxImage && (
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-6 py-4">
+                <p className="truncate text-sm font-medium text-white">
+                  {lightboxImage.fileName}
+                </p>
+                <p className="text-xs text-white/70">
+                  {formatBytes(lightboxImage.fileSize)} ·{" "}
+                  {formatDateTime(lightboxImage.createdAt)}
+                </p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ================= DELETE DIALOG ================= */}
       <Dialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {

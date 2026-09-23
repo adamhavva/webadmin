@@ -13,6 +13,7 @@ declare module "next-auth" {
       name: string;
       phone: string | null;
       address: string | null;
+      avatarUrl: string | null;
       idNumber: string | null;
       birthDate: string | null;
       joinDate: string | null;
@@ -31,6 +32,7 @@ declare module "next-auth" {
     name: string;
     phone: string | null;
     address: string | null;
+    avatarUrl: string | null;
     idNumber: string | null;
     birthDate: string | null;
     joinDate: string | null;
@@ -50,6 +52,7 @@ declare module "next-auth/jwt" {
     name: string;
     phone: string | null;
     address: string | null;
+    avatarUrl: string | null;
     idNumber: string | null;
     birthDate: string | null;
     joinDate: string | null;
