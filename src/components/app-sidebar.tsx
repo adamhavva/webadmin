@@ -25,6 +25,8 @@ import {
   UserCog,
   UserPlus,
   Users,
+  MapPin,
+  LayoutDashboardIcon,
 } from "lucide-react";
 
 import { NavMain, type NavItem } from "@/components/nav-main";
@@ -53,10 +55,24 @@ const teams = [
 // DASHBOARD — standalone
 // =============================================================
 const dashboard: NavItem = {
-  title: "Dashboard",
+  title: "Platform",
   description: "Ringkasan aktivitas ASCEND",
-  url: "/",
+  url: "#",
   icon: <LayoutDashboard className="size-[18px]" strokeWidth={1.8} />,
+  items: [
+    {
+  title: "Dashboard",
+  description: "Posisi real-time barista & customer",
+  url: "/",
+  icon: <LayoutDashboardIcon className="size-4" strokeWidth={1.8} />,
+},
+    {
+  title: "Tracking Live",
+  description: "Posisi real-time barista & customer",
+  url: "/tracking",
+  icon: <MapPin className="size-4" strokeWidth={1.8} />,
+},
+  ]
 };
 
 // =============================================================
