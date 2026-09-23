@@ -40,6 +40,11 @@ enum InventoryBatchSourceType {
   RESTOCK
 }
 
+enum RestockStatus {
+  ACTIVE
+  VOIDED
+}
+
 // ============================================================
 // USER
 // ============================================================
@@ -218,12 +223,16 @@ model Restock {
 
   supplierName String?
 
+  status   RestockStatus @default(ACTIVE)
+  voidedAt DateTime?
+
   createdAt DateTime @default(now())
 
   @@index([inventoryItemId])
   @@index([createdAt])
+  @@index([status])
+  @@index([voidedAt])
 }
-
 // ============================================================
 // PRODUCTION
 // ============================================================
