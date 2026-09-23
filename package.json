@@ -19,6 +19,7 @@
     "cmdk": "^1.1.1",
     "cn": "^0.3.0",
     "date-fns": "^4.4.0",
+    "exceljs": "^4.4.0",
     "firebase": "^12.19.0",
     "firebase-admin": "^14.4.0",
     "lucide-react": "^1.46.0",

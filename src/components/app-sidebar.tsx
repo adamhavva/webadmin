@@ -174,6 +174,8 @@ const inventoryFlow: NavItem[] = [
 // =============================================================
 // LAPORAN & ANALITIK
 // =============================================================
+
+// Update bagian `reports`
 const reports: NavItem[] = [
   {
     title: "Ringkasan Stok",
@@ -186,6 +188,12 @@ const reports: NavItem[] = [
     description: "Histori biaya produksi produk",
     url: "/inventory/cost-history",
     icon: <TrendingUp className="size-4" strokeWidth={1.8} />,
+  },
+  {
+    title: "Laporan Produk",
+    description: "Analisis lengkap produk & HPP",
+    url: "/reports/products",
+    icon: <BarChart3 className="size-4" strokeWidth={1.8} />,
   },
 ];
 
