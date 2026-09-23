@@ -8,10 +8,12 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Boxes,
+  Bike,
   Coffee,
   Factory,
   Package,
   RefreshCw,
+  ShoppingBag,
   ShoppingCart,
   TrendingUp,
   Users,
@@ -55,6 +57,11 @@ type DashboardStats = {
     productionValue: number;
     restockCount: number;
     restockValue: number;
+    orderCount: number;
+    orderCompletedCount: number;
+    orderCompletedRevenue: number;
+    orderActiveCount: number;
+    orderCancelledCount: number;
   };
   totals: {
     inventoryItems: number;
@@ -103,7 +110,7 @@ type DashboardStats = {
   };
   recentActivities: Array<{
     id: string;
-    type: "RESTOCK" | "PRODUCTION";
+    type: "RESTOCK" | "PRODUCTION" | "ORDER";
     title: string;
     detail: string;
     value: number;
@@ -124,6 +131,32 @@ type DashboardStats = {
     productionEvents: number;
     avgHpp: number;
   }>;
+  topSellingProducts: Array<{
+    productId: string;
+    productName: string;
+    qtySold: number;
+    revenue: number;
+    orderCount: number;
+  }>;
+  topBaristas: Array<{
+    baristaId: string;
+    baristaName: string;
+    orderCount: number;
+    revenue: number;
+    avgDurasiMinutes: number | null;
+    avgJarakKm: number | null;
+  }>;
+  orderStatusCounts: {
+    PENDING: number;
+    SEARCHING: number;
+    ASSIGNED: number;
+    ACCEPTED: number;
+    DELIVERING: number;
+    ARRIVED: number;
+    COMPLETED: number;
+    CANCELLED: number;
+    FAILED: number;
+  };
   monthly: {
     restockCount: number;
     restockValue: number;
@@ -194,6 +227,7 @@ function StatCard({
   icon,
   href,
   trend,
+  accent,
 }: {
   title: string;
   value: string | number;
@@ -201,7 +235,18 @@ function StatCard({
   icon: React.ReactNode;
   href?: string;
   trend?: { direction: "up" | "down" | "flat"; label: string };
+  accent?: "green" | "amber" | "blue" | "red" | "purple";
 }) {
+  const accentClass = accent
+    ? {
+        green: "text-green-600 dark:text-green-400",
+        amber: "text-amber-600 dark:text-amber-400",
+        blue: "text-blue-600 dark:text-blue-400",
+        red: "text-red-600 dark:text-red-400",
+        purple: "text-purple-600 dark:text-purple-400",
+      }[accent]
+    : "";
+
   const content = (
     <Card className="transition-colors hover:bg-muted/30">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -211,7 +256,7 @@ function StatCard({
         <span className="text-muted-foreground">{icon}</span>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className={cn("text-2xl font-bold", accentClass)}>{value}</div>
         {trend ? (
           <p
             className={cn(
@@ -389,7 +434,48 @@ export default function DashboardPage() {
         />
       ) : (
         <>
-          {/* ============ STAT CARDS ============ */}
+          {/* ============ SECTION: ORDER HARI INI (NEW) ============ */}
+          <section>
+            <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
+              Order Hari Ini
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                title="Order Masuk"
+                value={stats.today.orderCount}
+                hint={`${stats.today.orderActiveCount} sedang aktif`}
+                icon={<ShoppingBag className="h-4 w-4" />}
+                href="/orders"
+                accent="blue"
+              />
+
+              <StatCard
+                title="Order Selesai"
+                value={stats.today.orderCompletedCount}
+                hint={`Dari ${stats.today.orderCount} order hari ini`}
+                icon={<Package className="h-4 w-4" />}
+                accent="green"
+              />
+
+              <StatCard
+                title="Revenue Hari Ini"
+                value={formatRupiah(stats.today.orderCompletedRevenue)}
+                hint="Order COMPLETED + PAID"
+                icon={<TrendingUp className="h-4 w-4" />}
+                accent="green"
+              />
+
+              <StatCard
+                title="Order Dibatalkan"
+                value={stats.today.orderCancelledCount}
+                hint="Hari ini"
+                icon={<AlertTriangle className="h-4 w-4" />}
+                accent="red"
+              />
+            </div>
+          </section>
+
+          {/* ============ STAT CARDS (existing) ============ */}
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
             <StatCard
               title="Produksi Hari Ini"
@@ -440,9 +526,8 @@ export default function DashboardPage() {
             />
           </section>
 
-          {/* ============ CHART + COMPOSITION ============ */}
+          {/* ============ CHART + COMPOSITION (existing) ============ */}
           <section className="grid gap-6 xl:grid-cols-7">
-            {/* Line chart: produksi & restock */}
             <Card className="xl:col-span-5">
               <CardHeader>
                 <CardTitle>Produksi & Restock</CardTitle>
@@ -509,7 +594,6 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            {/* Pie: inventory composition */}
             <Card className="xl:col-span-2">
               <CardHeader>
                 <CardTitle>Komposisi Inventori</CardTitle>
@@ -569,7 +653,7 @@ export default function DashboardPage() {
             </Card>
           </section>
 
-          {/* ============ 3 KARTU ============ */}
+          {/* ============ 3 KARTU (existing) ============ */}
           <section className="grid gap-6 lg:grid-cols-3">
             {/* Stock status */}
             <Card>
@@ -724,7 +808,9 @@ export default function DashboardPage() {
                             "mt-1 h-2 w-2 shrink-0 rounded-full",
                             a.type === "RESTOCK"
                               ? "bg-blue-500"
-                              : "bg-purple-500"
+                              : a.type === "PRODUCTION"
+                                ? "bg-purple-500"
+                                : "bg-green-500"
                           )}
                         />
                         <div className="min-w-0 flex-1">
@@ -746,7 +832,116 @@ export default function DashboardPage() {
             </Card>
           </section>
 
-          {/* ============ TOP PRODUCTS + LOW STOCK ============ */}
+          {/* ============ SECTION: TOP SELLING + TOP BARISTA (NEW) ============ */}
+          <section className="grid gap-6 xl:grid-cols-2">
+            {/* Top Selling Products */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="size-4" />
+                  Produk Terlaris
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {stats.topSellingProducts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Belum ada penjualan.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {stats.topSellingProducts.map((p, index) => (
+                      <div
+                        key={p.productId}
+                        className="flex items-center gap-4"
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                          {index + 1}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <Link
+                            href={`/inventory/products/${p.productId}`}
+                            className="truncate text-sm font-medium hover:underline"
+                          >
+                            {p.productName}
+                          </Link>
+                          <p className="text-xs text-muted-foreground">
+                            {p.qtySold} unit · {p.orderCount} order
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold">
+                            {formatCompactRupiah(p.revenue)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Top Baristas */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bike className="size-4" />
+                  Top Barista
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {stats.topBaristas.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Belum ada data barista.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {stats.topBaristas.map((b, index) => (
+                      <div
+                        key={b.baristaId}
+                        className="flex items-center gap-4"
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                          {index + 1}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <Link
+                            href={`/users/${b.baristaId}`}
+                            className="truncate text-sm font-medium hover:underline"
+                          >
+                            {b.baristaName}
+                          </Link>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{b.orderCount} order</span>
+                            {b.avgDurasiMinutes !== null && (
+                              <>
+                                <span>·</span>
+                                <span>
+                                  {b.avgDurasiMinutes.toFixed(0)} mnt
+                                </span>
+                              </>
+                            )}
+                            {b.avgJarakKm !== null && (
+                              <>
+                                <span>·</span>
+                                <span>{b.avgJarakKm.toFixed(1)} km</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold">
+                            {formatCompactRupiah(b.revenue)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+
+          {/* ============ TOP PRODUCTS + LOW STOCK (existing) ============ */}
           <section className="grid gap-6 xl:grid-cols-2">
             <Card>
               <CardHeader>

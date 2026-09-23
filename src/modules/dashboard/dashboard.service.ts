@@ -42,6 +42,12 @@ export type DashboardStats = {
     productionValue: number;
     restockCount: number;
     restockValue: number;
+    // ORDER — NEW
+    orderCount: number;
+    orderCompletedCount: number;
+    orderCompletedRevenue: number;
+    orderActiveCount: number;
+    orderCancelledCount: number;
   };
   totals: {
     inventoryItems: number;
@@ -90,7 +96,7 @@ export type DashboardStats = {
   };
   recentActivities: Array<{
     id: string;
-    type: "RESTOCK" | "PRODUCTION";
+    type: "RESTOCK" | "PRODUCTION" | "ORDER";
     title: string;
     detail: string;
     value: number;
@@ -111,6 +117,33 @@ export type DashboardStats = {
     productionEvents: number;
     avgHpp: number;
   }>;
+  // ORDER — NEW
+  topSellingProducts: Array<{
+    productId: string;
+    productName: string;
+    qtySold: number;
+    revenue: number;
+    orderCount: number;
+  }>;
+  topBaristas: Array<{
+    baristaId: string;
+    baristaName: string;
+    orderCount: number;
+    revenue: number;
+    avgDurasiMinutes: number | null;
+    avgJarakKm: number | null;
+  }>;
+  orderStatusCounts: {
+    PENDING: number;
+    SEARCHING: number;
+    ASSIGNED: number;
+    ACCEPTED: number;
+    DELIVERING: number;
+    ARRIVED: number;
+    COMPLETED: number;
+    CANCELLED: number;
+    FAILED: number;
+  };
   monthly: {
     restockCount: number;
     restockValue: number;
@@ -130,7 +163,14 @@ export async function getDashboardStats(
 
   // ---------- 1. Today's activity ----------
 
-  const [todayProductions, todayRestocks] = await Promise.all([
+  const [
+    todayProductions,
+    todayRestocks,
+    todayOrders,
+    todayCompletedOrders,
+    todayActiveOrders,
+    todayCancelledOrders,
+  ] = await Promise.all([
     prisma.production.findMany({
       where: { createdAt: { gte: todayStart } },
       select: { outputQuantity: true, totalCost: true },
@@ -138,6 +178,32 @@ export async function getDashboardStats(
     prisma.restock.findMany({
       where: { createdAt: { gte: todayStart } },
       select: { totalCost: true },
+    }),
+    // ORDER — NEW
+    prisma.order.findMany({
+      where: { createdAt: { gte: todayStart } },
+      select: { id: true },
+    }),
+    prisma.order.findMany({
+      where: {
+        createdAt: { gte: todayStart },
+        status: "COMPLETED",
+        paymentStatus: "PAID",
+      },
+      select: { total: true },
+    }),
+    prisma.order.count({
+      where: {
+        status: {
+          in: ["SEARCHING", "ASSIGNED", "ACCEPTED", "DELIVERING", "ARRIVED"],
+        },
+      },
+    }),
+    prisma.order.count({
+      where: {
+        createdAt: { gte: todayStart },
+        status: "CANCELLED",
+      },
     }),
   ]);
 
@@ -151,6 +217,11 @@ export async function getDashboardStats(
   );
   const todayRestockValue = todayRestocks.reduce(
     (sum, r) => sum + Number(r.totalCost),
+    0
+  );
+  // ORDER — NEW
+  const todayCompletedRevenue = todayCompletedOrders.reduce(
+    (sum, o) => sum + Number(o.total),
     0
   );
 
@@ -272,9 +343,9 @@ export async function getDashboardStats(
     outOfStock: itemStatuses.filter((i) => i.totalStock === 0).length,
   };
 
-  // ---------- 5. Recent activities (restock + production) ----------
+  // ---------- 5. Recent activities (restock + production + order) ----------
 
-  const [recentProductions, recentRestocks] = await Promise.all([
+  const [recentProductions, recentRestocks, recentOrders] = await Promise.all([
     prisma.production.findMany({
       orderBy: { createdAt: "desc" },
       take: query.recentLimit * 2,
@@ -304,11 +375,24 @@ export async function getDashboardStats(
         batch: { select: { batchCode: true } },
       },
     }),
+    // ORDER — NEW
+    prisma.order.findMany({
+      orderBy: { createdAt: "desc" },
+      take: query.recentLimit * 2,
+      select: {
+        id: true,
+        orderNumber: true,
+        customerName: true,
+        total: true,
+        status: true,
+        createdAt: true,
+      },
+    }),
   ]);
 
   type Activity = {
     id: string;
-    type: "RESTOCK" | "PRODUCTION";
+    type: "RESTOCK" | "PRODUCTION" | "ORDER";
     title: string;
     detail: string;
     value: number;
@@ -337,6 +421,15 @@ export async function getDashboardStats(
       }`,
       value: Number(r.totalCost),
       createdAt: r.createdAt,
+    })),
+    // ORDER — NEW
+    ...recentOrders.map((o) => ({
+      id: `ord-${o.id}`,
+      type: "ORDER" as const,
+      title: `Order ${o.orderNumber}`,
+      detail: `${o.customerName} · ${o.status}`,
+      value: Number(o.total),
+      createdAt: o.createdAt,
     })),
   ]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
@@ -440,7 +533,146 @@ export async function getDashboardStats(
     };
   });
 
-  // ---------- 8. Monthly totals ----------
+  // ---------- 8. ORDER — Top selling products + Top baristas + Status ----------
+
+  const orderItems = await prisma.orderItem.findMany({
+    where: {
+      order: {
+        status: "COMPLETED",
+        paymentStatus: "PAID",
+      },
+    },
+    select: {
+      productId: true,
+      productName: true,
+      quantity: true,
+      subtotal: true,
+      orderId: true,
+    },
+  });
+
+  const productSalesMap = new Map<
+    string,
+    {
+      productName: string;
+      qtySold: number;
+      revenue: number;
+      orders: Set<string>;
+    }
+  >();
+
+  for (const it of orderItems) {
+    const cur = productSalesMap.get(it.productId) ?? {
+      productName: it.productName,
+      qtySold: 0,
+      revenue: 0,
+      orders: new Set<string>(),
+    };
+    cur.qtySold += it.quantity;
+    cur.revenue += Number(it.subtotal);
+    cur.orders.add(it.orderId);
+    productSalesMap.set(it.productId, cur);
+  }
+
+  const topSellingProducts = [...productSalesMap.entries()]
+    .map(([productId, v]) => ({
+      productId,
+      productName: v.productName,
+      qtySold: v.qtySold,
+      revenue: v.revenue,
+      orderCount: v.orders.size,
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+
+  const baristaOrders = await prisma.order.findMany({
+    where: {
+      status: "COMPLETED",
+      paymentStatus: "PAID",
+      baristaId: { not: null },
+    },
+    select: {
+      baristaId: true,
+      total: true,
+      acceptedAt: true,
+      completedAt: true,
+      distanceKm: true,
+      barista: { select: { name: true } },
+    },
+  });
+
+  const baristaMap = new Map<
+    string,
+    {
+      name: string;
+      orderCount: number;
+      revenue: number;
+      durasiArr: number[];
+      jarakArr: number[];
+    }
+  >();
+
+  for (const o of baristaOrders) {
+    if (!o.baristaId) continue;
+    const cur = baristaMap.get(o.baristaId) ?? {
+      name: o.barista?.name ?? "Unknown",
+      orderCount: 0,
+      revenue: 0,
+      durasiArr: [],
+      jarakArr: [],
+    };
+    cur.orderCount += 1;
+    cur.revenue += Number(o.total);
+    if (o.acceptedAt && o.completedAt) {
+      cur.durasiArr.push(
+        (o.completedAt.getTime() - o.acceptedAt.getTime()) / 60000
+      );
+    }
+    if (o.distanceKm !== null) cur.jarakArr.push(o.distanceKm);
+    baristaMap.set(o.baristaId, cur);
+  }
+
+  const topBaristas = [...baristaMap.entries()]
+    .map(([baristaId, v]) => ({
+      baristaId,
+      baristaName: v.name,
+      orderCount: v.orderCount,
+      revenue: v.revenue,
+      avgDurasiMinutes:
+        v.durasiArr.length > 0
+          ? v.durasiArr.reduce((s, x) => s + x, 0) / v.durasiArr.length
+          : null,
+      avgJarakKm:
+        v.jarakArr.length > 0
+          ? v.jarakArr.reduce((s, x) => s + x, 0) / v.jarakArr.length
+          : null,
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+
+  const statusGroups = await prisma.order.groupBy({
+    by: ["status"],
+    _count: { _all: true },
+  });
+
+  const orderStatusCounts: DashboardStats["orderStatusCounts"] = {
+    PENDING: 0,
+    SEARCHING: 0,
+    ASSIGNED: 0,
+    ACCEPTED: 0,
+    DELIVERING: 0,
+    ARRIVED: 0,
+    COMPLETED: 0,
+    CANCELLED: 0,
+    FAILED: 0,
+  };
+
+  for (const g of statusGroups) {
+    orderStatusCounts[g.status as keyof typeof orderStatusCounts] =
+      g._count._all;
+  }
+
+  // ---------- 9. Monthly totals ----------
 
   const monthlyRestockValue = monthlyRestocks.reduce(
     (sum, r) => sum + Number(r.totalCost),
@@ -451,7 +683,7 @@ export async function getDashboardStats(
     0
   );
 
-  // ---------- 9. Inventory composition ----------
+  // ---------- 10. Inventory composition ----------
 
   const materialCount = inventoryItems;
   const finishedCount = finishedAvailableBatches;
@@ -480,6 +712,12 @@ export async function getDashboardStats(
       productionValue: todayProductionValue,
       restockCount: todayRestocks.length,
       restockValue: todayRestockValue,
+      // ORDER — NEW
+      orderCount: todayOrders.length,
+      orderCompletedCount: todayCompletedOrders.length,
+      orderCompletedRevenue: todayCompletedRevenue,
+      orderActiveCount: todayActiveOrders,
+      orderCancelledCount: todayCancelledOrders,
     },
     totals: {
       inventoryItems,
@@ -516,6 +754,10 @@ export async function getDashboardStats(
     recentActivities,
     activityTrend,
     topProducedProducts,
+    // ORDER — NEW
+    topSellingProducts,
+    topBaristas,
+    orderStatusCounts,
     monthly: {
       restockCount: monthlyRestocks.length,
       restockValue: monthlyRestockValue,
