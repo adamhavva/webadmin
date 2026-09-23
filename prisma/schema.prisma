@@ -1,6 +1,7 @@
 // ============================================================
 // ASCEND PRISMA SCHEMA
 // Product + Inventory + Recipe + Production + HPP
+// + Pusat + Barista Mobile + Orders
 // ============================================================
 
 generator client {
@@ -45,6 +46,92 @@ enum RestockStatus {
   VOIDED
 }
 
+// ---------- ORDER ----------
+
+enum OrderStatus {
+  PENDING // order dibuat, belum ada barista
+  SEARCHING // sistem cari barista
+  ASSIGNED // barista ditunjuk, belum accept
+  ACCEPTED // barista accept
+  DELIVERING // barista jalan ke customer
+  ARRIVED // barista sampai
+  COMPLETED // selesai
+  CANCELLED // dibatalkan
+  FAILED // gagal antar
+}
+
+enum OrderChannel {
+  ONLINE // via app customer
+  OFFLINE // cash di gerobak, barista input manual
+}
+
+enum ReassignReason {
+  STOK_HABIS
+  ALAT_RUSAK
+  JARAK_TERLALU_JAUH
+  LAINNYA
+}
+
+// ---------- BARISTA STOCK ----------
+
+enum BaristaStockMovementType {
+  RESTOCK // ambil dari pusat
+  SOLD // terjual (online atau offline)
+  ADJUSTMENT // koreksi manual
+  RETURN // balik ke pusat
+  WASTE // rusak/basi
+}
+
+// ============================================================
+// SETTING — key-value untuk config global
+// ============================================================
+
+enum SettingType {
+  PERCENTAGE // nilai dalam % (contoh: 12 untuk 12%)
+  NOMINAL // nilai dalam rupiah (contoh: 2000 untuk Rp 2.000)
+}
+
+model Setting {
+  id String @id @default(cuid())
+
+  key         String  @unique // "tax", "fee_barista", "fee_doku"
+  name        String // "Pajak", "Biaya Barista"
+  description String? @db.Text
+
+  type  SettingType
+  value Decimal // bisa 12 (persen) atau 2000 (nominal)
+
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// ============================================================
+// PUSAT — 1 lokasi dapur + gudang
+// ============================================================
+
+model Pusat {
+  id String @id @default(cuid())
+
+  name      String
+  address   String  @db.Text
+  latitude  Float
+  longitude Float
+  phone     String?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
 // ============================================================
 // USER
 // ============================================================
@@ -68,8 +155,19 @@ model User {
   joinDate   DateTime? // Tanggal masuk kerja
   addressKtp String? // Alamat sesuai KTP
 
+  // ---------- Relasi Order ----------
+  ordersAsCustomer Order[] @relation("CustomerOrders")
+  ordersAsBarista  Order[] @relation("BaristaOrders")
+
+  // ---------- Relasi Barista Stock ----------
+  baristaStocks   BaristaStock[]
+  baristaRestocks BaristaRestock[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([status])
 }
 
 // ============================================================
@@ -93,6 +191,11 @@ model Product {
   images   ProductImage[]
   metadata ProductMetadata[]
 
+  // ---------- Relasi Barista + Order ----------
+  orderItems          OrderItem[]
+  baristaStocks       BaristaStock[]
+  baristaRestockItems BaristaRestockItem[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -102,12 +205,6 @@ model Product {
 
 // ============================================================
 // PRODUCT IMAGE
-//
-// Menyimpan referensi gambar produk yang disimpan di R2.
-// File fisik ada di R2, DB hanya menyimpan key & metadata.
-//
-// Struktur R2:
-//   ascend-product-images/products/{productId}/{uuid}.{ext}
 // ============================================================
 
 model ProductImage {
@@ -116,21 +213,16 @@ model ProductImage {
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId String
 
-  // Key object di R2 (path lengkap tanpa domain)
-  // Contoh: "products/abc123/uuid.jpg"
   key String @unique
 
-  // Public URL (computed dari key + R2_PUBLIC_URL)
   url String
 
   fileName String
   fileSize Int
   mimeType String
 
-  // Satu product sebaiknya hanya punya 1 primary image
   isPrimary Boolean @default(false)
 
-  // Urutan tampilan (asc)
   sortOrder Int @default(0)
 
   createdAt DateTime @default(now())
@@ -143,16 +235,6 @@ model ProductImage {
 
 // ============================================================
 // PRODUCT METADATA
-//
-// Key-value pair untuk atribut produk yang dinamis.
-// Bisa ditambah kapan saja tanpa mengubah schema.
-//
-// Contoh:
-//   key="Origin"      value="Gunung Puntang"
-//   key="Gilingan"    value="Halus"
-//   key="Roast Level" value="Medium"
-//
-// Satu product tidak boleh punya key duplikat.
 // ============================================================
 
 model ProductMetadata {
@@ -393,6 +475,10 @@ model FinishedProductBatch {
 
   totalCost Decimal
 
+  // ---------- Relasi Barista + Order ----------
+  orderItems          OrderItem[]
+  baristaRestockItems BaristaRestockItem[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -417,4 +503,239 @@ model ProductCostHistory {
 
   @@index([productId])
   @@index([productId, createdAt])
+}
+
+// ============================================================
+// BARISTA STOCK — stok produk jadi yang dibawa barista
+// ============================================================
+
+model BaristaStock {
+  id String @id @default(cuid())
+
+  baristaId String
+  barista   User   @relation(fields: [baristaId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  quantity      Int       @default(0) // stok saat ini di gerobak
+  minThreshold  Int       @default(3) // batas notif "perlu restock"
+  lastRestockAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([baristaId, productId])
+  @@index([baristaId])
+  @@index([productId])
+  @@index([baristaId, quantity])
+}
+
+// ============================================================
+// BARISTA RESTOCK — ambil stok dari pusat
+// ============================================================
+
+model BaristaRestock {
+  id String @id @default(cuid())
+
+  baristaId String
+  barista   User   @relation(fields: [baristaId], references: [id], onDelete: Restrict)
+
+  items BaristaRestockItem[]
+
+  totalItems Int     @default(0)
+  note       String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([baristaId])
+  @@index([createdAt])
+}
+
+model BaristaRestockItem {
+  id String @id @default(cuid())
+
+  restockId String
+  restock   BaristaRestock @relation(fields: [restockId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  // Batch yang diambil (traceability FIFO)
+  finishedBatchId String?
+  finishedBatch   FinishedProductBatch? @relation(fields: [finishedBatchId], references: [id], onDelete: SetNull)
+
+  quantity Int
+  unitCost Decimal
+
+  createdAt DateTime @default(now())
+
+  @@index([restockId])
+  @@index([productId])
+}
+
+// ============================================================
+// BARISTA STOCK MOVEMENT — audit log
+// ============================================================
+
+model BaristaStockMovement {
+  id String @id @default(cuid())
+
+  baristaId String
+  productId String
+
+  type         BaristaStockMovementType
+  quantity     Int // signed: + masuk, - keluar
+  balanceAfter Int // saldo setelah movement
+
+  // Referensi (opsional)
+  orderId          String?
+  baristaRestockId String?
+
+  note String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([baristaId, createdAt])
+  @@index([productId, createdAt])
+  @@index([type])
+}
+
+// ============================================================
+// ORDER — online + offline
+// ============================================================
+
+model Order {
+  id          String @id @default(cuid())
+  orderNumber String @unique // "ORD-20260924-0001"
+
+  channel OrderChannel  @default(ONLINE)
+  charges OrderCharge[]
+
+  // ---------- Customer (nullable untuk offline sale) ----------
+  customerId String?
+  customer   User?   @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: SetNull)
+
+  // Snapshot customer
+  customerName  String
+  customerPhone String?
+
+  // Alamat pengiriman (nullable untuk offline)
+  deliveryAddress   String? @db.Text
+  deliveryLatitude  Float?
+  deliveryLongitude Float?
+  deliveryNote      String? @db.Text
+
+  // ---------- Barista ----------
+  baristaId String?
+  barista   User?   @relation("BaristaOrders", fields: [baristaId], references: [id], onDelete: SetNull)
+
+  status OrderStatus @default(PENDING)
+
+  // ---------- Reassign ----------
+  originalBaristaId String?
+  reassignedAt      DateTime?
+  reassignReason    ReassignReason?
+  reassignNote      String?         @db.Text
+  reassignCount     Int             @default(0)
+
+  // ---------- Timing ----------
+  assignedAt   DateTime?
+  acceptedAt   DateTime?
+  deliveringAt DateTime?
+  arrivedAt    DateTime?
+  completedAt  DateTime?
+  cancelledAt  DateTime?
+  cancelReason String?
+
+  // ---------- ETA & tracking ----------
+  estimatedDeliveryAt DateTime?
+  actualDeliveryAt    DateTime?
+  distanceKm          Float?
+
+  // ---------- Harga ----------
+  subtotal     Decimal // total item sebelum biaya
+  chargesTotal Decimal @default(0) // ← total semua biaya tambahan
+  deliveryFee  Decimal @default(0) // free (0)
+  total        Decimal // subtotal + chargesTotal + deliveryFee
+
+  // ---------- Items & history ----------
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([baristaId])
+  @@index([status])
+  @@index([channel])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id String @id @default(cuid())
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  // Snapshot
+  productName String
+  quantity    Int
+  unitPrice   Decimal
+  subtotal    Decimal
+  notes       String? @db.Text
+
+  // Batch yang dipakai (opsional traceability)
+  finishedBatchId String?
+  finishedBatch   FinishedProductBatch? @relation(fields: [finishedBatchId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model OrderStatusHistory {
+  id String @id @default(cuid())
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  status    OrderStatus
+  note      String?     @db.Text
+  actorId   String?
+  actorRole UserRole?
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
+  @@index([status])
+}
+
+model OrderCharge {
+  id String @id @default(cuid())
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // Snapshot setting saat order dibuat
+  settingKey  String // "tax", "fee_barista", "fee_doku"
+  settingName String // "Pajak", "Biaya Barista" (snapshot)
+  type        SettingType // PERCENTAGE / NOMINAL (snapshot)
+  rateValue   Decimal // 12 (persen) atau 2000 (nominal)
+
+  // Hasil kalkulasi
+  amount Decimal // nilai aktual (mis. Rp 3.000)
+
+  sortOrder Int @default(0) // urutan tampil di struk
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@index([settingKey])
+  @@index([createdAt])
 }

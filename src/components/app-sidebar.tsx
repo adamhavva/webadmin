@@ -22,6 +22,9 @@ import {
   UserCog,
   UserPlus,
   Users,
+  ChartBarDecreasing,
+  LineChart,
+  SettingsIcon,
 } from "lucide-react";
 
 import { NavMain, type NavItem } from "@/components/nav-main";
@@ -178,24 +181,42 @@ const inventoryFlow: NavItem[] = [
 // Update bagian `reports`
 const reports: NavItem[] = [
   {
-    title: "Ringkasan Stok",
-    description: "Overview stok bahan & produk jadi",
-    url: "/inventory/stock",
-    icon: <BarChart3 className="size-4" strokeWidth={1.8} />,
-  },
+    title: "Laporan",
+    "icon": <ChartBarDecreasing className="size-4" strokeWidth={1.8} />,
+    url: "#",
+    items: [
+      {
+        title: "Ringkasan Stok",
+        description: "Overview stok bahan & produk jadi",
+        url: "/inventory/stock",
+        icon: <BarChart3 className="size-4" strokeWidth={1.8} />,
+      },
+      {
+        title: "Riwayat HPP",
+        description: "Histori biaya produksi produk",
+        url: "/inventory/cost-history",
+        icon: <TrendingUp className="size-4" strokeWidth={1.8} />,
+      },
+      {
+        title: "Laporan Produk",
+        description: "Analisis lengkap produk & HPP",
+        url: "/reports/products",
+        icon: <LineChart className="size-4" strokeWidth={1.8} />,
+      },
+    ]
+  }
+];
+
+// Tambah grup baru
+const system: NavItem[] = [
   {
-    title: "Riwayat HPP",
-    description: "Histori biaya produksi produk",
-    url: "/inventory/cost-history",
-    icon: <TrendingUp className="size-4" strokeWidth={1.8} />,
-  },
-  {
-    title: "Laporan Produk",
-    description: "Analisis lengkap produk & HPP",
-    url: "/reports/products",
-    icon: <BarChart3 className="size-4" strokeWidth={1.8} />,
+    title: "Pengaturan",
+    description: "Pajak, fee, dan konfigurasi global",
+    url: "/settings",
+    icon: <SettingsIcon className="size-4" strokeWidth={1.8} />,
   },
 ];
+
 
 // =============================================================
 // ADMINISTRASI
@@ -267,6 +288,11 @@ export function AppSidebar({
         <SidebarGroup className="px-0">
           <SidebarGroupLabel>Alur Persediaan</SidebarGroupLabel>
           <NavMain items={inventoryFlow} />
+        </SidebarGroup>
+
+        <SidebarGroup className="px-0">
+          <SidebarGroupLabel>Sistem</SidebarGroupLabel>
+          <NavMain items={system} />
         </SidebarGroup>
 
         <SidebarGroup className="px-0">
