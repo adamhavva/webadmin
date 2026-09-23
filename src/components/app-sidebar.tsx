@@ -4,6 +4,7 @@ import * as React from "react";
 
 import {
   BarChart3,
+  Bike,
   BookOpen,
   Boxes,
   ClipboardList,
@@ -13,18 +14,17 @@ import {
   History,
   LayoutDashboard,
   Layers,
+  LineChart,
   Package,
   PackageCheck,
   Play,
+  Settings,
   ShieldCheck,
   ShoppingCart,
   TrendingUp,
   UserCog,
   UserPlus,
   Users,
-  ChartBarDecreasing,
-  LineChart,
-  SettingsIcon,
 } from "lucide-react";
 
 import { NavMain, type NavItem } from "@/components/nav-main";
@@ -50,7 +50,7 @@ const teams = [
 ];
 
 // =============================================================
-// DASHBOARD — berdiri sendiri
+// DASHBOARD — standalone
 // =============================================================
 const dashboard: NavItem = {
   title: "Dashboard",
@@ -62,8 +62,7 @@ const dashboard: NavItem = {
 // =============================================================
 // ALUR PERSEDIAAN
 // Urutan mengikuti flow bisnis:
-// Bahan Baku → Pengadaan → Batch → Produk → Resep → Produksi → Produk Jadi
-// Hanya 2 level (parent + leaf).
+// Bahan Baku → Pengadaan → Produk → Resep → Produksi → Produk Jadi → Stok Barista
 // =============================================================
 const inventoryFlow: NavItem[] = [
   {
@@ -172,51 +171,70 @@ const inventoryFlow: NavItem[] = [
     url: "/inventory/finished-products",
     icon: <Boxes className="size-4" strokeWidth={1.8} />,
   },
+  {
+    title: "Stok Barista",
+    description: "Kelola stok yang dibawa barista",
+    url: "#",
+    icon: <Bike className="size-4" strokeWidth={1.8} />,
+    items: [
+      {
+        title: "Monitor Stok",
+        description: "Lihat stok semua barista",
+        url: "/barista-stock",
+        icon: <ClipboardList className="size-4" strokeWidth={1.8} />,
+      },
+      {
+        title: "Restock Barista",
+        description: "Barista ambil stok dari pusat",
+        url: "/barista-stock/restock",
+        icon: <Package className="size-4" strokeWidth={1.8} />,
+      },
+      {
+        title: "Riwayat Pergerakan",
+        description: "Log pergerakan stok barista",
+        url: "/barista-stock/movements",
+        icon: <History className="size-4" strokeWidth={1.8} />,
+      },
+    ],
+  },
 ];
 
 // =============================================================
 // LAPORAN & ANALITIK
+// Flat links — tidak perlu nested, karena semua leaf.
 // =============================================================
-
-// Update bagian `reports`
 const reports: NavItem[] = [
   {
-    title: "Laporan",
-    "icon": <ChartBarDecreasing className="size-4" strokeWidth={1.8} />,
-    url: "#",
-    items: [
-      {
-        title: "Ringkasan Stok",
-        description: "Overview stok bahan & produk jadi",
-        url: "/inventory/stock",
-        icon: <BarChart3 className="size-4" strokeWidth={1.8} />,
-      },
-      {
-        title: "Riwayat HPP",
-        description: "Histori biaya produksi produk",
-        url: "/inventory/cost-history",
-        icon: <TrendingUp className="size-4" strokeWidth={1.8} />,
-      },
-      {
-        title: "Laporan Produk",
-        description: "Analisis lengkap produk & HPP",
-        url: "/reports/products",
-        icon: <LineChart className="size-4" strokeWidth={1.8} />,
-      },
-    ]
-  }
+    title: "Ringkasan Stok",
+    description: "Overview stok bahan & produk jadi",
+    url: "/inventory/stock",
+    icon: <BarChart3 className="size-4" strokeWidth={1.8} />,
+  },
+  {
+    title: "Riwayat HPP",
+    description: "Histori biaya produksi produk",
+    url: "/inventory/cost-history",
+    icon: <TrendingUp className="size-4" strokeWidth={1.8} />,
+  },
+  {
+    title: "Laporan Produk",
+    description: "Analisis lengkap produk & HPP",
+    url: "/reports/products",
+    icon: <LineChart className="size-4" strokeWidth={1.8} />,
+  },
 ];
 
-// Tambah grup baru
+// =============================================================
+// SISTEM
+// =============================================================
 const system: NavItem[] = [
   {
     title: "Pengaturan",
     description: "Pajak, fee, dan konfigurasi global",
     url: "/settings",
-    icon: <SettingsIcon className="size-4" strokeWidth={1.8} />,
+    icon: <Settings className="size-4" strokeWidth={1.8} />,
   },
 ];
-
 
 // =============================================================
 // ADMINISTRASI
@@ -283,23 +301,28 @@ export function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent className="gap-1 overflow-y-auto px-2 py-3">
+        {/* Dashboard */}
         <NavMain items={[dashboard]} />
 
+        {/* Alur Persediaan */}
         <SidebarGroup className="px-0">
           <SidebarGroupLabel>Alur Persediaan</SidebarGroupLabel>
           <NavMain items={inventoryFlow} />
         </SidebarGroup>
 
-        <SidebarGroup className="px-0">
-          <SidebarGroupLabel>Sistem</SidebarGroupLabel>
-          <NavMain items={system} />
-        </SidebarGroup>
-
+        {/* Laporan */}
         <SidebarGroup className="px-0">
           <SidebarGroupLabel>Laporan</SidebarGroupLabel>
           <NavMain items={reports} />
         </SidebarGroup>
 
+        {/* Sistem */}
+        <SidebarGroup className="px-0">
+          <SidebarGroupLabel>Sistem</SidebarGroupLabel>
+          <NavMain items={system} />
+        </SidebarGroup>
+
+        {/* Administrasi */}
         <SidebarGroup className="px-0">
           <SidebarGroupLabel>Administrasi</SidebarGroupLabel>
           <NavMain items={administration} />
