@@ -12,7 +12,7 @@
 // ============================================================
 
 import { ApiError } from "@/lib/api-error";
-import type { Prisma } from "../../../prisma/generated/client";
+import type { Prisma } from "@/prisma/generated/client";
 
 export type FifoPlanItem = {
   inventoryItemId: string;

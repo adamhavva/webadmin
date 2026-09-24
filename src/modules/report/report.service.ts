@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { Prisma } from "../../../prisma/generated/client";
+import type { Prisma } from "@/prisma/generated/client";
 import type { ReportFilter } from "./report.validator";
 
 // ============================================================

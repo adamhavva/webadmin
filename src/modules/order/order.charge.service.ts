@@ -3,7 +3,7 @@ import type {
   PaymentFeeType,
   PaymentProvider,
   SettingType,
-} from "../../../prisma/generated/enums";
+} from "@/prisma/generated/enums";
 
 // ============================================================
 // Types

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-error";
-import type { Prisma } from "../../../prisma/generated/client";
+import type { Prisma } from "@/prisma/generated/client";
 import type {
   CreateInventoryItemInput,
   ListInventoryItemQuery,

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/api-error";
 import { adminAuth } from "@/lib/firebases/firebase-admin";
-import type { Prisma } from "../../../prisma/generated/client";
+import type { Prisma } from "@/prisma/generated/client";
 import type {
   CreateUserInput,
   ListUsersQuery,

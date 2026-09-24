@@ -5,8 +5,8 @@ import {
   getTotalStockMap,
   type FifoAllocation,
 } from "@/modules/inventory-batch/inventory-batch.fifo";
-import type { Prisma } from "../../../prisma/generated/client";
-import type { InventoryUnit } from "../../../prisma/generated/enums";
+import type { Prisma } from "@/prisma/generated/client";
+import type { InventoryUnit } from "@/prisma/generated/enums";
 import type {
   CreateProductionInput,
   ListProductionQuery,

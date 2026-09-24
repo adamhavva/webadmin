@@ -12,7 +12,7 @@ import type { NextAuthOptions } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { adminAuth } from "@/lib/firebases/firebase-admin";
 import { prisma } from "@/lib/db";
-import type { UserRole, UserStatus } from "../../prisma/generated/enums";
+import type { UserRole, UserStatus } from "@/prisma/generated/enums";
 
 export type SessionUser = {
   id: string;

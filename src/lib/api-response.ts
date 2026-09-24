@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import { getServerSession } from "next-auth";
 import { ApiError } from "./api-error";
 import { authOptions, type SessionUser } from "./auth";
-import type { UserRole } from "../../prisma/generated/enums";
+import type { UserRole } from "@/prisma/generated/enums";
 
 export type ApiSuccess<T> = { success: true; data: T };
 export type ApiFailure = {
