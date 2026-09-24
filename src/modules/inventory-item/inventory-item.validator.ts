@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const inventoryUnitSchema = z.enum(["ML", "PCS"]);
+export const inventoryUnitSchema = z.enum(["ML", "PCS", "GR"]);
 
 export const createInventoryItemSchema = z.object({
   name: z.string().trim().min(1, "Nama wajib diisi").max(100),

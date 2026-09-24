@@ -1,10 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   reactCompiler: true,
-  allowedDevOrigins: ['*'],
-  serverExternalPackages: ["firebase-admin", "jwks-rsa", "jose"],
+  allowedDevOrigins: ['ascendwebadmin.vercel.app', 'localhost'],
+  
+  // Remove the webpack config - use turbopack instead
+  turbopack: {},
 };
 
 export default nextConfig;

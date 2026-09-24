@@ -57,6 +57,7 @@ enum UserStatus {
 enum InventoryUnit {
   ML
   PCS
+  GR
 }
 
 // InventoryBatch hanya untuk stock MATERIAL.

@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type Unit = "ML" | "PCS";
+type Unit = "ML" | "PCS" | "GR";
 
 export type ItemFormData = {
   id?: string;
@@ -33,6 +33,7 @@ type Props = {
 const UNIT_LABEL: Record<Unit, string> = {
   ML: "Mililiter (ML)",
   PCS: "Piece (PCS)",
+  GR: "Gram (Gr)"
 };
 
 export function ItemForm({ mode, itemId, initial }: Props) {
@@ -142,7 +143,7 @@ export function ItemForm({ mode, itemId, initial }: Props) {
                 disabled={loading}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
               >
-                {(["ML", "PCS"] as Unit[]).map((u) => (
+                {(["ML", "PCS", "GR"] as Unit[]).map((u) => (
                   <option key={u} value={u}>
                     {UNIT_LABEL[u]}
                   </option>
