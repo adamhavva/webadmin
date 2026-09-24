@@ -50,6 +50,5 @@ CLAUDE.md
 .claude
 .cursor
 .devin
-serviceAccount.json
 prisma/generated
 .windsurf
