@@ -229,7 +229,13 @@ const orders: NavItem[] = [
         description: "Lihat semua order customer",
         url: "/orders",
         icon: <ClipboardList className="size-4" strokeWidth={1.8} />,
-      }
+      },
+      {
+        title: "Simulasi Order",
+        description: "Uji coba alur order & pembayaran",
+        url: "/orders/simulation",
+        icon: <Play className="size-4" strokeWidth={1.8} />,
+      },
     ],
   },
 ];
