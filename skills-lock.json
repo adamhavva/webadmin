@@ -1,6 +1,18 @@
 {
   "version": 1,
   "skills": {
+    "graphify": {
+      "source": "Graphify-Labs/graphify",
+      "sourceType": "github",
+      "skillPath": "graphify/SKILL.md",
+      "computedHash": "a8d45173c35ad513d4139acb73dd57682559f9171d1cc7ccca195adead15c557"
+    },
+    "integrate-midtrans-payments": {
+      "source": "veritrans/midtrans-agent-skills",
+      "sourceType": "github",
+      "skillPath": "integrate-midtrans-payments/SKILL.md",
+      "computedHash": "1041407bbe904a3256f0dd8aa3aaf130a8e0946fbbf6bd6553b634cbe77aa5ad"
+    },
     "prisma-cli": {
       "source": "prisma/skills",
       "sourceType": "github",
@@ -54,6 +66,12 @@
       "sourceType": "github",
       "skillPath": "prisma-upgrade-v7/SKILL.md",
       "computedHash": "0e07dc2831f86cf27627df914db43d862b0fc75d72c1f9070434aab7940bad7c"
+    },
+    "spec-miner": {
+      "source": "jeffallan/claude-skills",
+      "sourceType": "github",
+      "skillPath": "skills/spec-miner/SKILL.md",
+      "computedHash": "91822456789ffa6f5641d4f586df7533757fbc02629b76cb6e68cce5e369b13a"
     }
   }
 }

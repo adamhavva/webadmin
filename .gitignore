@@ -52,3 +52,5 @@ CLAUDE.md
 .devin
 prisma/generated
 .windsurf
+.*
+docs/*.md
