@@ -33,6 +33,10 @@ export class ApiError extends Error {
     return new ApiError(422, "UNPROCESSABLE_ENTITY", message, details);
   }
 
+  static validation(details?: unknown) {
+    return new ApiError(422, "VALIDATION_ERROR", "Input tidak valid", details);
+  }
+
   static internal(message = "Terjadi kesalahan pada server") {
     return new ApiError(500, "INTERNAL_ERROR", message);
   }

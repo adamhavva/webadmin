@@ -1,0 +1,103 @@
+Total messages: 7 (Errors: 4, Warnings: 0)
+Returning 4 messages for level "error"
+
+[ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/orders/simulation:0
+[ERROR] ./src/app/(dashboard)/orders/simulation/page.tsx:175:78
+Error: Expected '</', got '}'
+  173 | ...tems-center gap-1 bg-orange-500 rounded-lg">
+  174 | ...
+> 175 | ...pdateQuantity(Math.max(0, cartQuantity - 1)}
+      |                                               ^
+  176 | ... flex items-center justify-center text-white"
+  177 | ...
+  178 | ...1 ? <X className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+
+Parsing ecmascript source code failed
+
+Generated code of loaders [next/dist/build/babel/loader] transform of file content of src/app/(dashboard)/orders/simulation/page.tsx:
+./src/app/(dashboard)/orders/simulation/page.tsx:175:78
+  173 | ...tems-center gap-1 bg-orange-500 rounded-lg">
+  174 | ...
+> 175 | ...pdateQuantity(Math.max(0, cartQuantity - 1)}
+      |                                               ^
+  176 | ... flex items-center justify-center text-white"
+  177 | ...
+  178 | ...1 ? <X className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/orders/simulation/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/orders/simulation/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/orders/simulation/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/orders/simulation/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1gdrd03._.js:1817
+[ERROR] ./src/app/(dashboard)/orders/simulation/page.tsx:175:78
+Error: Expected '</', got '}'
+  173 | ...tems-center gap-1 bg-orange-500 rounded-lg">
+  174 | ...
+> 175 | ...pdateQuantity(Math.max(0, cartQuantity - 1)}
+      |                                               ^
+  176 | ... flex items-center justify-center text-white"
+  177 | ...
+  178 | ...1 ? <X className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+
+Parsing ecmascript source code failed
+
+Generated code of loaders [next/dist/build/babel/loader] transform of file content of src/app/(dashboard)/orders/simulation/page.tsx:
+./src/app/(dashboard)/orders/simulation/page.tsx:175:78
+  173 | ...tems-center gap-1 bg-orange-500 rounded-lg">
+  174 | ...
+> 175 | ...pdateQuantity(Math.max(0, cartQuantity - 1)}
+      |                                               ^
+  176 | ... flex items-center justify-center text-white"
+  177 | ...
+  178 | ...1 ? <X className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/orders/simulation/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/orders/simulation/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/orders/simulation/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/orders/simulation/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1gdrd03._.js:1817
+Error: ./src/app/(dashboard)/orders/simulation/page.tsx:175:78
+Error: Expected '</', got '}'
+  173 | ...tems-center gap-1 bg-orange-500 rounded-lg">
+  174 | ...
+> 175 | ...pdateQuantity(Math.max(0, cartQuantity - 1)}
+      |                                               ^
+  176 | ... flex items-center justify-center text-white"
+  177 | ...
+  178 | ...1 ? <X className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+
+Parsing ecmascript source code failed
+
+Generated code of loaders [next/dist/build/babel/loader] transform of file content of src/app/(dashboard)/orders/simulation/page.tsx:
+./src/app/(dashboard)/orders/simulation/page.tsx:175:78
+  173 | ...tems-center gap-1 bg-orange-500 rounded-lg">
+  174 | ...
+> 175 | ...pdateQuantity(Math.max(0, cartQuantity - 1)}
+      |                                               ^
+  176 | ... flex items-center justify-center text-white"
+  177 | ...
+  178 | ...1 ? <X className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+
+Import traces:
+  Client Component Browser:
+    ./src/app/(dashboard)/orders/simulation/page.tsx [Client Component Browser]
+    ./src/app/(dashboard)/orders/simulation/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/(dashboard)/orders/simulation/page.tsx [Client Component SSR]
+    ./src/app/(dashboard)/orders/simulation/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/(dashboard)/orders/simulation/page.tsx:175:78)
+    at <unknown> (./src/app/(dashboard)/orders/simulation/page.tsx:175:78)
+    at Object.getCompilationErrors (file:///Users/dandiramdani/Projects/ascend/webadmin/node_modules/next/dist/server/dev/hot-reloader-turbopack.js:1417:59)
+    at DevBundlerService.getCompilationError (file:///Users/dandiramdani/Projects/ascend/webadmin/node_modules/next/dist/server/lib/dev-bundler-service.js:59:55)
+    at DevServer.getCompilationError (file:///Users/dandiramdani/Projects/ascend/webadmin/node_modules/next/dist/server/dev/next-dev-server.js:754:42)
+    at DevServer.findPageComponents (file:///Users/dandiramdani/Projects/ascend/webadmin/node_modules/next/dist/server/dev/next-dev-server.js:724:43)
+    at async DevServer.renderErrorToResponseImpl (file:///Users/dandiramdani/Projects/ascend/webadmin/node_modules/next/dist/server/base-server.js:1828:26)

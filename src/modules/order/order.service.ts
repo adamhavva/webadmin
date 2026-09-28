@@ -114,9 +114,9 @@ export async function previewOrder(input: PreviewOrderInput) {
     paymentFeeAmount: payment.feeAmount,
     deliveryFee,
     total,
-    paymentProvider: payment.method.provider,
+    paymentProvider: payment.method.providerId,
     paymentChannel:
-      payment.method.provider === "CASH" ? "COD" : "PREPAID",
+      payment.method.providerCode === "CASH" ? "COD" : "PREPAID",
   };
 }
 
@@ -153,7 +153,7 @@ export async function createOrder(input: CreateOrderInput) {
     subtotal
   );
 
-  const isCOD = paymentInfo.method.provider === "CASH";
+  const isCOD = paymentInfo.method.providerCode === "CASH";
   const deliveryFee = 0;
   const total =
     subtotal + chargesTotal + paymentInfo.feeAmount + deliveryFee;
@@ -193,11 +193,11 @@ export async function createOrder(input: CreateOrderInput) {
 
           // Payment
           paymentStatus: isOffline ? "PAID" : "PENDING",
-          paymentProvider: paymentInfo.method.provider,
+          paymentProvider: paymentInfo.method.providerCode as "DOKU" | "INTERNAL",
           paymentChannel,
           paymentMethodCode: paymentInfo.method.code,
           paymentMethodName: paymentInfo.method.name,
-          paymentMethodGroup: paymentInfo.method.displayGroup,
+          paymentMethodGroup: paymentInfo.method.groupName,
           paymentFeeAmount: paymentInfo.feeAmount,
           dokuPaymentMethod: paymentInfo.method.dokuChannelCode,
 
@@ -258,10 +258,11 @@ export async function createOrder(input: CreateOrderInput) {
         data: {
           orderId: order.id,
           amount: total,
-          provider: paymentInfo.method.provider,
+          providerId: paymentInfo.method.providerId,
+          providerCode: paymentInfo.method.providerCode,
           methodCode: paymentInfo.method.code,
           methodName: paymentInfo.method.name,
-          methodGroup: paymentInfo.method.displayGroup,
+          methodGroup: paymentInfo.method.groupName,
           methodFeeAmount: paymentInfo.feeAmount,
           status: isOffline ? "PAID" : "PENDING",
           paidAt: isOffline ? new Date() : null,
@@ -291,7 +292,7 @@ export async function createOrder(input: CreateOrderInput) {
     paymentMethod: {
       code: paymentInfo.method.code,
       name: paymentInfo.method.name,
-      provider: paymentInfo.method.provider,
+      providerCode: paymentInfo.method.providerCode,
     },
     subtotal,
     chargesTotal,

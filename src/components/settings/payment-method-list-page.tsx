@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   Coins,
   CreditCard,
-  DollarSign,
   Loader2,
   MoreHorizontal,
   Pencil,
@@ -51,7 +50,7 @@ import { cn } from "@/lib/utils";
 // Types
 // ============================================================
 
-type PaymentProvider = "CASH" | "DOKU";
+type PaymentProvider = "DOKU";
 type PaymentFeeType = "NONE" | "PERCENTAGE" | "NOMINAL";
 
 type PaymentMethod = {
@@ -70,7 +69,7 @@ type PaymentMethod = {
 
 type ListResponse = {
   success: boolean;
-  data?: { items: PaymentMethod[] };
+  data?: { items: RawPaymentMethod[] };
   error?: { message?: string };
 };
 
@@ -79,14 +78,45 @@ type MutationResponse = {
   error?: { message?: string };
 };
 
+// API response shape (nested provider)
+type RawPaymentMethod = {
+  id: string;
+  code: string;
+  name: string;
+  provider: { id: string; code: string; name: string };
+  dokuChannelCode: string | null;
+  groupCode: string | null;
+  groupName: string | null;
+  feeType: "NONE" | "PERCENTAGE" | "NOMINAL";
+  feeValue: string | number;
+  icon: string | null;
+  description: string | null;
+  isActive: boolean;
+  sortOrder: number;
+};
+
+// Normalize API shape to component shape
+function normalizeMethod(raw: RawPaymentMethod): PaymentMethod {
+  return {
+    code: raw.code,
+    name: raw.name,
+    provider: raw.provider.code as PaymentMethod["provider"],
+    dokuChannelCode: raw.dokuChannelCode,
+    displayGroup: raw.groupCode ?? null,
+    feeType: raw.feeType,
+    feeValue: typeof raw.feeValue === "string" ? Number(raw.feeValue) : raw.feeValue,
+    icon: raw.icon ?? null,
+    description: raw.description ?? null,
+    isActive: raw.isActive,
+    sortOrder: raw.sortOrder ?? 0,
+  };
+}
+
 // ============================================================
 // Helpers
 // ============================================================
 
-function getMethodIcon(provider: PaymentProvider) {
-  if (provider === "CASH") {
-    return <DollarSign className="size-5" />;
-  }
+function getMethodIcon(_provider: PaymentProvider) {
   return <QrCode className="size-5" />;
 }
 
@@ -217,7 +247,7 @@ export function PaymentMethodListPage() {
           throw new Error(json.error?.message ?? "Gagal memuat metode pembayaran");
         }
 
-        setPaymentMethods(json.data.items);
+        setPaymentMethods(json.data.items.map(normalizeMethod));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Terjadi kesalahan");
       } finally {
@@ -449,7 +479,6 @@ export function PaymentMethodListPage() {
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="all">Semua Provider</option>
-            <option value="CASH">CASH</option>
             <option value="DOKU">DOKU</option>
           </select>
 
@@ -563,7 +592,7 @@ export function PaymentMethodListPage() {
             <DialogDescription>
               {editTarget
                 ? `Ubah konfigurasi "${editTarget.name}"`
-                : "Tambah metode pembayaran baru (CASH atau DOKU)"}
+                : "Tambah metode pembayaran baru (DOKU)"}
             </DialogDescription>
           </DialogHeader>
 
@@ -577,7 +606,7 @@ export function PaymentMethodListPage() {
                   id="pm-code"
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  placeholder="CASH, VA_BCA, QRIS"
+                  placeholder="VA_BCA, QRIS, EWALLET_OVO"
                   disabled={isSaving}
                   className="font-mono"
                 />
@@ -608,7 +637,6 @@ export function PaymentMethodListPage() {
                 disabled={isSaving || editTarget !== null}
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="CASH">CASH (Bayar di tempat)</option>
                 <option value="DOKU">DOKU (Payment Gateway)</option>
               </select>
             </div>

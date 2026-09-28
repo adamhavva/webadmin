@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db";
 import type {
   PaymentFeeType,
-  PaymentProvider,
   SettingType,
 } from "@/prisma/generated/enums";
 
@@ -27,8 +26,10 @@ export type ComputedPaymentFee = {
   method: {
     code: string;
     name: string;
-    displayGroup: string | null;
-    provider: PaymentProvider;
+    groupCode: string | null;
+    groupName: string | null;
+    providerId: string;
+    providerCode: string;
     dokuChannelCode: string | null;
   };
   feeAmount: number;
@@ -77,16 +78,20 @@ export async function computeCharges(
 // ============================================================
 
 export async function computePaymentFee(
-  methodCode: string,
+  methodCode: string | undefined,
   subtotal: number
 ): Promise<ComputedPaymentFee> {
+  // Default ke QRIS jika tidak ada methodCode
+  const code = methodCode || 'QRIS';
+
   const method = await prisma.paymentMethodConfig.findUnique({
-    where: { code: methodCode },
+    where: { code: code },
+    include: { provider: true },
   });
 
   if (!method) {
     throw new Error(
-      `Metode pembayaran "${methodCode}" tidak ditemukan`
+      `Metode pembayaran "${code}" tidak ditemukan`
     );
   }
 
@@ -110,8 +115,10 @@ export async function computePaymentFee(
     method: {
       code: method.code,
       name: method.name,
-      displayGroup: method.displayGroup,
-      provider: method.provider as PaymentProvider,
+      groupCode: method.groupCode,
+      groupName: method.groupName,
+      providerId: method.provider.id,
+      providerCode: method.provider.code,
       dokuChannelCode: method.dokuChannelCode,
     },
     feeAmount: Math.round(feeAmount),
@@ -119,7 +126,8 @@ export async function computePaymentFee(
 }
 
 // ============================================================
-// Generate order number
+// Generate order number with retry logic
+// Handles race conditions when multiple orders are created simultaneously
 // ============================================================
 
 export async function generateOrderNumber(): Promise<string> {
@@ -129,12 +137,36 @@ export async function generateOrderNumber(): Promise<string> {
   const d = String(now.getDate()).padStart(2, "0");
   const prefix = `ORD-${y}${m}${d}`;
 
-  const todayCount = await prisma.order.count({
-    where: {
-      orderNumber: { startsWith: prefix },
-    },
-  });
+  // Retry logic to handle race conditions
+  const maxRetries = 5;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    // Count existing orders with this prefix
+    const count = await prisma.order.count({
+      where: { orderNumber: { startsWith: prefix } },
+    });
+    const seq = count + 1;
+    const orderNumber = `${prefix}-${String(seq).padStart(4, "0")}`;
 
-  const seq = String(todayCount + 1).padStart(4, "0");
-  return `${prefix}-${seq}`;
+    // Check if this order number already exists (race condition protection)
+    const existing = await prisma.order.findUnique({
+      where: { orderNumber },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      // This order number is unique, return it
+      return orderNumber;
+    }
+
+    // Order number already exists, retry with a delay
+    console.warn(`[generateOrderNumber] Collision detected for ${orderNumber}, retrying...`);
+    if (attempt < maxRetries - 1) {
+      await new Promise(resolve => setTimeout(resolve, 10 + Math.random() * 30));
+    }
+  }
+
+  // Final fallback with microtimestamp to ensure uniqueness
+  const timestamp = Date.now();
+  const micro = Math.floor(Math.random() * 1000);
+  return `${prefix}-${timestamp.toString().slice(-4)}-${micro.toString().padStart(3, "0")}`;
 }

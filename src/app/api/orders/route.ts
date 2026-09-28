@@ -21,7 +21,6 @@ export const GET = handleAuth(
       customerId: url.searchParams.get("customerId") ?? undefined,
       baristaId: url.searchParams.get("baristaId") ?? undefined,
       status: url.searchParams.get("status") ?? undefined,
-      channel: url.searchParams.get("channel") ?? undefined,
       search: url.searchParams.get("search") ?? undefined,
       dateFrom: url.searchParams.get("dateFrom") ?? undefined,
       dateTo: url.searchParams.get("dateTo") ?? undefined,
@@ -41,10 +40,9 @@ export const POST = handleAuth(
     const input = createOrderSchema.parse(body);
 
     // Auto-set customerId untuk CUSTOMER online
-    const customerId =
-      input.channel === "ONLINE" && ctx.user.role === "CUSTOMER"
-        ? ctx.user.id
-        : input.customerId;
+    const customerId = ctx.user.role === "CUSTOMER"
+      ? ctx.user.id
+      : input.customerId;
 
     const result = await createOrder({
       ...input,

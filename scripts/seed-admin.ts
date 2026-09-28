@@ -1,24 +1,9 @@
-// ============================================================
-// SEED USERS
-//
-// - Buat / update user di Firebase Authentication
-// - Buat / update User di PostgreSQL melalui Prisma
-// - Menyimpan metadata user ke database
-// - Idempotent: aman dijalankan berkali-kali
-//
-// USERS:
-// 1. iqbal@ascend.com     → ADMIN
-// 2. dandi@ascend.com     → ADMIN
-// 3. customer@ascend.com  → CUSTOMER
-// 4. barista@ascend.com   → BARISTA
-// ============================================================
-
 import "dotenv/config";
 import { adminAuth } from "../src/lib/firebases/firebase-admin";
 import { prisma } from "../src/lib/db";
 
 // ============================================================
-// KONFIGURASI USERS
+// CONFIG
 // ============================================================
 
 const USERS = [
@@ -27,55 +12,44 @@ const USERS = [
     password: "iqbal123",
     name: "Iqbal",
     role: "ADMIN" as const,
-
     phone: "081234567801",
     address: "Jl. Asia Afrika No. 10, Bandung",
-
     idNumber: "3273010101900001",
     birthDate: new Date("1990-01-01"),
     joinDate: new Date("2026-09-01"),
     addressKtp: "Jl. Asia Afrika No. 10, Bandung",
   },
-
   {
     email: "dandi@ascend.com",
     password: "dandi123",
     name: "Dandi",
     role: "ADMIN" as const,
-
     phone: "081234567802",
     address: "Jl. Braga No. 25, Bandung",
-
     idNumber: "3273010202920002",
     birthDate: new Date("1992-02-02"),
     joinDate: new Date("2026-09-01"),
     addressKtp: "Jl. Braga No. 25, Bandung",
   },
-
   {
     email: "customer@ascend.com",
     password: "customer123",
     name: "Customer",
     role: "CUSTOMER" as const,
-
     phone: "081234567803",
     address: "Jl. Buah Batu No. 50, Bandung",
-
     idNumber: "3273010303950003",
     birthDate: new Date("1995-03-03"),
     joinDate: null,
     addressKtp: "Jl. Buah Batu No. 50, Bandung",
   },
-
   {
     email: "barista@ascend.com",
     password: "barista123",
     name: "Barista",
     role: "BARISTA" as const,
-
     phone: "081234567804",
     address: "Jl. Cihampelas No. 75, Bandung",
-
     idNumber: "3273010404970004",
     birthDate: new Date("1997-04-04"),
     joinDate: new Date("2026-09-15"),
@@ -84,218 +58,142 @@ const USERS = [
 ];
 
 // ============================================================
-// SEED SATU USER
+// FIREBASE
 // ============================================================
 
-async function seedUser(userData: (typeof USERS)[number]) {
-  const {
-    email,
-    password,
-    name,
-    role,
-    phone,
-    address,
-    idNumber,
-    birthDate,
-    joinDate,
-    addressKtp,
-  } = userData;
-
-  console.log("\n--------------------------------------------");
-  console.log(`Processing : ${email}`);
-  console.log(`Name       : ${name}`);
-  console.log(`Role       : ${role}`);
-  console.log("--------------------------------------------");
-
-  // ==========================================================
-  // 1. FIREBASE AUTHENTICATION
-  // ==========================================================
-
-  let firebaseUser;
-
+async function syncFirebaseUser(user: (typeof USERS)[number]) {
   try {
-    // Cari user berdasarkan email
-    firebaseUser = await adminAuth.getUserByEmail(email);
+    const existing = await adminAuth.getUserByEmail(user.email);
 
-    console.log(
-      `✓ Firebase user sudah ada: ${firebaseUser.uid}`
-    );
-
-    // Sync data Firebase
-    await adminAuth.updateUser(firebaseUser.uid, {
-      password,
+    const updated = await adminAuth.updateUser(existing.uid, {
+      password: user.password,
+      displayName: user.name,
       emailVerified: true,
-      displayName: name,
     });
 
-    console.log(
-      "✓ Firebase password, emailVerified & displayName di-update"
-    );
-  } catch (err: unknown) {
-    const code = (err as { code?: string })?.code;
+    console.log(`  ✓ Firebase updated: ${updated.uid}`);
 
-    // ========================================================
-    // USER BELUM ADA → CREATE
-    // ========================================================
-
-    if (code === "auth/user-not-found") {
-      firebaseUser = await adminAuth.createUser({
-        email,
-        password,
-        emailVerified: true,
-        displayName: name,
-      });
-
-      console.log(
-        `✓ Firebase user dibuat: ${firebaseUser.uid}`
-      );
-    } else {
-      throw err;
+    return updated;
+  } catch (error: any) {
+    if (error?.code !== "auth/user-not-found") {
+      throw error;
     }
+
+    const created = await adminAuth.createUser({
+      email: user.email,
+      password: user.password,
+      displayName: user.name,
+      emailVerified: true,
+    });
+
+    console.log(`  ✓ Firebase created: ${created.uid}`);
+
+    return created;
   }
+}
 
-  // ==========================================================
-  // 2. POSTGRESQL / PRISMA
-  // ==========================================================
+// ============================================================
+// DATABASE
+// ============================================================
 
+async function syncDatabaseUser(
+  user: (typeof USERS)[number],
+  firebaseUid: string,
+) {
   const dbUser = await prisma.user.upsert({
     where: {
-      firebaseUid: firebaseUser.uid,
+      firebaseUid,
     },
-
-    // --------------------------------------------------------
-    // Jika user sudah ada → update
-    // --------------------------------------------------------
 
     update: {
-      role,
+      role: user.role,
       status: "ACTIVE",
-
-      name,
-      phone,
-      address,
-
-      idNumber,
-      birthDate,
-      joinDate,
-      addressKtp,
+      name: user.name,
+      phone: user.phone,
+      address: user.address,
+      idNumber: user.idNumber,
+      birthDate: user.birthDate,
+      joinDate: user.joinDate,
+      addressKtp: user.addressKtp,
     },
 
-    // --------------------------------------------------------
-    // Jika user belum ada → create
-    // --------------------------------------------------------
-
     create: {
-      firebaseUid: firebaseUser.uid,
-
-      role,
+      firebaseUid,
+      role: user.role,
       status: "ACTIVE",
-
-      name,
-      phone,
-      address,
-
-      idNumber,
-      birthDate,
-      joinDate,
-      addressKtp,
+      name: user.name,
+      phone: user.phone,
+      address: user.address,
+      idNumber: user.idNumber,
+      birthDate: user.birthDate,
+      joinDate: user.joinDate,
+      addressKtp: user.addressKtp,
     },
   });
 
-  console.log("\n✓ PostgreSQL user siap:");
-  console.log(`  DB ID       : ${dbUser.id}`);
-  console.log(`  Firebase UID: ${dbUser.firebaseUid}`);
-  console.log(`  Name        : ${dbUser.name}`);
-  console.log(`  Role        : ${dbUser.role}`);
-  console.log(`  Status      : ${dbUser.status}`);
-  console.log(`  Phone       : ${dbUser.phone ?? "-"}`);
-  console.log(`  Address     : ${dbUser.address ?? "-"}`);
-  console.log(`  ID Number   : ${dbUser.idNumber ?? "-"}`);
-  console.log(
-    `  Birth Date  : ${
-      dbUser.birthDate
-        ? dbUser.birthDate.toISOString().split("T")[0]
-        : "-"
-    }`
-  );
-  console.log(
-    `  Join Date   : ${
-      dbUser.joinDate
-        ? dbUser.joinDate.toISOString().split("T")[0]
-        : "-"
-    }`
-  );
-  console.log(`  Address KTP : ${dbUser.addressKtp ?? "-"}`);
+  console.log(`  ✓ PostgreSQL synced: ${dbUser.id}`);
 
-  return {
-    email,
-    password,
-    firebaseUid: firebaseUser.uid,
-    dbId: dbUser.id,
-    role: dbUser.role,
-  };
+  return dbUser;
 }
 
 // ============================================================
-// MAIN
+// SEED
 // ============================================================
 
 async function main() {
-  console.log("\n");
-  console.log("============================================");
-  console.log("         ASCEND USER SEED");
-  console.log("============================================");
+  console.log("");
+  console.log("========================================");
+  console.log("       ASCEND USER SEED");
+  console.log("========================================");
 
-  const results = [];
-
-  // Jalankan satu per satu supaya log mudah dibaca
   for (const user of USERS) {
-    const result = await seedUser(user);
-    results.push(result);
+    console.log("");
+    console.log("----------------------------------------");
+    console.log(`${user.name} <${user.email}>`);
+    console.log(`Role: ${user.role}`);
+    console.log("----------------------------------------");
+
+    // 1. Firebase
+    const firebaseUser = await syncFirebaseUser(user);
+
+    // 2. PostgreSQL
+    const dbUser = await syncDatabaseUser(
+      user,
+      firebaseUser.uid,
+    );
+
+    console.log(`  ✓ ${dbUser.name} siap`);
   }
 
-  // ==========================================================
-  // SUMMARY
-  // ==========================================================
+  console.log("");
+  console.log("========================================");
+  console.log("           SEED BERHASIL");
+  console.log("========================================");
 
-  console.log("\n");
-  console.log("============================================");
-  console.log("             SEED SELESAI");
-  console.log("============================================");
+  console.log("");
+  console.log("LOGIN:");
 
-  console.log("\nDatabase users:");
-
-  for (const user of results) {
+  for (const user of USERS) {
     console.log(
-      `✓ ${user.email} | ${user.role} | DB: ${user.dbId}`
+      `${user.role.padEnd(10)} | ${user.email} | ${user.password}`,
     );
   }
 
-  console.log("\n============================================");
-  console.log("             LOGIN CREDENTIALS");
-  console.log("============================================");
-
-  for (const user of USERS) {
-    console.log(`\n[${user.role}]`);
-    console.log(`Email    : ${user.email}`);
-    console.log(`Password : ${user.password}`);
-  }
-
-  console.log("\n============================================");
-  console.log("          FIREBASE + POSTGRESQL OK");
-  console.log("============================================\n");
+  console.log("");
 }
 
 // ============================================================
-// EXECUTE
+// RUN
 // ============================================================
 
 main()
-  .catch((err) => {
-    console.error("\n❌ Seed gagal:");
-    console.error(err);
-
-    process.exit(1);
+  .catch((error) => {
+    console.error("");
+    console.error("========================================");
+    console.error("             SEED GAGAL");
+    console.error("========================================");
+    console.error(error);
+    process.exitCode = 1;
   })
   .finally(async () => {
     await prisma.$disconnect();

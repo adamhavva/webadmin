@@ -19,8 +19,34 @@ export async function proxy(req: NextRequest) {
   const isApiRoute = pathname.startsWith("/api");
   const isLoginPage = pathname.startsWith("/login");
 
-  // API route → ditangani handleAuth di masing-masing route
-  if (isApiRoute) return NextResponse.next();
+  // Payment-related API routes that don't need auth
+  const publicApiPaths = [
+    "/api/payment/notification",
+    "/api/auth/",
+  ];
+
+  const isPublicApi = publicApiPaths.some((p) => pathname.startsWith(p));
+
+  // API routes - public ones bypass auth, others handled by handleAuth
+  if (isApiRoute) {
+    if (isPublicApi) {
+      return NextResponse.next();
+    }
+    return NextResponse.next();
+  }
+
+  // Public pages (no auth required)
+  const publicPages = [
+    "/orders/simulation",
+    "/orders/payment",
+    "/orders/payment/success",
+  ];
+
+  const isPublicPage = publicPages.some((p) => pathname.includes(p));
+
+  if (isPublicPage) {
+    return NextResponse.next();
+  }
 
   // Ambil session token dari cookie NextAuth
   const token = await getToken({

@@ -19,6 +19,13 @@ datasource db {
 // ============================================================
 
 
+// ============================================================
+// ENUMS (Legacy - kept for backward compatibility)
+// These enums are deprecated and will be removed in future migrations.
+// All payment-related enums are now stored as strings in the database.
+// ============================================================
+
+// @deprecated Use String "PENDING" | "PAID" | "FAILED" | "EXPIRED" | "REFUNDED"
 enum PaymentStatus {
   PENDING
   PAID
@@ -27,20 +34,17 @@ enum PaymentStatus {
   REFUNDED
 }
 
+// @deprecated Use String "DOKU" | "INTERNAL"
 enum PaymentProvider {
-  CASH      // Bayar di tempat
-  DOKU      // Payment gateway DOKU
+  DOKU
+  INTERNAL
 }
 
+// @deprecated Use String "NONE" | "PERCENTAGE" | "NOMINAL"
 enum PaymentFeeType {
   NONE
   PERCENTAGE
   NOMINAL
-}
-
-enum PaymentChannel {
-  COD         // Bayar di tempat
-  PREPAID     // Bayar dulu via DOKU
 }
 
 enum UserRole {
@@ -84,11 +88,6 @@ enum OrderStatus {
   COMPLETED // selesai
   CANCELLED // dibatalkan
   FAILED // gagal antar
-}
-
-enum OrderChannel {
-  ONLINE // via app customer
-  OFFLINE // cash di gerobak, barista input manual
 }
 
 enum ReassignReason {
@@ -188,6 +187,9 @@ model User {
   // ---------- Relasi Barista Stock ----------
   baristaStocks   BaristaStock[]
   baristaRestocks BaristaRestock[]
+
+  // ---------- Relasi Payment ----------
+  paymentAccounts CustomerPaymentAccount[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -635,10 +637,12 @@ model Order {
   id          String @id @default(cuid())
   orderNumber String @unique // "ORD-20260924-0001"
 
-  channel OrderChannel  @default(ONLINE)
+  // Channel dinamis - dari DOKU metadata (ONLINE, OFFLINE, dll)
+  channel String?
+
   charges OrderCharge[]
 
-  // ---------- Customer (nullable untuk offline sale) ----------
+  // ---------- Customer ----------
   customerId String?
   customer   User?   @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: SetNull)
 
@@ -691,8 +695,10 @@ model Order {
 
   // ---------- PAYMENT ----------
   paymentStatus     PaymentStatus   @default(PENDING)
-  paymentProvider   PaymentProvider @default(CASH)
-  paymentChannel    PaymentChannel  @default(COD)
+  paymentProvider   PaymentProvider @default(DOKU)
+
+  // Payment channel dinamis - dari DOKU metadata (PREPAID, dll)
+  paymentChannel    String?
 
   // Snapshot method (dari PaymentMethodConfig)
   paymentMethodCode String?         // "VA_BCA", "QRIS", "OVO"
@@ -796,39 +802,171 @@ model OrderCharge {
 }
 
 
+// ============================================================
+// PAYMENT PROVIDER - Dynamic payment provider management
+// ============================================================
+
+model PaymentProviderConfig {
+  id String @id @default(cuid())
+
+  // Provider identity
+  code String @unique // "DOKU", "INTERNAL"
+  name String       // "DOKU SNAP", "Internal Cash"
+  isActive Boolean @default(true)
+
+  // DOKU-specific config
+  dokuClientId    String?
+  dokuClientSecret String? @db.Text
+  dokuPrivateKey  String? @db.Text  // For B2B/B2B2C token generation
+  dokuPublicKey   String? @db.Text // For signature verification
+  isProduction    Boolean @default(false)
+
+  // Sandbox credentials (optional)
+  dokuSandboxClientId    String?
+  dokuSandboxClientSecret String?
+  dokuSandboxPrivateKey  String?
+  dokuSandboxPublicKey   String?
+
+  // Webhook config
+  webhookSecret String? @db.Text
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  paymentMethods PaymentMethodConfig[]
+  webhookLogs    PaymentWebhookLog[]
+
+  @@index([isActive])
+}
+
+// ============================================================
+// PAYMENT METHOD CONFIG - Dynamic channel management
+// ============================================================
+
 model PaymentMethodConfig {
   id String @id @default(cuid())
 
-  // Identitas
-  code String @unique       // "CASH", "VA_BCA", "QRIS", "OVO"
-  name String               // "Tunai", "BCA Virtual Account", "QRIS"
+  // Method identity
+  code String @unique // "VA_BCA", "QRIS", "OVO", "DANA"
+  name String        // "BCA Virtual Account", "QRIS", "OVO", "DANA"
 
-  // Provider
-  provider PaymentProvider  // CASH / DOKU
+  // Provider relation
+  providerId String
+  provider   PaymentProviderConfig @relation(fields: [providerId], references: [id])
 
-  // Mapping ke DOKU (kosongkan kalau provider = CASH)
-  dokuChannelCode String?   // "VIRTUAL_ACCOUNT_BCA", "QRIS", "EMONEY_OVO"
+  // Channel code from provider
+  dokuChannelCode String? // "VIRTUAL_ACCOUNT_BCA", "QRIS", "EMONEY_OVO"
 
-  // Biaya tambahan (opsional)
-  feeType  PaymentFeeType @default(NONE)
-  feeValue Decimal        @default(0)
+  // Method group for UI
+  groupCode String? // "VA", "EWALLET", "QRIS", "CASH"
+  groupName String? // "Virtual Account", "E-Wallet", "QRIS", "Cash"
+
+  // Fee configuration
+  feeType  String  @default("NONE")  // "NONE" | "PERCENTAGE" | "NOMINAL"
+  feeValue Decimal @default(0)
 
   // UI metadata
-  icon        String?       // emoji atau URL
-  description String?  @db.Text
-  // Display group untuk UI (optional, admin input manual)
-  displayGroup String?      // "VA", "E-Wallet", "QRIS" — hanya untuk UI
+  icon        String? // emoji atau URL
+  description String? @db.Text
 
   // Control
   isActive  Boolean @default(true)
   sortOrder Int     @default(0)
 
+  // Availability
+  availableForCustomer Boolean @default(true) // Show in customer app
+  availableForAdmin    Boolean @default(true) // Show in admin simulation
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([isActive])
-  @@index([provider])
+  @@index([providerId])
+  @@index([groupCode])
   @@index([sortOrder])
+}
+
+// ============================================================
+// PAYMENT WEBHOOK LOG - Webhook audit trail
+// ============================================================
+
+model PaymentWebhookLog {
+  id String @id @default(cuid())
+
+  // Provider
+  providerId String
+  provider   PaymentProviderConfig @relation(fields: [providerId], references: [id])
+
+  // Request info
+  requestId    String?  // X-EXTERNAL-ID
+  requestPath  String
+  requestMethod String @default("POST")
+  requestHeaders Json?
+  requestBody   Json?
+
+  // Response info
+  responseStatus Int?
+  responseBody   Json?
+
+  // Processing result
+  isProcessed  Boolean @default(false)
+  processedAt  DateTime?
+  processingError String? @db.Text
+
+  // Linked payment (if determinable)
+  paymentId String?
+  payment    Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([providerId])
+  @@index([requestId])
+  @@index([isProcessed])
+  @@index([paymentId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// CUSTOMER PAYMENT ACCOUNT - For e-wallet binding
+// ============================================================
+
+model CustomerPaymentAccount {
+  id String @id @default(cuid())
+
+  // User relation
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Provider & method
+  providerId   String
+  providerCode String // snapshot: "DOKU"
+  methodCode   String // "OVO", "DANA"
+
+  // Provider's account info
+  externalAccountId String? // ID dari provider (e.g., OVO custId)
+  accountMasked     String? // Account number masked: "OVO ****1234"
+
+  // Token info (for recurring payments)
+  accessToken    String? @db.Text
+  refreshToken   String? @db.Text
+  tokenExpiry    DateTime?
+
+  // Status
+  isActive      Boolean @default(true)
+  bindingStatus String  @default("PENDING") // PENDING, ACTIVE, SUSPENDED, UNBOUND
+
+  // Last used
+  lastUsedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, providerCode, methodCode])
+  @@index([userId])
+  @@index([externalAccountId])
+  @@index([bindingStatus])
 }
 
 model Payment {
@@ -839,23 +977,28 @@ model Payment {
   amount   Decimal
   currency String  @default("IDR")
 
-  provider   PaymentProvider
-  methodCode String           // "VA_BCA", "QRIS", "OVO", "CASH"
-  methodName String           // snapshot
-  methodGroup String?         // optional
-
+  // Provider relation
+  providerId   String
+  providerCode String            // snapshot: "DOKU"
+  methodCode   String            // "VA_BCA", "QRIS", "OVO", "CASH"
+  methodName   String            // snapshot
+  methodGroup  String?          // "VA", "EWALLET", "QRIS", "CASH"
+  dokuChannelCode String?       // DOKU channel: "VIRTUAL_ACCOUNT_BCA", "EMONEY_OVO"
   methodFeeAmount Decimal @default(0)
 
-  status PaymentStatus @default(PENDING)
+  // Status - stored as String
+  status String @default("PENDING") // "PENDING" | "PAID" | "FAILED" | "EXPIRED" | "REFUNDED"
 
+  // DOKU transaction info
   dokuInvoiceNumber String? @unique
   dokuTransactionId String?
   dokuPaymentUrl    String? @db.Text
-  dokuChannelCode   String?
 
+  // Payload logging
   requestPayload  Json?
   callbackPayload Json?
 
+  // Timestamps
   paidAt        DateTime?
   expiredAt     DateTime?
   failedAt      DateTime?
@@ -864,7 +1007,11 @@ model Payment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relations
+  webhookLogs PaymentWebhookLog[]
+
   @@index([status])
-  @@index([provider])
+  @@index([providerId])
+  @@index([providerCode])
   @@index([methodCode])
 }

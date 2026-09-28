@@ -2,51 +2,295 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project
+## Project Overview
 
-ASCEND webadmin — admin dashboard (Next.js 16 App Router, React 19, Turbopack, Tailwind v4, shadcn `base-nova`, `next-themes`) for a coffee business: inventory, recipes, production + HPP costing, finished-product batches, barista stock, orders, users. UI copy is Indonesian.
+ASCEND is a **three-application system** for a coffee business:
 
-## Commands
+| App | Platform | Purpose | User |
+|-----|----------|---------|------|
+| **WebAdmin** | Next.js Web | Dashboard admin | Admin |
+| **Barista App** | Flutter Mobile | Order, stok, delivery | Barista |
+| **Customer App** | Flutter Mobile | Pesan, lacak pesanan | Customer |
+
+### Teknologi Stack
+
+| Komponen | Teknologi |
+|----------|----------|
+| Frontend Web | Next.js 16, React 19, Tailwind v4, shadcn |
+| Frontend Mobile | Flutter |
+| Backend | Next.js API Routes |
+| Database | PostgreSQL ≥ 15, Prisma 7 |
+| Authentication | Firebase Auth |
+| Real-time | Firebase RTDB |
+| Payment | DOKU (QRIS, VA, e-Wallet) |
+| Storage | Cloudflare R2 |
+
+### API Base URL
+
+```
+Development: http://localhost:3000/api
+Production: https://api.ascend.com/api
+```
+
+---
+
+## WebAdmin Commands
 
 ```bash
-npm run dev      # dev server (Turbopack), http://localhost:3000
+npm run dev      # dev server, http://localhost:3000
 npm run build    # production build
 npm run start    # serve production build
 ```
 
-No lint or test scripts exist — there is no ESLint config and no test runner. `tsc --noEmit` (via `tsconfig.json`) is the closest static check.
-
 ```bash
-npx prisma db push          # sync schema to DB (also runs on postinstall)
-npx prisma generate         # regenerate client into prisma/generated
-npx tsx scripts/seed-admin.ts            # idempotent admin/customer/barista seed
-npx tsx scripts/seed-orders.ts
-npx tsx scripts/seed-payment-methods.ts
+npx prisma db push          # sync schema
+npx prisma generate         # regenerate client
+npx tsx scripts/seed-admin.ts
+npx tsx scripts/seed-payment-methods.ts  # CASH + QRIS
 ```
 
-Env: copy `.env.example` to `.env`. Requires `DATABASE_URL` (PostgreSQL ≥ 15), `AUTH_SECRET`/`NEXTAUTH_URL`, Firebase client (`NEXT_PUBLIC_FIREBASE_*`) + Firebase Admin vars, and R2 vars for uploads.
+---
 
 ## Architecture
 
-- **Path aliases**: `@/*` → `src/*`, `@/prisma/*` → `prisma/*`. Use absolute imports (see recent refactor commit).
-- **Prisma 7**: schema in `prisma/schema.prisma`; generated client lives in `prisma/generated/` — import from `@/prisma/generated/client` and `@/prisma/generated/enums`. DB access via `prisma` from `@/lib/db` (uses `@prisma/adapter-pg`, `server-only` pattern implied — never import `db.ts` into client components).
-- **API routes** (`src/app/api/`): wrap every handler in `handle` / `handleAuth` from `@/lib/api-response`, respond with `ok()` / `created()` / `fail()`. `handleAuth` defaults to ADMIN-only; pass `{ roles }` to widen. Errors: throw `ApiError` (`@/lib/api-error`) or let Zod errors bubble — `mapError` converts Zod → 422, P2002 → 409.
-- **Business logic** lives in `src/modules/<domain>/`: `<name>.service.ts` + `<name>.validator.ts` (Zod). Route handlers stay thin: validate → call service → `ok()`. Domains: `inventory-item`, `restock`, `inventory-batch`, `product`, `recipe`, `production`, `finished-products`, `cost-history`, `stock`, `barista-stock`, `order`, `user`, `setting`, `report`, `dashboard`.
-- **Auth**: Firebase Auth (email/password) on the client → ID token → NextAuth v4 Credentials provider verifies via `firebase-admin` (`@/lib/firebases/firebase-admin`) and loads the `User` row. WebAdmin is ADMIN-only, enforced in two places: `src/proxy.ts` (Next.js 16 proxy, replaces `middleware.ts`) redirects non-admin pages to `/login`; API routes enforce via `handleAuth`. Session user shape: `SessionUser` in `@/lib/auth`.
-- **Pages** (`src/app/(auth)`, `src/app/(dashboard)`): route groups; dashboard layout has sidebar (`components/app-sidebar.tsx`, `nav-*.tsx`, `team-switcher.tsx`). Feature components colocated per domain under `src/components/<domain>/`; shared UI in `src/components/ui/` (shadcn).
-- **Uploads**: Cloudflare R2 via `@/lib/r2` (S3-compatible, `sharp` for image processing). Firebase RTDB helpers exist in `@/lib/firebases/` for realtime/tracking features.
+### Path Aliases
 
-## Domain flow (source of truth: `docs/`)
+- `@/*` → `src/*`
+- `@/prisma/*` → `prisma/*`
 
-```
-InventoryItem → Restock → InventoryBatch (qty + unit cost)
-Product (master, NOT an inventory source) + Recipe → Production
-  → consumes InventoryBatch via ProductionComponent
-  → writes FinishedProductBatch (sellable stock) + ProductCostHistory (HPP)
+### API Routes Pattern
+
+```typescript
+import { handle, handleAuth, ok, created } from '@/lib/api-response';
+import { ApiError } from '@/lib/api-error';
+
+export const GET = handle(async () => ok(data));
+export const POST = handleAuth(async () => created(data), { roles: ['ADMIN'] });
 ```
 
-Product stays one master row with many finished-product batches; never model a Product as an `InventoryBatch`. HPP must stay traceable item → batch → recipe → production → component.
+### Business Logic
 
-## AGENTS.md
+Business logic lives in `src/modules/<domain>/`:
+- `<name>.service.ts` — core business logic
+- `<name>.validator.ts` — Zod schemas
 
-`@AGENTS.md` — graphify usage (`graphify query/path/explain`, `graphify update .` after edits). Follow it for codebase questions when `graphify-out/` exists.
+Route handlers stay thin: validate → call service → respond.
+
+Domains: `order`, `product`, `recipe`, `production`, `barista-stock`, `user`, `setting`, `payment`, etc.
+
+---
+
+## Data Flow
+
+```
+InventoryItem → Restock → InventoryBatch (FIFO)
+Product + Recipe → Production → FinishedProductBatch
+FinishedProductBatch → BaristaStock (restock) → Order → Customer
+```
+
+**Rules:**
+- Product ≠ InventoryItem (product jadi vs bahan baku)
+- HPP traceable: item → batch → recipe → production → component
+- FIFO consumption untuk InventoryBatch
+- BaristaStock.quantity >= 0
+
+---
+
+## Order Lifecycle
+
+```
+PENDING → SEARCHING → ASSIGNED → ACCEPTED → DELIVERING → ARRIVED → COMPLETED
+   ↓           ↓
+CANCELLED    CANCELLED
+```
+
+| Status | Description | Who |
+|--------|-------------|-----|
+| PENDING | Order dibuat, menunggu pembayaran | System |
+| SEARCHING | Mencari barista | System |
+| ASSIGNED | Barista ditugaskan | System |
+| ACCEPTED | Barista accept | Barista |
+| DELIVERING | Dalam perjalanan | Barista |
+| ARRIVED | Sampai | Barista |
+| COMPLETED | Selesai | Barista/Customer/Admin |
+| CANCELLED | Dibatalkan | Customer/Admin |
+
+---
+
+## Payment System - All Methods
+
+### Supported Methods
+
+| Code | Provider | Channel | Type | Flow |
+|------|----------|---------|------|------|
+| CASH | Internal | COD | Offline | Bayar di tempat |
+| QRIS | DOKU | PREPAID | Online | Scan QR via DOKU |
+| VA_BCA, VA_MANDIRI, dll | DOKU | PREPAID | Online | Virtual Account |
+| EWALLET_OVO, EWALLET_DANA, EWALLET_SHOPEEPAY | DOKU | PREPAID | Online | e-Wallet |
+
+### Payment APIs
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/payment/cash` | Process CASH (COD) payment |
+| `POST /api/payment/checkout` | Create DOKU Checkout session |
+| `POST /api/payment/notification` | DOKU webhook callback |
+| `GET /api/payment?orderId=` | Query payment status |
+
+### CASH Flow (COD)
+
+```
+1. Pilih produk → pilih CASH → input jumlah bayar
+2. Sistem hitung kembalian
+3. Klik Bayar → POST /api/payment/cash
+4. Order SEARCHING + PAID → Stok dikurangi → Broadcast ke baristas
+```
+
+### DOKU Flow (QRIS/VA/e-Wallet)
+
+```
+1. Pilih produk → pilih metode (QRIS/VA/e-Wallet)
+2. Klik Bayar → POST /api/orders + POST /api/payment/checkout
+3. Redirect ke DOKU Checkout page
+4. Customer bayar via DOKU
+5. DOKU webhook → POST /api/payment/notification
+6. Order SEARCHING + PAID → Stok dikurangi → Broadcast ke baristas
+```
+
+### DOKU Signature Format
+
+```typescript
+// Signature header format: HMACSHA256=<base64>
+// StringToSign:
+Client-Id:{clientId}
+Request-Id:{requestId}
+Request-Timestamp:{timestamp}
+Request-Target:{endpoint}
+Digest:{bodyHash}
+```
+
+### Timestamp Format
+
+DOKU requires: `YYYY-MM-DDTHH:mm:ssZ` (UTC, no milliseconds)
+
+---
+
+## Order Simulation
+
+Menu `/orders/simulation` - Testing page for order and payment flow.
+
+### Flow
+
+```
+1. Pilih barista → produk → cart
+2. Masukkan nama & no. HP customer
+3. Pilih metode pembayaran (CASH / QRIS / VA / e-Wallet)
+4. Klik "Pilih Pembayaran"
+
+For CASH:
+  → Input jumlah bayar
+  → Klik Bayar → Order langsung selesai
+  → Stok dikurangi, broadcast ke baristas
+
+For DOKU:
+  → Redirect ke DOKU Checkout page
+  → Pilih metode: QRIS / VA / e-Wallet
+  → Bayar via DOKU
+  → DOKU webhook → Stok dikurangi
+  → Redirect back → Result
+```
+
+### Stock Reduction
+
+After successful payment:
+- BaristaStock dikurangi sesuai jumlah order
+- BaristaStockMovement recorded (type: SOLD)
+- Order broadcasted ke baristas via Firebase RTDB
+
+
+---
+
+## Prisma Schema
+
+### Enums
+
+```prisma
+PaymentStatus: PENDING, PAID, FAILED, EXPIRED, REFUNDED
+PaymentProvider: CASH, DOKU
+OrderStatus: PENDING, SEARCHING, ASSIGNED, ACCEPTED, DELIVERING, ARRIVED, COMPLETED, CANCELLED, FAILED
+BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
+```
+
+### Key Models
+
+| Model | Description |
+|-------|-------------|
+| User | ADMIN, CUSTOMER, BARISTA |
+| Product | Master produk jadi |
+| BaristaStock | Stok produk di gerobak |
+| Order | Order dengan payment info |
+| Payment | Record pembayaran |
+| PaymentMethodConfig | Konfigurasi payment (CASH, QRIS) |
+
+---
+
+## API Response Format
+
+```json
+{ "success": true, "data": { ... } }
+```
+
+```json
+{ "success": false, "error": { "code": "ERROR", "message": "..." } }
+```
+
+### HTTP Status Codes
+
+| Code | Meaning |
+|------|---------|
+| 200 | Success |
+| 201 | Created |
+| 400 | Bad Request |
+| 401 | Unauthorized |
+| 404 | Not Found |
+| 409 | Conflict |
+| 422 | Validation Error |
+| 500 | Internal Server Error |
+
+---
+
+## Important Files
+
+| File | Purpose |
+|------|---------|
+| `src/proxy.ts` | Page protection |
+| `src/lib/auth.ts` | NextAuth config |
+| `src/lib/api-response.ts` | Response helpers |
+| `src/lib/db.ts` | Prisma client |
+| `src/modules/payment/doku.service.ts` | DOKU Checkout service |
+| `src/app/api/payment/cash/route.ts` | CASH (COD) payment endpoint |
+| `src/app/api/payment/checkout/route.ts` | DOKU Checkout endpoint |
+| `src/app/api/payment/notification/route.ts` | DOKU webhook |
+| `prisma/schema.prisma` | Database schema |
+
+---
+
+## Documentation
+
+| File | Description |
+|------|-------------|
+| `docs/API.md` | Complete API documentation |
+| `docs/PAYMENT.md` | Payment system (CASH + DOKU) |
+| `docs/DOKU.md` | DOKU Payment integration |
+| `docs/BARISTA.md` | Barista workflow |
+| `docs/BARISTA-STOCK.md` | Barista stock management |
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

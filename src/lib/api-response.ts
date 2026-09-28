@@ -5,6 +5,9 @@ import { ApiError } from "./api-error";
 import { authOptions, type SessionUser } from "./auth";
 import type { UserRole } from "@/prisma/generated/enums";
 
+// Check if Firebase auth is disabled for development
+const AUTH_ENABLED = process.env.AUTH_FIREBASE !== "false";
+
 export type ApiSuccess<T> = { success: true; data: T };
 export type ApiFailure = {
   success: false;
@@ -89,6 +92,29 @@ export function handleAuth(
 ) {
   return async (req: Request, ctx: RouteCtx): Promise<Response> => {
     try {
+      // Skip auth if AUTH_FIREBASE=false
+      if (!AUTH_ENABLED) {
+        // Return mock admin user for development
+        const mockUser: SessionUser = {
+          id: "dev-admin-id",
+          firebaseUid: "dev-firebase-uid",
+          email: "admin@dev.local",
+          role: "ADMIN",
+          status: "ACTIVE",
+          name: "Dev Admin",
+          phone: null,
+          address: null,
+          avatarUrl: null,
+          idNumber: null,
+          birthDate: null,
+          joinDate: null,
+          addressKtp: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        return await fn(req, { ...ctx, user: mockUser });
+      }
+
       const session = await getServerSession(authOptions);
 
       if (!session?.user) {

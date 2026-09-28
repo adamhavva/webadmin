@@ -8,18 +8,21 @@ import { handleAuth, ok, created } from "@/lib/api-response";
 import { ApiError } from "@/lib/api-error";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
-import type { PaymentProvider, PaymentFeeType } from "@/prisma/generated/enums";
+import type { PaymentFeeType } from "@/prisma/generated/enums";
 
 const createSchema = z.object({
   code: z.string().min(1, "Code wajib diisi").max(50),
   name: z.string().min(1, "Nama wajib diisi").max(100),
-  provider: z.enum(["CASH", "DOKU"]),
+  providerCode: z.string().min(1, "Provider code wajib diisi"), // e.g., "DOKU"
   dokuChannelCode: z.string().nullable().optional(),
+  groupCode: z.string().nullable().optional(),
+  groupName: z.string().nullable().optional(),
   feeType: z.enum(["NONE", "PERCENTAGE", "NOMINAL"]),
   feeValue: z.number().min(0),
   icon: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  displayGroup: z.string().nullable().optional(),
+  availableForCustomer: z.boolean().default(true),
+  availableForAdmin: z.boolean().default(true),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().min(0).default(0),
 });
@@ -27,11 +30,14 @@ const createSchema = z.object({
 const updateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   dokuChannelCode: z.string().nullable().optional(),
+  groupCode: z.string().nullable().optional(),
+  groupName: z.string().nullable().optional(),
   feeType: z.enum(["NONE", "PERCENTAGE", "NOMINAL"]).optional(),
   feeValue: z.number().min(0).optional(),
   icon: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  displayGroup: z.string().nullable().optional(),
+  availableForCustomer: z.boolean().optional(),
+  availableForAdmin: z.boolean().optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().min(0).optional(),
 });
@@ -40,14 +46,17 @@ export const GET = handleAuth(
   async (req) => {
     const url = new URL(req.url);
     const isActive = url.searchParams.get("isActive") === "true";
-    const provider = url.searchParams.get("provider");
+    const providerCode = url.searchParams.get("provider");
 
     const where: Record<string, unknown> = {};
     if (isActive) where.isActive = true;
-    if (provider) where.provider = provider;
+    if (providerCode) {
+      where.provider = { code: providerCode };
+    }
 
     const items = await prisma.paymentMethodConfig.findMany({
       where,
+      include: { provider: true },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     });
 
@@ -72,17 +81,31 @@ export const POST = handleAuth(
       );
     }
 
+    // Get provider
+    const provider = await prisma.paymentProviderConfig.findUnique({
+      where: { code: input.providerCode },
+    });
+
+    if (!provider) {
+      throw ApiError.notFound(
+        `Payment provider "${input.providerCode}" tidak ditemukan`
+      );
+    }
+
     const item = await prisma.paymentMethodConfig.create({
       data: {
         code: input.code,
         name: input.name,
-        provider: input.provider as PaymentProvider,
+        providerId: provider.id,
         dokuChannelCode: input.dokuChannelCode,
-        feeType: input.feeType as PaymentFeeType,
+        groupCode: input.groupCode,
+        groupName: input.groupName,
+        feeType: input.feeType,
         feeValue: input.feeValue,
         icon: input.icon,
         description: input.description,
-        displayGroup: input.displayGroup,
+        availableForCustomer: input.availableForCustomer,
+        availableForAdmin: input.availableForAdmin,
         isActive: input.isActive,
         sortOrder: input.sortOrder,
       },

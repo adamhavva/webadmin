@@ -25,6 +25,9 @@ const orderItemInputSchema = z.object({
 export const createOrderSchema = z.object({
   channel: z.enum(["ONLINE", "OFFLINE"]).default("ONLINE"),
 
+  // Barista assignment (untuk OFFLINE/POS simulation)
+  baristaId: z.string().optional(),
+
   // Customer (nullable — diisi otomatis kalau role CUSTOMER)
   customerId: z.string().optional(),
 
@@ -37,8 +40,9 @@ export const createOrderSchema = z.object({
   customerPhone: z
     .string()
     .trim()
-    .min(1, "No HP wajib diisi")
-    .max(30, "No HP maksimal 30 karakter"),
+    .max(30, "No HP maksimal 30 karakter")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
 
   // Alamat (wajib untuk ONLINE)
   deliveryAddress: z

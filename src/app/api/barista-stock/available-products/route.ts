@@ -9,5 +9,6 @@ import { getAvailableProducts } from "@/modules/barista-stock/barista-stock.serv
 
 export const GET = handleAuth(async () => {
   const result = await getAvailableProducts();
-  return ok(result);
+  // Transform items to products format for simulation page
+  return ok({ items: result.items });
 });
