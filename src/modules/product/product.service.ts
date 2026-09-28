@@ -61,7 +61,7 @@ export async function listProducts(query: ListProductQuery) {
     prisma.product.count({ where }),
   ]);
 
-  // HPP terakhir per product
+  // HPP terakhir per product (dari history produksi)
   const productIds = items.map((p) => p.id);
   const latestHppMap = new Map<string, number>();
 
@@ -74,6 +74,59 @@ export async function listProducts(query: ListProductQuery) {
     });
     for (const h of histories) {
       latestHppMap.set(h.productId, Number(h.hpp));
+    }
+  }
+
+  // Untuk produk tanpa history, kalkulasi estimated HPP dari active recipe
+  const { computeFifoForRequests } = await import(
+    "@/modules/inventory-batch/inventory-batch.fifo"
+  );
+
+  const productsNeedingEstimation = items.filter(
+    (p) => !latestHppMap.has(p.id) && p.recipes[0]
+  );
+
+  if (productsNeedingEstimation.length > 0) {
+    // Ambil recipe items untuk produk yang perlu estimasi
+    const recipeItems = await prisma.productRecipe.findMany({
+      where: {
+        productId: { in: productsNeedingEstimation.map((p) => p.id) },
+        isActive: true,
+      },
+      select: {
+        productId: true,
+        items: {
+          select: {
+            inventoryItemId: true,
+            quantity: true,
+          },
+        },
+      },
+    });
+
+    for (const recipe of recipeItems) {
+      if (recipe.items.length === 0) continue;
+
+      const fifoRequests = recipe.items.map((item) => ({
+        inventoryItemId: item.inventoryItemId,
+        quantity: Number(item.quantity),
+      }));
+
+      const fifoMap = await computeFifoForRequests(fifoRequests);
+
+      let totalCost = 0;
+      let hasAnyStock = false;
+
+      fifoMap.forEach((result) => {
+        if (result.totalQuantity > 0) {
+          totalCost += result.totalCost;
+          hasAnyStock = true;
+        }
+      });
+
+      if (hasAnyStock) {
+        latestHppMap.set(recipe.productId, totalCost);
+      }
     }
   }
 
