@@ -77,6 +77,7 @@ type CostHistory = {
   id: string;
   hpp: string;
   createdAt: string;
+  isEstimated?: boolean;
 };
 
 type Metadata = {
@@ -463,7 +464,14 @@ export function ProductDetailView({ productId }: { productId: string }) {
             </CardHeader>
             <CardContent>
               {hpp !== null ? (
-                <div className="text-2xl font-bold">{formatRupiah(hpp)}</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-bold">{formatRupiah(hpp)}</div>
+                  {latestHpp?.isEstimated && (
+                    <Badge variant="outline" className="text-[10px]">
+                      Estimasi
+                    </Badge>
+                  )}
+                </div>
               ) : (
                 <div className="text-sm text-muted-foreground">
                   Belum ada resep/produksi
@@ -491,6 +499,7 @@ export function ProductDetailView({ productId }: { productId: string }) {
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {margin >= 0 ? "Profit" : "Rugi"}
+                    {latestHpp?.isEstimated && " (estimasi)"}
                   </p>
                 </>
               ) : (

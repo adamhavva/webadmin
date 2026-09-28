@@ -120,6 +120,61 @@ export async function listProducts(query: ListProductQuery) {
 // Detail
 // ============================================================
 
+type RecipeItemSelect = {
+  inventoryItemId: string;
+  quantity: Prisma.Decimal | number;
+};
+
+/**
+ * Hitung HPP estimasi dari resep aktif (tanpa produksi).
+ * Gunakan FIFO untuk dapat biaya terbaru per bahan.
+ * Return null kalau tidak bisa dihitung (tidak ada resep atau bahan tidak punya stok).
+ */
+async function calculateEstimatedHpp(
+  productId: string
+): Promise<number | null> {
+  const recipe = await prisma.productRecipe.findFirst({
+    where: { productId, isActive: true },
+    select: {
+      items: {
+        select: {
+          inventoryItemId: true,
+          quantity: true,
+        },
+      },
+    },
+  });
+
+  if (!recipe || recipe.items.length === 0) return null;
+
+  // Build FIFO requests untuk 1 unit output
+  const requests = recipe.items.map((item: RecipeItemSelect) => ({
+    inventoryItemId: item.inventoryItemId,
+    quantity: Number(item.quantity), // 1x resep (per 1 unit output)
+  }));
+
+  const { computeFifoForRequests } = await import(
+    "@/modules/inventory-batch/inventory-batch.fifo"
+  );
+
+  const fifoMap = await computeFifoForRequests(requests);
+
+  let totalCost = 0;
+  let hasAnyStock = false;
+
+  fifoMap.forEach((result) => {
+    if (result.totalQuantity > 0) {
+      totalCost += result.totalCost;
+      hasAnyStock = true;
+    }
+  });
+
+  // Return null kalau tidak ada bahan yang punya stok
+  if (!hasAnyStock) return null;
+
+  return totalCost;
+}
+
 export async function getProductById(id: string) {
   const product = await prisma.product.findUnique({
     where: { id },
@@ -199,9 +254,28 @@ export async function getProductById(id: string) {
     _sum: { remainingQuantity: true },
   });
 
+  // Hitung estimated HPP kalau costHistories kosong
+  let estimatedHpp: number | null = null;
+  if (product.costHistories.length === 0) {
+    estimatedHpp = await calculateEstimatedHpp(id);
+  }
+
   return {
     ...product,
     totalStock: Number(stockAgg._sum.remainingQuantity ?? 0),
+    ...(estimatedHpp !== null && {
+      // Inject estimated HPP sebagai entry pertama di costHistories
+      // supaya UI tidak perlu berubah
+      costHistories: [
+        {
+          id: "estimated",
+          hpp: estimatedHpp,
+          createdAt: new Date().toISOString(),
+          isEstimated: true,
+        },
+        ...product.costHistories,
+      ],
+    }),
   };
 }
 
