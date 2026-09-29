@@ -171,8 +171,9 @@ async function dokuRequest<T>(
 ): Promise<T> {
   const config = getDOKUConfig();
   // Timestamp format: YYYY-MM-DDTHH:mm:ssZ (UTC, no milliseconds)
+  // Using UTC time explicitly to avoid server timezone issues
   const now = new Date();
-  const timestamp = now.toISOString().slice(0, 19) + 'Z';
+  const timestamp = now.toISOString().slice(0, 19).replace('T', 'T') + 'Z';
   const bodyString = JSON.stringify(body);
   const requestId = generateUUID();
 
@@ -190,6 +191,7 @@ async function dokuRequest<T>(
   console.log('[DOKU] Request body:', bodyString);
   console.log('[DOKU] Request-Id:', requestId);
   console.log('[DOKU] Timestamp:', timestamp);
+  console.log('[DOKU] Server UTC now:', new Date().toISOString());
   console.log('[DOKU] Client-Id:', config.clientId);
   console.log('[DOKU] Has Secret:', !!config.clientSecret);
 

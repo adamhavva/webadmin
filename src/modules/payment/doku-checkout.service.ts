@@ -109,7 +109,7 @@ export async function createDOKUCheckout(
   request: DOKUCheckoutRequest
 ): Promise<DOKUCheckoutResult> {
   const config = getDOKUConfig();
-  const timestamp = new Date().toISOString().replace(/\.\d{3}/, '').replace('Z', '+07:00');
+  const timestamp = new Date().toISOString().slice(0, 19) + 'Z';
   const requestId = generateUUID();
 
   try {
@@ -218,7 +218,7 @@ export async function createDOKUCheckout(
 
 export async function checkDOKUPaymentStatus(invoiceNumber: string) {
   const config = getDOKUConfig();
-  const timestamp = new Date().toISOString().replace(/\.\d{3}/, '').replace('Z', '+07:00');
+  const timestamp = new Date().toISOString().slice(0, 19) + 'Z';
   const requestId = generateUUID();
 
   try {
