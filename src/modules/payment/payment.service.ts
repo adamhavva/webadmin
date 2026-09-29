@@ -102,7 +102,9 @@ function convertToPayment(p: {
 
 export interface CreatePaymentInput {
   orderId: string;
-  methodCode: string;
+  // methodCode: Optional - if provided, DOKU shows only that method; otherwise shows all
+  // When methodCode is not provided, the payment method will be saved from DOKU webhook
+  methodCode?: string;
   paymentMethod?: string; // DOKU channel code
   customerName: string;
   customerEmail?: string;
@@ -128,17 +130,22 @@ export async function createPayment(input: CreatePaymentInput): Promise<Payment>
     throw new Error(`Payment record not found for order: ${input.orderId}. Please create the order first.`);
   }
 
-  // Update payment method info if changed
-  const methodConfig = await prisma.paymentMethodConfig.findUnique({
-    where: { code: input.methodCode },
-    include: { provider: true },
-  });
+  // Update payment method info if methodCode is provided
+  // If methodCode is not provided, DOKU will show all payment methods
+  // and the actual method will be saved when DOKU sends webhook
+  let methodConfig = null;
+  if (input.methodCode) {
+    methodConfig = await prisma.paymentMethodConfig.findUnique({
+      where: { code: input.methodCode },
+      include: { provider: true },
+    });
 
-  if (!methodConfig) {
-    throw new Error(`Payment method not found: ${input.methodCode}`);
+    if (!methodConfig) {
+      throw new Error(`Payment method not found: ${input.methodCode}`);
+    }
   }
 
-  // Update payment with DOKU channel code
+  // Update payment with DOKU channel code (optional)
   const paymentUpdateData: Prisma.PaymentUpdateInput = {
     dokuChannelCode: input.paymentMethod || null,
   };
@@ -148,16 +155,21 @@ export async function createPayment(input: CreatePaymentInput): Promise<Payment>
     data: paymentUpdateData,
   });
 
-  // Update order with payment method snapshot
+  // Update order with payment method snapshot (if methodCode provided)
+  const orderUpdateData: Prisma.OrderUpdateInput = {
+    dokuPaymentMethod: input.paymentMethod,
+  };
+
+  if (methodConfig) {
+    orderUpdateData.paymentMethodCode = input.methodCode;
+    orderUpdateData.paymentMethodName = methodConfig.name;
+    orderUpdateData.paymentMethodGroup = methodConfig.groupName ?? methodConfig.groupCode;
+    orderUpdateData.paymentFeeAmount = existingPayment.methodFeeAmount;
+  }
+
   await prisma.order.update({
     where: { id: input.orderId },
-    data: {
-      paymentMethodCode: input.methodCode,
-      paymentMethodName: methodConfig.name,
-      paymentMethodGroup: methodConfig.groupName ?? methodConfig.groupCode,
-      paymentFeeAmount: existingPayment.methodFeeAmount,
-      dokuPaymentMethod: input.paymentMethod,
-    },
+    data: orderUpdateData,
   });
 
   console.log('[PAYMENT SERVICE] Payment found:', existingPayment.id);
