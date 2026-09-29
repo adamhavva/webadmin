@@ -19,6 +19,11 @@ const nextConfig: NextConfig = {
         hostname: '*.supabase.co',
         pathname: '/**',
       },
+      {
+        protocol: "https",
+        hostname: "https://pub-38396b04723744d4a3f61813ba1c3a11.r2.dev",
+        pathname: "/**"
+      }
     ],
   },
 };

@@ -356,7 +356,7 @@ export const POST = handle(async (req: Request) => {
       responseStatus: 200,
       responseBody: { responseCode: '2007400', responseMessage: 'Already processed' },
       isProcessed: true,
-      paymentId,
+      paymentId: payment.id,
     });
 
     return Response.json({ responseCode: '2007400', responseMessage: 'OK' });
@@ -381,7 +381,7 @@ export const POST = handle(async (req: Request) => {
       responseStatus: 200,
       responseBody: { responseCode: '2007400', responseMessage: 'Order already processed' },
       isProcessed: true,
-      paymentId,
+      paymentId: payment.id,
     });
 
     return Response.json({ responseCode: '2007400', responseMessage: 'OK' });
@@ -412,7 +412,7 @@ export const POST = handle(async (req: Request) => {
       responseStatus: 200,
       responseBody: { responseCode: '2007400', responseMessage: 'OK' },
       isProcessed: true,
-      paymentId,
+      paymentId: payment.id,  // Use internal UUID, not DOKU invoice number
     });
 
     return Response.json({ responseCode: '2007400', responseMessage: 'OK' });
@@ -430,7 +430,7 @@ export const POST = handle(async (req: Request) => {
       responseBody: { error: errorMessage },
       isProcessed: false,
       processingError: errorMessage,
-      paymentId,
+      paymentId: payment.id,  // Use internal UUID, not DOKU invoice number
     });
 
     return Response.json(
