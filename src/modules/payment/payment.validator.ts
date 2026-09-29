@@ -11,6 +11,8 @@ import { z } from 'zod';
 export const createPaymentSchema = z.object({
   orderId: z.string().min(1, 'Order ID is required'),
   methodCode: z.string().min(1, 'Method code is required'),
+  // paymentMethod: DOKU channel code (e.g., "ONLINE", "CREDIT_CARD", "VIRTUAL_ACCOUNT_BCA")
+  paymentMethod: z.string().optional(),
   customerName: z.string().min(1, 'Customer name is required').max(255),
   customerEmail: z.string().email().optional().or(z.literal('')),
   customerPhone: z

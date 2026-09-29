@@ -296,6 +296,18 @@ export const POST = handle(async (req: Request) => {
     return Response.json({ responseCode: '2007400', responseMessage: 'OK' });
   }
 
+  // Extract payment method from DOKU notification
+  // DOKU sends this in additionalInfo.paymentScheme or similar
+  const additionalInfo = body?.additionalInfo as Record<string, unknown> | undefined;
+  const dokuPaymentMethod = (additionalInfo?.paymentScheme as string | undefined)
+    || (additionalInfo?.channel as string | undefined)
+    || (additionalInfo?.paymentMethod as string | undefined)
+    || undefined;
+
+  if (dokuPaymentMethod) {
+    console.log('[DOKU NOTIFICATION] Payment method used:', dokuPaymentMethod);
+  }
+
   // Process the payment update
   try {
     const transactionId = notification.originalReferenceNo;
@@ -304,7 +316,8 @@ export const POST = handle(async (req: Request) => {
       paymentId,
       paymentStatus,
       transactionId,
-      body as Record<string, unknown>
+      body as Record<string, unknown>,
+      dokuPaymentMethod
     );
 
     await logWebhook({

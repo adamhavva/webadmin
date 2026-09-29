@@ -1,7 +1,7 @@
 import { handle, created, ok } from '@/lib/api-response';
 import { prisma } from '@/lib/db';
 import { createPayment, updatePaymentFromDOKUResponse } from '@/modules/payment/payment.service';
-import { createDOKUCheckout } from '@/modules/payment/doku.service';
+import { createDOKUCheckout } from '@/modules/payment/doku-checkout.service';
 import { createPaymentSchema } from '@/modules/payment/payment.validator';
 import { ApiError } from '@/lib/api-error';
 
@@ -39,12 +39,14 @@ export const POST = handle(async (req: Request) => {
   const payment = await createPayment(input);
 
   // Call DOKU Checkout API
+  // DON'T pass paymentMethod - let DOKU show ALL payment methods in their popup
   const dokuResult = await createDOKUCheckout({
     orderId: input.orderId,
     amount: Number(order.total),
-    customerName: input.customerName,
+    customerName: input.customerName || order.customerName || 'Customer',
     customerEmail: input.customerEmail,
     customerPhone: input.customerPhone,
+    // paymentMethod removed - DOKU popup handles payment method selection
     expiryMinutes: input.expiryMinutes || 60,
   });
 

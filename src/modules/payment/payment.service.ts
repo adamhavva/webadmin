@@ -103,6 +103,7 @@ function convertToPayment(p: {
 export interface CreatePaymentInput {
   orderId: string;
   methodCode: string;
+  paymentMethod?: string; // DOKU channel code
   customerName: string;
   customerEmail?: string;
   customerPhone?: string;
@@ -137,6 +138,16 @@ export async function createPayment(input: CreatePaymentInput): Promise<Payment>
     throw new Error(`Payment method not found: ${input.methodCode}`);
   }
 
+  // Update payment with DOKU channel code
+  const paymentUpdateData: Prisma.PaymentUpdateInput = {
+    dokuChannelCode: input.paymentMethod || null,
+  };
+
+  await prisma.payment.update({
+    where: { id: existingPayment.id },
+    data: paymentUpdateData,
+  });
+
   // Update order with payment method snapshot
   await prisma.order.update({
     where: { id: input.orderId },
@@ -145,6 +156,7 @@ export async function createPayment(input: CreatePaymentInput): Promise<Payment>
       paymentMethodName: methodConfig.name,
       paymentMethodGroup: methodConfig.groupName ?? methodConfig.groupCode,
       paymentFeeAmount: existingPayment.methodFeeAmount,
+      dokuPaymentMethod: input.paymentMethod,
     },
   });
 
@@ -216,9 +228,10 @@ export async function updatePaymentFromWebhook(
   paymentId: string,
   status: PaymentStatus,
   transactionId?: string,
-  callbackPayload?: Record<string, unknown>
+  callbackPayload?: Record<string, unknown>,
+  dokuPaymentMethod?: string
 ): Promise<Payment> {
-  console.log('[PAYMENT SERVICE] Updating payment from webhook:', { paymentId, status, transactionId });
+  console.log('[PAYMENT SERVICE] Updating payment from webhook:', { paymentId, status, transactionId, dokuPaymentMethod });
 
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
@@ -246,6 +259,11 @@ export async function updatePaymentFromWebhook(
 
   if (transactionId) {
     updateData.dokuTransactionId = transactionId;
+  }
+
+  // Save the payment channel used (extracted from DOKU webhook, e.g. "VIRTUAL_ACCOUNT_BCA")
+  if (dokuPaymentMethod) {
+    updateData.dokuChannelCode = dokuPaymentMethod;
   }
 
   switch (status) {

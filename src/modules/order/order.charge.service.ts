@@ -80,19 +80,22 @@ export async function computeCharges(
 export async function computePaymentFee(
   methodCode: string | undefined,
   subtotal: number
-): Promise<ComputedPaymentFee> {
-  // Default ke QRIS jika tidak ada methodCode
+): Promise<ComputedPaymentFee | null> {
+  // Default to QRIS if no method specified
   const code = methodCode || 'QRIS';
 
+  // Payment method config is optional - DOKU SNAP handles all payment methods
+  // If method not found, return null (no fee)
   const method = await prisma.paymentMethodConfig.findUnique({
     where: { code: code },
     include: { provider: true },
   });
 
   if (!method) {
-    throw new Error(
-      `Metode pembayaran "${code}" tidak ditemukan`
-    );
+    // Payment method not in database - this is expected for DOKU SNAP
+    // Return null to indicate no fee configuration
+    console.log(`[computePaymentFee] Method "${code}" not found in config - using DOKU SNAP`);
+    return null;
   }
 
   if (!method.isActive) {

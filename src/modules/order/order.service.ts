@@ -18,7 +18,6 @@ import {
 } from "./order.assignment.service";
 import {
   computeCharges,
-  computePaymentFee,
   generateOrderNumber,
 } from "./order.charge.service";
 
@@ -88,6 +87,7 @@ async function validateAndComputeItems(
 
 // ============================================================
 // Preview — hitung harga tanpa buat order
+// Payment method fee di-handle oleh DOKU Checkout (dynamic)
 // ============================================================
 
 export async function previewOrder(input: PreviewOrderInput) {
@@ -96,27 +96,20 @@ export async function previewOrder(input: PreviewOrderInput) {
   );
 
   const { charges, chargesTotal } = await computeCharges(subtotal);
-  const payment = await computePaymentFee(
-    input.paymentMethodCode,
-    subtotal
-  );
 
+  // Payment fee = 0, DOKU Checkout handles payment method selection
   const deliveryFee = 0;
-  const total =
-    subtotal + chargesTotal + payment.feeAmount + deliveryFee;
+  const paymentFeeAmount = 0;
+  const total = subtotal + chargesTotal + paymentFeeAmount + deliveryFee;
 
   return {
     items: computedItems,
     subtotal,
     charges,
     chargesTotal,
-    paymentMethod: payment.method,
-    paymentFeeAmount: payment.feeAmount,
+    paymentFeeAmount,
     deliveryFee,
     total,
-    paymentProvider: payment.method.providerId,
-    paymentChannel:
-      payment.method.providerCode === "CASH" ? "COD" : "PREPAID",
   };
 }
 
@@ -147,27 +140,14 @@ export async function createOrder(input: CreateOrderInput) {
   // Charge dari Setting
   const { charges, chargesTotal } = await computeCharges(subtotal);
 
-  // Payment method fee
-  const paymentInfo = await computePaymentFee(
-    input.paymentMethodCode,
-    subtotal
-  );
-
-  const isCOD = paymentInfo.method.providerCode === "CASH";
+  // Payment fee = 0, DOKU Checkout handles payment method selection
   const deliveryFee = 0;
-  const total =
-    subtotal + chargesTotal + paymentInfo.feeAmount + deliveryFee;
+  const total = subtotal + chargesTotal + deliveryFee;
 
   const orderNumber = await generateOrderNumber();
 
-  const paymentChannel = isCOD ? "COD" : "PREPAID";
-
-  // Initial status
-  const initialStatus = isOffline
-    ? "COMPLETED"
-    : isCOD
-      ? "SEARCHING"
-      : "PENDING";
+  // Initial status - semua online order PENDING (menunggu pembayaran DOKU)
+  const initialStatus = isOffline ? "COMPLETED" : "PENDING";
 
   // Transaction
   const result = await prisma.$transaction(
@@ -191,15 +171,15 @@ export async function createOrder(input: CreateOrderInput) {
           deliveryFee,
           total,
 
-          // Payment
+          // Payment - semua via DOKU Checkout
           paymentStatus: isOffline ? "PAID" : "PENDING",
-          paymentProvider: paymentInfo.method.providerCode as "DOKU" | "INTERNAL",
-          paymentChannel,
-          paymentMethodCode: paymentInfo.method.code,
-          paymentMethodName: paymentInfo.method.name,
-          paymentMethodGroup: paymentInfo.method.groupName,
-          paymentFeeAmount: paymentInfo.feeAmount,
-          dokuPaymentMethod: paymentInfo.method.dokuChannelCode,
+          paymentProvider: "DOKU" as "DOKU" | "INTERNAL",
+          paymentChannel: "PREPAID",
+          paymentMethodCode: "DOKU_SNAP",
+          paymentMethodName: "DOKU SNAP",
+          paymentMethodGroup: "DOKU",
+          paymentFeeAmount: 0,
+          dokuPaymentMethod: null,
 
           // Offline → langsung selesai + paid
           ...(isOffline
@@ -246,27 +226,22 @@ export async function createOrder(input: CreateOrderInput) {
           orderId: order.id,
           status: initialStatus,
           note: isOffline
-            ? "Order offline (cash) langsung selesai"
-            : isCOD
-              ? "Order dibuat, mencari barista"
-              : "Order dibuat, menunggu pembayaran",
+            ? "Order offline langsung selesai"
+            : "Order dibuat, menunggu pembayaran via DOKU SNAP",
         },
       });
 
-      // Payment log
+      // Payment log - DOKU SNAP handles all payment methods
       await tx.payment.create({
         data: {
           orderId: order.id,
           amount: total,
-          providerId: paymentInfo.method.providerId,
-          providerCode: paymentInfo.method.providerCode,
-          methodCode: paymentInfo.method.code,
-          methodName: paymentInfo.method.name,
-          methodGroup: paymentInfo.method.groupName,
-          methodFeeAmount: paymentInfo.feeAmount,
+          providerId: "",
+          providerCode: "",
+          methodCode: "",
+          methodName: "",
           status: isOffline ? "PAID" : "PENDING",
           paidAt: isOffline ? new Date() : null,
-          dokuChannelCode: paymentInfo.method.dokuChannelCode,
         },
       });
 
@@ -275,13 +250,6 @@ export async function createOrder(input: CreateOrderInput) {
     { timeout: 30000 }
   );
 
-  // Trigger assignment (fire-and-forget) untuk COD online
-  if (!isOffline && isCOD) {
-    void assignOrderToBaristas(result.id).catch((err) => {
-      console.error("[order] assignment failed:", err);
-    });
-  }
-
   return {
     success: true,
     orderId: result.id,
@@ -289,14 +257,8 @@ export async function createOrder(input: CreateOrderInput) {
     status: result.status,
     paymentStatus: result.paymentStatus,
     paymentChannel: result.paymentChannel,
-    paymentMethod: {
-      code: paymentInfo.method.code,
-      name: paymentInfo.method.name,
-      providerCode: paymentInfo.method.providerCode,
-    },
     subtotal,
     chargesTotal,
-    paymentFeeAmount: paymentInfo.feeAmount,
     deliveryFee,
     total,
   };

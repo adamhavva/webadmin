@@ -135,40 +135,33 @@ export function OrderReportPage() {
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const [paymentMethods, setPaymentMethods] = React.useState<
+  const [paymentMethods] = React.useState<
     Array<{ value: string; label: string }>
-  >([]);
+  >([
+    { value: "QRIS", label: "QRIS" },
+    { value: "CASH", label: "CASH" },
+  ]);
   const [baristas, setBaristas] = React.useState<
     Array<{ value: string; label: string }>
   >([]);
 
-  // Load filter options
+  // Load baristas only
   React.useEffect(() => {
-    Promise.all([
-      fetch("/api/settings/payment-methods?isActive=true", {
-        headers: { Accept: "application/json" },
-      }).then((r) => r.json()).catch(() => ({ success: false })),
-      fetch("/api/users?role=BARISTA&limit=100", {
-        headers: { Accept: "application/json" },
-      }).then((r) => r.json()).catch(() => ({ success: false })),
-    ]).then(([pm, us]) => {
-      if (pm.success && pm.data) {
-        setPaymentMethods(
-          (pm.data.items ?? []).map((p: any) => ({
-            value: p.code,
-            label: p.name,
-          }))
-        );
-      }
-      if (us.success && us.data) {
-        setBaristas(
-          (us.data.items ?? []).map((u: any) => ({
-            value: u.id,
-            label: u.name,
-          }))
-        );
-      }
-    });
+    fetch("/api/users?role=BARISTA&limit=100", {
+      headers: { Accept: "application/json" },
+    })
+      .then((r) => r.json())
+      .then((us) => {
+        if (us.success && us.data) {
+          setBaristas(
+            (us.data.items ?? []).map((u: any) => ({
+              value: u.id,
+              label: u.name,
+            }))
+          );
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const fetchData = React.useCallback(

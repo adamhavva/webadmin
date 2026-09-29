@@ -9,9 +9,8 @@ import {
   Loader2,
   MapPin,
   User,
-  Phone,
   ArrowLeft,
-  Navigation,
+  CreditCard,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -287,7 +286,7 @@ export default function CheckoutPage() {
               productId: item.productId,
               quantity: item.quantity,
             })),
-            paymentMethodCode: "QRIS",
+            // No paymentMethodCode - fees calculated separately
           }),
         });
 
@@ -334,7 +333,7 @@ export default function CheckoutPage() {
             productId: item.productId,
             quantity: item.quantity,
           })),
-          paymentMethodCode: "QRIS",
+          // No paymentMethodCode - let DOKU handle payment method selection
         }),
       });
 
@@ -347,13 +346,13 @@ export default function CheckoutPage() {
       const order = orderJson.data;
       console.log("[CHECKOUT] Order created:", order);
 
-      // 2. Create payment
+      // 2. Create DOKU Checkout session
+      // DOKU will show popup with ALL payment methods (QRIS, VA, eWallet)
       const paymentRes = await fetch("/api/payment/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orderId: order.id,
-          methodCode: "QRIS",
           customerName: cartData.customerName,
           customerEmail: undefined,
           customerPhone: cartData.customerPhone || undefined,
@@ -373,9 +372,10 @@ export default function CheckoutPage() {
       const payment = paymentJson.data;
       console.log("[CHECKOUT] Payment created:", payment);
 
-      // 3. Open DOKU Checkout
+      // 3. Open DOKU Checkout popup
+      // DOKU's popup handles payment method selection (QRIS, VA, eWallet, etc.)
       if (payment.dokuPaymentUrl) {
-        console.log("[CHECKOUT] Opening DOKU Checkout...");
+        console.log("[CHECKOUT] Opening DOKU Checkout popup...");
 
         const dokuResult = await openDOKUCheckout(payment.dokuPaymentUrl);
 
@@ -475,7 +475,7 @@ export default function CheckoutPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Checkout</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Bayar via DOKU SNAP
+            Bayar via DOKU Checkout
           </p>
         </div>
       </div>
@@ -549,7 +549,7 @@ export default function CheckoutPage() {
                     onClick={() => void handleGetCurrentLocation()}
                     className="h-7 text-xs"
                   >
-                    <Navigation className="mr-1.5 size-3" />
+                    <MapPin className="mr-1.5 size-3" />
                     Lokasi Saya
                   </Button>
                 </div>
@@ -676,6 +676,19 @@ export default function CheckoutPage() {
             </CardContent>
           </Card>
 
+          {/* Payment Info - DOKU handles payment method selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <CreditCard className="size-4" />
+                Pembayaran via DOKU
+              </CardTitle>
+              <CardDescription>
+                Pilih metode pembayaran di popup DOKU (QRIS, VA, e-Wallet)
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
           {/* Error Banner */}
           {error && (
             <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -706,7 +719,7 @@ export default function CheckoutPage() {
           </Button>
 
           <p className="text-center text-xs text-muted-foreground">
-            Pembayaran diproses via DOKU SNAP
+            Pembayaran diproses via DOKU Checkout
           </p>
         </div>
       </div>
