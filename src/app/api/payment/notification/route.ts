@@ -392,10 +392,10 @@ export const POST = handle(async (req: Request) => {
     console.log('[DOKU NOTIFICATION] Payment method used:', dokuPaymentMethod);
   }
 
-  // Process the payment update
+  // Process the payment update - use internal UUID (payment.id), not DOKU invoice number
   try {
     await updatePaymentFromWebhook(
-      paymentId,
+      payment.id,  // Internal UUID, not the DOKU invoice number
       paymentStatus,
       transactionId,
       body as Record<string, unknown>,
