@@ -74,7 +74,7 @@ type PreviewResponse = {
 type CreateOrderResponse = {
   success: boolean;
   data?: {
-    id: string;
+    orderId: string;
     orderNumber: string;
     status: string;
     paymentStatus: string;
@@ -352,7 +352,7 @@ export default function CheckoutPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          orderId: order.id,
+          orderId: order.orderId,
           customerName: cartData.customerName,
           customerEmail: undefined,
           customerPhone: cartData.customerPhone || undefined,
@@ -390,7 +390,7 @@ export default function CheckoutPage() {
 
           if (status === "SUCCESS") {
             router.push(
-              `/orders/simulation/success?orderId=${order.id}&transactionId=${transactionId}`
+              `/orders/simulation/success?orderId=${order.orderId}&transactionId=${transactionId}`
             );
             return;
           } else if (status === "CANCELLED") {
