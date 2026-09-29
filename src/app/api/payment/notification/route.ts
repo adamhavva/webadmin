@@ -1,6 +1,10 @@
 // ============================================================
 // Payment Webhook / Notification Handler
 // POST /api/payment/notification
+//
+// Handles BOTH DOKU Checkout (Non-SNAP) and DOKU SNAP notification formats:
+// - Non-SNAP: { transaction: { status: "SUCCESS" }, order: { invoice_number: "..." } }
+// - SNAP: { latestTransactionStatus: "00", originalPartnerReferenceNo: "..." }
 // ============================================================
 
 import crypto from 'crypto';
@@ -8,7 +12,11 @@ import { handle } from '@/lib/api-response';
 import { prisma } from '@/lib/db';
 import type { Prisma } from '@/prisma/generated/client';
 import { updatePaymentFromWebhook } from '@/modules/payment/payment.service';
-import { dokuNotificationSchema, DOKU_STATUS_MAP } from '@/modules/payment/payment.validator';
+import {
+  dokuNonSnapNotificationSchema,
+  dokuSnapNotificationSchema,
+  DOKU_STATUS_MAP,
+} from '@/modules/payment/payment.validator';
 
 // ============================================================
 // Helper: Log webhook
@@ -101,15 +109,22 @@ export const POST = handle(async (req: Request) => {
     headers[key] = value;
   });
 
-  const requestId = headers['x-external-id'] ?? 'unknown';
+  const requestId = headers['x-external-id'] ?? headers['request-id'] ?? 'unknown';
 
-  // Log incoming notification payload (without sensitive data)
+  // Log incoming notification payload
   console.log('[DOKU NOTIFICATION] Received:', JSON.stringify({
-    originalReferenceNo: body.originalReferenceNo,
-    originalPartnerReferenceNo: body.originalPartnerReferenceNo,
-    latestTransactionStatus: body.latestTransactionStatus,
-    transactionStatusDesc: body.transactionStatusDesc,
-    amount: body.amount,
+    headers: {
+      'x-external-id': headers['x-external-id'],
+      'client-id': headers['client-id'],
+      'request-id': headers['request-id'],
+    },
+    bodyKeys: Object.keys(body),
+    bodyPreview: {
+      transaction: body.transaction,
+      order: body.order,
+      latestTransactionStatus: body.latestTransactionStatus,
+      originalPartnerReferenceNo: body.originalPartnerReferenceNo,
+    },
     requestId,
   }));
 
@@ -165,9 +180,85 @@ export const POST = handle(async (req: Request) => {
     console.log('[DOKU NOTIFICATION] Signature verified successfully');
   }
 
-  // Parse and validate notification
-  const parseResult = dokuNotificationSchema.safeParse(body);
-  if (!parseResult.success) {
+  // Parse and validate notification - try Non-SNAP first (DOKU Checkout), then SNAP
+  let paymentId: string | undefined;
+  let paymentStatus: 'PAID' | 'PENDING' | 'FAILED' | 'EXPIRED' | 'REFUNDED' | undefined;
+  let transactionId: string | undefined;
+  let dokuPaymentMethod: string | undefined;
+
+  // Try Non-SNAP format first (DOKU Checkout hosted page)
+  const nonSnapResult = dokuNonSnapNotificationSchema.safeParse(body);
+  if (nonSnapResult.success) {
+    const notification = nonSnapResult.data;
+
+    console.log('[DOKU NOTIFICATION] Parsed as Non-SNAP format');
+
+    // Extract payment ID from order.invoice_number
+    paymentId = notification.order?.invoice_number;
+
+    // Extract status from transaction.status
+    const rawStatus = notification.transaction?.status;
+    if (rawStatus) {
+      paymentStatus = DOKU_STATUS_MAP[rawStatus.toUpperCase()] as typeof paymentStatus;
+      console.log('[DOKU NOTIFICATION] Non-SNAP status:', rawStatus, '-> mapped to:', paymentStatus);
+    }
+
+    // Extract transaction ID (DOKU's reference number)
+    transactionId = notification.transaction?.original_request_id;
+
+    // Extract payment method from service/channel
+    if (notification.service?.id) {
+      dokuPaymentMethod = notification.service.id;
+    }
+    if (notification.channel?.id) {
+      dokuPaymentMethod = notification.channel.id;
+    }
+
+    // Log full notification for debugging
+    console.log('[DOKU NOTIFICATION] Full Non-SNAP notification:', JSON.stringify(notification, null, 2));
+  }
+
+  // Try SNAP format if Non-SNAP failed
+  if (!paymentId) {
+    const snapResult = dokuSnapNotificationSchema.safeParse(body);
+    if (snapResult.success) {
+      const notification = snapResult.data;
+
+      console.log('[DOKU NOTIFICATION] Parsed as SNAP format');
+
+      // Extract payment ID from originalPartnerReferenceNo
+      paymentId = notification.originalPartnerReferenceNo;
+
+      // Extract status from latestTransactionStatus
+      const rawStatus = notification.latestTransactionStatus;
+      if (rawStatus) {
+        paymentStatus = DOKU_STATUS_MAP[rawStatus] as typeof paymentStatus;
+        console.log('[DOKU NOTIFICATION] SNAP status:', rawStatus, '-> mapped to:', paymentStatus);
+      }
+
+      // Extract transaction ID
+      transactionId = notification.originalReferenceNo;
+
+      // Extract payment method from additionalInfo
+      const additionalInfo = notification.additionalInfo;
+      if (additionalInfo) {
+        dokuPaymentMethod = (additionalInfo.paymentScheme as string | undefined)
+          || (additionalInfo.channel as string | undefined)
+          || (additionalInfo.paymentMethod as string | undefined);
+      }
+
+      console.log('[DOKU NOTIFICATION] Full SNAP notification:', JSON.stringify(notification, null, 2));
+    }
+  }
+
+  // If neither format parsed successfully, log and return error
+  if (!paymentId && !paymentStatus) {
+    const parseError = !nonSnapResult.success
+      ? nonSnapResult.error.message
+      : !dokuSnapNotificationSchema.safeParse(body).success
+        ? 'Failed to parse as SNAP format'
+        : 'Unknown error';
+
     await logWebhook({
       providerId: provider.id,
       requestId,
@@ -178,7 +269,7 @@ export const POST = handle(async (req: Request) => {
       responseStatus: 400,
       responseBody: { error: 'Invalid notification format' },
       isProcessed: false,
-      processingError: parseResult.error.message,
+      processingError: parseError,
     });
 
     return Response.json(
@@ -187,29 +278,7 @@ export const POST = handle(async (req: Request) => {
     );
   }
 
-  const notification = parseResult.data;
-
-  // Map DOKU status to our status
-  const paymentStatus = DOKU_STATUS_MAP[notification.latestTransactionStatus];
-  if (!paymentStatus) {
-    await logWebhook({
-      providerId: provider.id,
-      requestId,
-      requestPath: '/api/payment/notification',
-      requestMethod: 'POST',
-      requestHeaders: headers,
-      requestBody: body,
-      responseStatus: 200,
-      responseBody: { responseCode: '2007400', responseMessage: 'Status ignored' },
-      isProcessed: false,
-      processingError: `Unknown transaction status: ${notification.latestTransactionStatus}`,
-    });
-
-    return Response.json({ responseCode: '2007400', responseMessage: 'OK' });
-  }
-
-  // Find payment by partner reference (payment ID)
-  const paymentId = notification.originalPartnerReferenceNo;
+  // Check if we have a valid payment ID
   if (!paymentId) {
     await logWebhook({
       providerId: provider.id,
@@ -221,7 +290,7 @@ export const POST = handle(async (req: Request) => {
       responseStatus: 400,
       responseBody: { error: 'Missing payment ID' },
       isProcessed: false,
-      processingError: 'originalPartnerReferenceNo is required',
+      processingError: 'Could not extract payment ID from notification',
     });
 
     return Response.json(
@@ -230,9 +299,29 @@ export const POST = handle(async (req: Request) => {
     );
   }
 
-  // Find the payment
-  const payment = await prisma.payment.findUnique({
-    where: { id: paymentId },
+  // Check if we have a valid status
+  if (!paymentStatus) {
+    await logWebhook({
+      providerId: provider.id,
+      requestId,
+      requestPath: '/api/payment/notification',
+      requestMethod: 'POST',
+      requestHeaders: headers,
+      requestBody: body,
+      responseStatus: 200,
+      responseBody: { responseCode: '2007400', responseMessage: 'Status ignored' },
+      isProcessed: false,
+      processingError: `Unknown transaction status`,
+    });
+
+    return Response.json({ responseCode: '2007400', responseMessage: 'OK' });
+  }
+
+  console.log('[DOKU NOTIFICATION] Extracted - paymentId:', paymentId, 'status:', paymentStatus);
+
+  // paymentId is the DOKU invoice number - look up by dokuInvoiceNumber
+  const payment = await prisma.payment.findFirst({
+    where: { dokuInvoiceNumber: paymentId },
   });
 
   if (!payment) {
@@ -273,13 +362,15 @@ export const POST = handle(async (req: Request) => {
     return Response.json({ responseCode: '2007400', responseMessage: 'OK' });
   }
 
-  // Additional check: fetch order to verify it's in PENDING status
+  // Additional check: fetch order to verify it's in PENDING or SEARCHING status
   // This prevents processing if order was already updated by a concurrent webhook
   const order = await prisma.order.findUnique({
     where: { id: payment.orderId },
   });
 
-  if (order && order.status !== 'PENDING') {
+  // Allow PENDING and SEARCHING order statuses to be updated
+  // (if payment is pending, order should be PENDING; if payment is PAID, order might be SEARCHING)
+  if (order && !['PENDING', 'SEARCHING'].includes(order.status)) {
     await logWebhook({
       providerId: provider.id,
       requestId,
@@ -296,22 +387,13 @@ export const POST = handle(async (req: Request) => {
     return Response.json({ responseCode: '2007400', responseMessage: 'OK' });
   }
 
-  // Extract payment method from DOKU notification
-  // DOKU sends this in additionalInfo.paymentScheme or similar
-  const additionalInfo = body?.additionalInfo as Record<string, unknown> | undefined;
-  const dokuPaymentMethod = (additionalInfo?.paymentScheme as string | undefined)
-    || (additionalInfo?.channel as string | undefined)
-    || (additionalInfo?.paymentMethod as string | undefined)
-    || undefined;
-
+  // Log payment method if available
   if (dokuPaymentMethod) {
     console.log('[DOKU NOTIFICATION] Payment method used:', dokuPaymentMethod);
   }
 
   // Process the payment update
   try {
-    const transactionId = notification.originalReferenceNo;
-
     await updatePaymentFromWebhook(
       paymentId,
       paymentStatus,
