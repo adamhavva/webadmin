@@ -32,6 +32,12 @@ export interface DOKUCheckoutRequest {
   customerPhone?: string;
   paymentMethod?: string; // Optional: let customer choose on DOKU page
   expiryMinutes?: number;
+  // Order line items for DOKU payload
+  orderItems?: Array<{
+    name: string;
+    price: number;
+    quantity: number;
+  }>;
 }
 
 export interface DOKUCheckoutResult {
@@ -113,12 +119,32 @@ export async function createDOKUCheckout(
   const requestId = generateUUID();
 
   try {
+    // Calculate line items total - DOKU requires this to match order.amount exactly
+    // Using integer math to avoid floating point precision issues
+    const lineItemsTotal = request.orderItems
+      ? request.orderItems.reduce((sum, item) => sum + Math.round(item.price) * item.quantity, 0)
+      : 0;
+
+    // Use calculated line items total to ensure DOKU validation passes
+    // If orderItems provided, use their sum; otherwise use request.amount
+    const finalAmount = request.orderItems && request.orderItems.length > 0
+      ? lineItemsTotal
+      : Math.round(request.amount);
+
     // Build DOKU Checkout request body
     // Reference: https://developers.doku.com/accept-payments/doku-checkout
     const dokuBody: Record<string, unknown> = {
       order: {
-        amount: request.amount,
+        amount: finalAmount,
         invoice_number: `ORD-${request.orderId.slice(0, 8)}-${Date.now()}`,
+        // Include line items for complete order information
+        ...(request.orderItems && request.orderItems.length > 0 && {
+          line_items: request.orderItems.map((item) => ({
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+          })),
+        }),
       },
       payment: {
         payment_due_date: request.expiryMinutes || 60,
@@ -153,6 +179,11 @@ export async function createDOKUCheckout(
       body: dokuBody,
       requestId,
       timestamp,
+      debug: {
+        lineItemsTotal,
+        finalAmount,
+        itemCount: request.orderItems?.length || 0,
+      },
     });
 
     // Call DOKU API

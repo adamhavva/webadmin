@@ -15,7 +15,7 @@ export const POST = handle(async (req: Request) => {
 
   const input = parseResult.data;
 
-  // Get order to retrieve amount
+  // Get order to retrieve amount, items
   const order = await prisma.order.findUnique({
     where: { id: input.orderId },
     select: {
@@ -23,6 +23,13 @@ export const POST = handle(async (req: Request) => {
       total: true,
       paymentStatus: true,
       customerName: true,
+      items: {
+        select: {
+          productName: true,
+          quantity: true,
+          unitPrice: true,
+        },
+      },
     },
   });
 
@@ -48,6 +55,12 @@ export const POST = handle(async (req: Request) => {
     customerPhone: input.customerPhone,
     // paymentMethod removed - DOKU popup handles payment method selection
     expiryMinutes: input.expiryMinutes || 60,
+    // Include order line items for complete order information
+    orderItems: order.items.map((item) => ({
+      name: item.productName,
+      price: Number(item.unitPrice),
+      quantity: item.quantity,
+    })),
   });
 
   if (!dokuResult.success || !dokuResult.paymentUrl) {
