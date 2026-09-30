@@ -155,43 +155,6 @@ SHA512(order_id + status_code + gross_amount + serverKey)
 ```
 
 ---
-
-## Order Simulation
-
-Menu `/orders/simulation` - Testing page for order and payment flow.
-
-### Flow
-
-```
-1. Pilih barista terdekat (ShopeeFood-style, sorted by Haversine distance)
-2. Pilih produk → cart
-3. Masukkan nama & no. HP customer
-4. Pilih metode pembayaran (QRIS / VA / e-Wallet)
-5. Klik "Bayar" → Redirect ke Midtrans Snap page
-6. Customer bayar via Midtrans
-7. Midtrans webhook → Stok dikurangi → Order SEARCHING + PAID
-8. Redirect back → Result
-```
-
-### Stock Reduction
-
-After successful payment:
-- BaristaStock dikurangi sesuai jumlah order
-- BaristaStockMovement recorded (type: SOLD)
-- Order broadcasted ke baristas via Firebase RTDB
-
-### Race Condition Protection (Concurrency Safety)
-
-`src/modules/payment/payment.service.ts` — `updatePaymentFromWebhook` + `reduceBaristaStockForOrder`:
-
-1. **Webhook idempotency** — `payment.updateMany WHERE status NOT IN final_statuses` (atomic). Jika dua webhook Midtrans tiba bersamaan, hanya satu yang lolos.
-2. **Order transition guard** — `order.updateMany WHERE status = 'PENDING'` (atomic). Hanya satu request yang bisa transisi ke SEARCHING, mencegah double stock deduction.
-3. **Stock atomic decrement** — `baristaStock.updateMany WHERE id = X AND quantity = current_qty`. Jika ada perubahan concurrent, count=0 → throw → Prisma transaction rollback otomatis → Midtrans retry akan coba lagi.
-4. **Movement idempotency** — cek `BaristaStockMovement` (type=SOLD, orderId, productId) sebelum update. Kalau sudah ada, skip.
-
-> **JANGAN** ganti kembali ke `update()` tanpa WHERE condition. Race condition ini sudah pernah terjadi: stok tinggal 1, dipesan 2 orang bersamaan, keduanya lolos.
-
-
 ---
 
 ## Prisma Schema
@@ -254,10 +217,75 @@ BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 | `src/lib/api-response.ts` | Response helpers |
 | `src/lib/db.ts` | Prisma client |
 | `src/modules/payment/midtrans.service.ts` | Midtrans Snap service |
-| `src/app/api/payment/cash/route.ts` | CASH (COD) payment endpoint |
 | `src/app/api/payment/checkout/route.ts` | Midtrans Snap checkout endpoint |
 | `src/app/api/payment/notification/route.ts` | Midtrans webhook |
 | `prisma/schema.prisma` | Database schema |
+
+---
+
+---
+
+## Knowledge Graph (graphify-out/)
+
+This project has a navigable knowledge graph built with graphify — run `/graphify .` to rebuild, or `/graphify query "question"` to query it.
+
+**Stats:** 291 files · 1,892 nodes · 4,651 edges · 99 communities
+
+### God Nodes (most-connected abstractions)
+
+These 10 nodes bridge the most communities — they are the backbone of the codebase:
+
+| Node | Degree | Role |
+|------|--------|------|
+| `ok()` | 146 | API response helper — used everywhere |
+| `buttonVariants` | 96 | shadcn button styling — used in 50+ places |
+| `react` | 91 | React library import — core rendering |
+| `lucide-react` | 83 | Icon library — used across all UI |
+| `next` | 73 | Next.js framework — page/route root |
+| `Button()` | 63 | Primary UI component |
+| `handleAuth()` | 63 | Auth guard — protects API routes |
+| `Card()` | 44 | shadcn card wrapper |
+| `CardContent()` | 44 | shadcn card content |
+| `CardHeader()` | 43 | shadcn card header |
+
+### Key Communities (architectural clusters)
+
+Groups of tightly-coupled code, ranked by cohesion:
+
+| Community | Cohesion | Description |
+|----------|----------|-------------|
+| `FIFO Batch Logic` | 0.24 | FIFO consumption engine |
+| `Midtrans Payment` | 0.14 | Snap token + signature |
+| `Order Assignment` | 0.17 | Haversine distance assignment |
+| `Auth & Firebase Admin` | 0.12 | NextAuth + Firebase Admin |
+| `Maps & Leaflet` | 0.06 | Tracking map, inline checkout map |
+| `Dashboard Stats API` | 0.32 | Stats aggregation |
+| `Cost History API` | 0.36 | Cost tracking API |
+| `Production API` | 0.17 | Production lifecycle |
+| `Report API` | 0.23 | Reporting queries |
+| `Finished Products API` | 0.22 | Finished batch management |
+
+### Cross-Cutting Concerns
+
+These nodes span the most communities and deserve extra care when changing:
+
+- **`next`** — connects 24 communities (betweenness 0.321): framework spine
+- **`react`** — connects 33 communities (betweenness 0.130): universal rendering
+- **`zod`** — connects 18 API communities (betweenness 0.088): validation backbone
+- **`ok()`** — connects all API routes via `handle()` wrapper
+
+### Low-Cohesion Communities (consider splitting)
+
+These communities have cohesion < 0.10 — nodes are weakly interconnected:
+
+- `UI Forms & Cards` (0.05) — 54 nodes, too broad
+- `Detail Views & Dialogs` (0.04) — 52 nodes
+- `List Pages & Badges` (0.05) — 42 nodes
+- `Edit Pages & Utils` (0.07) — 37 nodes
+
+### Isolated Nodes (430 nodes with ≤1 connection)
+
+These are mostly `$schema`, `style`, `rsc`, `tsx`, `config` references — they may indicate documentation gaps or missing AST edges.
 
 ---
 
