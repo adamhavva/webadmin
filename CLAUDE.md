@@ -250,8 +250,10 @@ BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 | `src/modules/payment/payment.validator.ts` | Payment Zod schemas |
 | `src/app/api/payment/checkout/route.ts` | Midtrans Snap checkout endpoint |
 | `src/app/api/payment/notification/route.ts` | Midtrans webhook |
+| `src/app/(dashboard)/checkout/finish/page.tsx` | Midtrans redirect finish page |
 | `prisma/schema.prisma` | Database schema |
 | `tests/payment.test.ts` | Payment module unit tests |
+| `tests/payment_test.html` | Midtrans integration test page |
 
 ---
 
@@ -261,7 +263,7 @@ BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 
 This project has a navigable knowledge graph built with graphify — run `/graphify .` to rebuild, or `/graphify query "question"` to query it.
 
-**Stats:** 292 files · 1,919 nodes · 4,697 edges · 93 communities
+**Stats:** 292 files · 1,922 nodes · 4,700 edges · 93 communities
 
 ### God Nodes (most-connected abstractions)
 
@@ -320,16 +322,6 @@ These communities have cohesion < 0.10 — nodes are weakly interconnected:
 These are mostly `$schema`, `style`, `rsc`, `tsx`, `config` references — they may indicate documentation gaps or missing AST edges.
 
 ---
-
-## Documentation
-
-| File | Description |
-|------|-------------|
-| `docs/API.md` | Complete API documentation |
-| `docs/PAYMENT.md` | Payment system (Midtrans) |
-| `docs/MIDTRANS.md` | Midtrans Payment integration |
-| `docs/BARISTA.md` | Barista workflow |
-| `docs/BARISTA-STOCK.md` | Barista stock management |
 
 <!-- BEGIN:nextjs-agent-rules -->
 
