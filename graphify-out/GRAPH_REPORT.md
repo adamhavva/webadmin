@@ -1,30 +1,29 @@
-# Graph Report - raw  (2026-09-29)
+# Graph Report - /Users/dandiramdani/Projects/ascend/webadmin  (2026-09-29)
 
 ## Corpus Check
-- 1 files · ~309 words
-- Verdict: corpus is large enough that graph structure adds value.
+- Corpus is ~1,489 words - fits in a single context window. You may not need a graph.
 
 ## Summary
-- 1684 nodes · 3727 edges · 124 communities (91 shown, 33 thin omitted)
-- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 2 edges (avg confidence: 0.5)
-- Token cost: 1,797 input · 3,242 output
+- 1768 nodes · 20 edges · 1750 communities (979 shown, 771 thin omitted)
+- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
+- Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
-- Admin UI Components
-- Order Lifecycle API
-- Barista Stock
-- Production Batches
-- Admin Seeding
-- Recipe Editor
-- Order Tracking
-- Items API
-- Payment Setup
-- User Management
-- Reports
-- Project Config
-- Recipe Activation
-- Production API
-- Barista API
+- Community 0
+- Community 1
+- Community 2
+- Community 3
+- Community 4
+- Community 5
+- Community 6
+- Community 7
+- Community 8
+- Community 9
+- Community 10
+- Community 11
+- Community 12
+- Community 13
+- Community 14
 - Community 15
 - Community 16
 - Community 17
@@ -57,15 +56,16 @@
 - Community 44
 - Community 45
 - Community 46
-- Community 47
 - Community 48
 - Community 49
 - Community 50
+- Community 51
 - Community 52
 - Community 53
 - Community 54
 - Community 55
 - Community 56
+- Community 57
 - Community 58
 - Community 59
 - Community 60
@@ -76,6 +76,7 @@
 - Community 65
 - Community 66
 - Community 67
+- Community 68
 - Community 69
 - Community 70
 - Community 71
@@ -97,6 +98,7 @@
 - Community 87
 - Community 88
 - Community 89
+- Community 90
 - Community 91
 - Community 92
 - Community 93
@@ -112,10 +114,8 @@
 - Community 103
 - Community 104
 - Community 105
-- Community 106
 - Community 107
 - Community 108
-- Community 109
 - Community 110
 - Community 111
 - Community 112
@@ -126,387 +126,719 @@
 - Community 117
 - Community 118
 - Community 119
+- Community 120
+- Community 121
+- Community 122
+- Community 123
+- Community 124
+- Community 125
+- Community 126
+- Community 127
+- Community 128
+- Community 129
+- Community 130
+- Community 131
+- Community 132
+- Community 133
+- Community 134
+- Community 135
+- Community 136
+- Community 137
+- Community 138
+- Community 139
+- Community 140
+- Community 141
+- Community 142
+- Community 143
+- Community 144
+- Community 145
+- Community 146
+- Community 147
+- Community 148
+- Community 149
+- Community 150
+- Community 151
+- Community 152
+- Community 153
+- Community 154
+- Community 155
+- Community 156
+- Community 157
+- Community 158
+- Community 159
+- Community 160
+- Community 161
+- Community 162
+- Community 163
+- Community 164
+- Community 165
+- Community 166
+- Community 167
+- Community 169
+- Community 170
+- Community 172
+- Community 173
+- Community 174
+- Community 175
+- Community 176
+- Community 177
+- Community 178
+- Community 179
+- Community 180
+- Community 181
+- Community 182
+- Community 183
+- Community 184
+- Community 185
+- Community 186
+- Community 187
+- Community 188
+- Community 189
+- Community 190
+- Community 191
+- Community 192
+- Community 193
+- Community 194
+- Community 195
+- Community 196
+- Community 197
+- Community 198
+- Community 199
+- Community 200
+- Community 205
+- Community 207
+- Community 209
+- Community 210
+- Community 211
+- Community 212
+- Community 213
+- Community 214
+- Community 215
+- Community 216
+- Community 220
+- Community 221
+- Community 223
+- Community 225
+- Community 227
+- Community 229
+- Community 231
+- Community 233
+- Community 235
+- Community 237
+- Community 239
+- Community 241
+- Community 243
+- Community 245
+- Community 247
+- Community 248
+- Community 250
+- Community 252
+- Community 254
+- Community 256
+- Community 257
+- Community 258
+- Community 260
+- Community 262
+- Community 263
+- Community 264
+- Community 266
+- Community 267
+- Community 269
+- Community 271
+- Community 273
+- Community 275
+- Community 276
+- Community 278
+- Community 279
+- Community 281
+- Community 282
+- Community 284
+- Community 285
+- Community 286
+- Community 288
+- Community 289
+- Community 291
+- Community 293
+- Community 295
+- Community 296
+- Community 297
+- Community 299
+- Community 300
+- Community 302
+- Community 303
+- Community 305
+- Community 306
+- Community 308
+- Community 309
+- Community 311
+- Community 313
+- Community 315
+- Community 317
+- Community 319
+- Community 321
+- Community 323
+- Community 325
+- Community 327
+- Community 328
+- Community 330
+- Community 334
+- Community 336
+- Community 338
+- Community 340
+- Community 342
+- Community 344
+- Community 346
+- Community 348
+- Community 350
+- Community 351
+- Community 352
+- Community 354
+- Community 355
+- Community 356
+- Community 358
+- Community 359
+- Community 360
+- Community 361
+- Community 363
+- Community 364
+- Community 366
+- Community 368
+- Community 370
+- Community 371
+- Community 372
+- Community 374
+- Community 375
+- Community 379
+- Community 390
+- Community 408
+- Community 424
+- Community 434
+- Community 439
+- Community 454
+- Community 456
+- Community 458
+- Community 459
+- Community 460
+- Community 466
+- Community 467
+- Community 469
+- Community 470
+- Community 471
+- Community 477
+- Community 483
+- Community 493
+- Community 495
+- Community 496
+- Community 499
+- Community 509
+- Community 510
+- Community 511
+- Community 515
+- Community 517
+- Community 519
+- Community 521
+- Community 522
+- Community 523
+- Community 524
+- Community 525
+- Community 526
+- Community 531
+- Community 532
+- Community 536
+- Community 538
+- Community 541
+- Community 542
+- Community 543
+- Community 548
+- Community 550
+- Community 551
+- Community 554
+- Community 556
+- Community 558
+- Community 563
+- Community 565
+- Community 567
+- Community 571
+- Community 576
+- Community 579
+- Community 584
+- Community 585
+- Community 586
+- Community 587
+- Community 589
+- Community 597
+- Community 598
+- Community 600
+- Community 608
+- Community 610
+- Community 611
+- Community 612
+- Community 615
+- Community 617
+- Community 623
+- Community 624
+- Community 629
+- Community 635
+- Community 636
+- Community 637
+- Community 639
+- Community 641
+- Community 646
+- Community 648
+- Community 649
+- Community 650
+- Community 653
+- Community 654
+- Community 655
+- Community 656
+- Community 659
+- Community 664
+- Community 665
+- Community 666
+- Community 667
+- Community 668
+- Community 671
+- Community 677
+- Community 678
+- Community 682
+- Community 686
+- Community 688
+- Community 689
+- Community 691
+- Community 697
+- Community 698
+- Community 704
+- Community 706
+- Community 712
+- Community 714
+- Community 715
+- Community 717
+- Community 718
+- Community 720
+- Community 721
+- Community 725
+- Community 726
+- Community 727
+- Community 730
+- Community 731
+- Community 736
+- Community 738
+- Community 739
+- Community 744
+- Community 748
+- Community 750
+- Community 756
+- Community 757
+- Community 759
+- Community 764
+- Community 770
+- Community 772
+- Community 773
+- Community 774
+- Community 776
+- Community 777
+- Community 783
+- Community 785
+- Community 786
+- Community 789
+- Community 792
+- Community 795
+- Community 800
+- Community 801
+- Community 803
+- Community 805
+- Community 809
+- Community 810
+- Community 813
+- Community 819
+- Community 820
+- Community 821
+- Community 826
+- Community 829
+- Community 830
+- Community 834
+- Community 835
+- Community 839
+- Community 840
+- Community 841
+- Community 843
+- Community 850
+- Community 853
+- Community 864
+- Community 868
+- Community 869
+- Community 871
+- Community 875
+- Community 878
+- Community 879
+- Community 880
+- Community 885
+- Community 888
+- Community 891
+- Community 895
+- Community 898
+- Community 903
+- Community 907
+- Community 910
+- Community 916
+- Community 918
+- Community 919
+- Community 920
+- Community 927
+- Community 931
+- Community 932
+- Community 936
+- Community 941
+- Community 942
+- Community 944
+- Community 945
+- Community 948
+- Community 949
+- Community 950
+- Community 953
+- Community 957
+- Community 959
+- Community 962
+- Community 966
+- Community 967
+- Community 972
+- Community 974
+- Community 975
+- Community 983
+- Community 984
+- Community 985
+- Community 990
+- Community 992
+- Community 993
+- Community 999
+- Community 1000
+- Community 1001
+- Community 1002
+- Community 1007
+- Community 1011
+- Community 1012
+- Community 1013
+- Community 1018
+- Community 1019
+- Community 1020
+- Community 1026
+- Community 1027
+- Community 1029
+- Community 1030
+- Community 1034
+- Community 1036
+- Community 1047
+- Community 1058
+- Community 1071
+- Community 1073
+- Community 1074
+- Community 1079
+- Community 1080
+- Community 1081
+- Community 1130
+- Community 1143
+- Community 1148
+- Community 1150
+- Community 1166
+- Community 1173
+- Community 1184
+- Community 1186
+- Community 1213
+- Community 1214
+- Community 1227
+- Community 1254
+- Community 1273
+- Community 1278
+- Community 1279
+- Community 1280
+- Community 1281
+- Community 1283
+- Community 1287
+- Community 1288
+- Community 1289
+- Community 1291
+- Community 1295
+- Community 1296
+- Community 1297
+- Community 1298
+- Community 1299
+- Community 1304
+- Community 1306
+- Community 1307
+- Community 1311
+- Community 1312
+- Community 1314
+- Community 1316
+- Community 1319
+- Community 1320
+- Community 1323
+- Community 1327
+- Community 1337
+- Community 1338
+- Community 1339
+- Community 1346
+- Community 1348
+- Community 1349
+- Community 1350
+- Community 1352
+- Community 1355
+- Community 1356
+- Community 1358
+- Community 1360
+- Community 1361
+- Community 1363
+- Community 1364
+- Community 1370
+- Community 1371
+- Community 1374
+- Community 1375
+- Community 1376
+- Community 1392
+- Community 1393
+- Community 1394
+- Community 1395
+- Community 1396
+- Community 1397
+- Community 1398
+- Community 1399
+- Community 1400
+- Community 1401
+- Community 1402
+- Community 1407
+- Community 1408
+- Community 1410
+- Community 1417
+- Community 1418
+- Community 1425
+- Community 1426
+- Community 1427
+- Community 1428
+- Community 1429
+- Community 1430
+- Community 1435
+- Community 1436
+- Community 1437
+- Community 1438
+- Community 1446
+- Community 1447
+- Community 1448
+- Community 1449
+- Community 1458
+- Community 1459
+- Community 1460
+- Community 1461
+- Community 1462
+- Community 1463
+- Community 1464
+- Community 1466
+- Community 1467
+- Community 1468
+- Community 1470
+- Community 1478
+- Community 1479
+- Community 1480
+- Community 1497
+- Community 1498
+- Community 1499
+- Community 1500
+- Community 1501
+- Community 1502
+- Community 1503
+- Community 1504
+- Community 1505
+- Community 1506
+- Community 1507
+- Community 1508
+- Community 1509
+- Community 1510
+- Community 1511
+- Community 1517
+- Community 1518
+- Community 1519
+- Community 1520
+- Community 1521
+- Community 1522
+- Community 1523
+- Community 1524
+- Community 1525
+- Community 1535
+- Community 1541
+- Community 1545
+- Community 1548
+- Community 1549
+- Community 1550
+- Community 1551
+- Community 1552
+- Community 1560
+- Community 1561
+- Community 1562
+- Community 1563
+- Community 1564
+- Community 1565
+- Community 1566
+- Community 1567
+- Community 1569
+- Community 1580
+- Community 1581
+- Community 1583
+- Community 1584
+- Community 1585
+- Community 1586
+- Community 1587
+- Community 1588
+- Community 1599
+- Community 1600
+- Community 1601
+- Community 1606
+- Community 1607
+- Community 1608
+- Community 1609
+- Community 1610
+- Community 1611
+- Community 1612
+- Community 1613
+- Community 1615
+- Community 1616
+- Community 1617
+- Community 1618
+- Community 1621
+- Community 1622
+- Community 1624
+- Community 1625
+- Community 1635
+- Community 1636
+- Community 1645
+- Community 1646
+- Community 1647
+- Community 1648
+- Community 1649
+- Community 1650
+- Community 1651
+- Community 1652
+- Community 1662
+- Community 1663
+- Community 1664
+- Community 1665
+- Community 1666
+- Community 1667
+- Community 1669
+- Community 1672
+- Community 1673
+- Community 1674
+- Community 1676
+- Community 1677
+- Community 1678
+- Community 1679
+- Community 1691
+- Community 1693
+- Community 1694
+- Community 1695
+- Community 1696
+- Community 1697
+- Community 1698
+- Community 1699
+- Community 1700
+- Community 1701
+- Community 1702
+- Community 1703
+- Community 1704
+- Community 1705
+- Community 1706
+- Community 1707
+- Community 1709
+- Community 1712
+- Community 1713
+- Community 1714
+- Community 1715
+- Community 1716
+- Community 1717
+- Community 1718
+- Community 1720
+- Community 1721
+- Community 1722
+- Community 1723
+- Community 1724
+- Community 1725
+- Community 1726
+- Community 1727
+- Community 1728
+- Community 1729
+- Community 1730
+- Community 1731
+- Community 1732
+- Community 1733
+- Community 1734
+- Community 1735
+- Community 1736
+- Community 1737
+- Community 1738
+- Community 1739
+- Community 1740
+- Community 1741
+- Community 1742
+- Community 1743
+- Community 1744
+- Community 1745
+- Community 1746
+- Community 1747
+- Community 1748
+- Community 1749
 
 ## God Nodes (most connected - your core abstractions)
-1. `buttonVariants` - 97 edges
-2. `react` - 74 edges
-3. `Button()` - 63 edges
-4. `handleAuth()` - 63 edges
-5. `ok()` - 60 edges
-6. `Card()` - 45 edges
-7. `CardContent()` - 45 edges
-8. `CardHeader()` - 43 edges
-9. `CardTitle()` - 43 edges
-10. `Badge()` - 40 edges
+1. `Non-SNAP Format (DOKU Checkout)` - 8 edges
+2. `HTTP Notification Sample for SNAP | API Reference` - 6 edges
+3. `SNAP Format` - 5 edges
+4. `Non-SNAP | API Reference` - 1 edges
+5. `Integration Guide | API Reference` - 1 edges
+6. `Notification | API Reference` - 1 edges
+7. `Overview` - 1 edges
+8. `Required Headers` - 1 edges
+9. `SNAP Payment Notification (E-Wallet, VA, etc.)` - 1 edges
+10. `Transaction Status Codes (SNAP)` - 1 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `POILayer()` --references--> `react`  [EXTRACTED]
-  src/components/tracking/poi-layer.tsx → package.json
-- `AutoFitBounds()` --references--> `react`  [EXTRACTED]
-  src/components/tracking/tracking-map.tsx → package.json
-- `TrackingMapStyles()` --references--> `react`  [EXTRACTED]
-  src/components/tracking/tracking-map.tsx → package.json
-- `CalendarDayButton()` --references--> `react`  [EXTRACTED]
-  src/components/ui/calendar.tsx → package.json
-- `EditAdminPage()` --references--> `react`  [EXTRACTED]
-  src/app/(dashboard)/admins/[id]/edit/page.tsx → package.json
+- None detected - all connections are within the same source files.
 
 ## Import Cycles
 - None detected.
 
-## Communities (124 total, 33 thin omitted)
+## Hyperedges (group relationships)
+- **DOKU Payment Flow** — Webhook_Notification, Stock_Deduction, Order_Broadcast, docs_payment_gateway, docs_doku_checkout [EXTRACTED 1.00]
+- **Order Status Lifecycle** — OrderStatus_ENUM, Order_Lifecycle, docs_barista_stock, Stock_Movement [EXTRACTED 1.00]
+- **Data Flow Inventory to Order** — FIFO_Consumption, HPP_Traceable, docs_barista_stock, Order_Lifecycle [EXTRACTED 1.00]
+- **Customer Order Tracking** — Google_Maps, Firebase_Realtime_Database, Real_Time_Tracking, ETA_Calculation [EXTRACTED 1.00]
+- **DOKU Payment Methods** — QRIS, Virtual_Account, EWallet, CASH_COD, HMAC_SHA256_signature [EXTRACTED 1.00]
+- **Prisma Schema Enums** — PaymentStatus_ENUM, PaymentProvider_ENUM, PaymentChannel_ENUM, UserRole_ENUM, OrderStatus_ENUM, BaristaStockMovementType_ENUM [EXTRACTED 1.00]
+- **Next.js Static Asset Files** — public_file_svg, public_globe_svg, public_next_svg, public_vercel_svg, public_window_svg [EXTRACTED 1.00]
+- **Order Simulation Page Screenshots** — simulation_page_final_png, simulation_page_state_png, simulation_page_png, simulation_test_png [INFERRED 0.75]
 
-### Community 0 - "Admin UI Components"
-Cohesion: 0.06
-Nodes (48): AdminFormData, Props, AvailableProduct, Barista, BaristaListResponse, MutationResponse, ProductsResponse, Row (+40 more)
+## Communities (1750 total, 771 thin omitted)
 
-### Community 1 - "Order Lifecycle API"
-Cohesion: 0.06
-Nodes (47): GET, POST, POST, POST, POST, GET, POST, POST (+39 more)
-
-### Community 2 - "Barista Stock"
-Cohesion: 0.06
-Nodes (37): BaristaStockDetail, BaristaStockProduct, DetailResponse, MutationResponse, BatchDetail, DetailResponse, MutationResponse, ProductionComponent (+29 more)
-
-### Community 3 - "Production Batches"
-Cohesion: 0.06
-Nodes (31): Batch, ListResponse, MutationResponse, Item, ListResponse, MutationResponse, StatusFilter, StockFilter (+23 more)
-
-### Community 4 - "Admin Seeding"
-Cohesion: 0.06
-Nodes (39): main(), syncDatabaseUser(), syncFirebaseUser(), USERS, handler, POST(), authOptions, SessionUser (+31 more)
-
-### Community 5 - "Recipe Editor"
-Cohesion: 0.06
-Nodes (33): EditRecipePage(), PageProps, NewRecipePage(), PageProps, emptyRow(), FifoAllocation, formatNumber(), formatRupiah() (+25 more)
-
-### Community 6 - "Order Tracking"
-Cohesion: 0.06
-Nodes (23): RoleFilter, TrackingMap, TrackingMapStyles, ListResponse, Movement, MovementType, TypeFilter, BaristaStockItem (+15 more)
-
-### Community 7 - "Items API"
-Cohesion: 0.08
-Nodes (36): DELETE, GET, PATCH, GET, POST, DELETE, GET, PATCH (+28 more)
-
-### Community 8 - "Payment Setup"
-Cohesion: 0.08
-Nodes (27): METHODS, GET, GET, POST, POST, previewSchema, POST, GET (+19 more)
-
-### Community 9 - "User Management"
-Cohesion: 0.09
-Nodes (34): GET, PATCH, POST, PATCH, DELETE, GET, PATCH, GET (+26 more)
-
-### Community 10 - "Reports"
-Cohesion: 0.08
-Nodes (32): formatDateInput(), formatFilterLabels(), getPresetRange(), PresetKey, ProductOption, ReportFilter(), ReportFilterProps, ReportFilterValue (+24 more)
-
-### Community 11 - "Project Config"
-Cohesion: 0.05
-Nodes (39): babel-plugin-react-compiler, dotenv, devDependencies, babel-plugin-react-compiler, dotenv, playwright, prisma, @prisma/cli-engine (+31 more)
-
-### Community 12 - "Recipe Activation"
-Cohesion: 0.10
-Nodes (31): PATCH, PATCH, DELETE, GET, PUT, GET, POST, planFifoConsumption() (+23 more)
-
-### Community 13 - "Production API"
-Cohesion: 0.09
-Nodes (30): GET, GET, POST, GET, POST, computeFifoForItem(), computeFifoForRequests(), fetchFifoBatches() (+22 more)
-
-### Community 14 - "Barista API"
-Cohesion: 0.10
-Nodes (26): POST, GET, GET, GET, POST, POST, GET, adjustBaristaStock() (+18 more)
-
-### Community 15 - "Community 15"
-Cohesion: 0.06
-Nodes (33): dom, dom.iterable, esnext, **/*.mts, .next/dev/types/**/*.ts, next-env.d.ts, .next/types/**/*.ts, node (+25 more)
-
-### Community 16 - "Community 16"
-Cohesion: 0.13
-Nodes (22): GET, ExportMeta, exportOrderReport(), fmtDateTime(), OrderReportFilterValue, fmtDateTime(), fmtNumber(), fmtRupiah() (+14 more)
-
-### Community 17 - "Community 17"
-Cohesion: 0.10
-Nodes (13): Sheet(), SheetContent(), SheetDescription(), SheetHeader(), SheetTitle(), SidebarContext, SidebarContextProps, SidebarProvider() (+5 more)
-
-### Community 18 - "Community 18"
-Cohesion: 0.09
-Nodes (23): RestockBaristaPage(), NewProductionPage(), NewRestockPage(), DetailError(), StockEmptyState(), DetailError(), BatchEmptyState(), CostHistoryEmptyState() (+15 more)
-
-### Community 19 - "Community 19"
-Cohesion: 0.14
-Nodes (20): DELETE, PATCH, publicUrlFor(), r2, R2_BUCKET, R2_PUBLIC_BASE, buildKey(), compressImage() (+12 more)
-
-### Community 20 - "Community 20"
-Cohesion: 0.13
-Nodes (18): GET, DELETE, GET, PATCH, GET, POST, createSetting(), deleteSetting() (+10 more)
-
-### Community 21 - "Community 21"
-Cohesion: 0.12
-Nodes (18): DashboardPage(), DashboardStats, formatCompactRupiah(), formatDateShort(), formatRelativeTime(), formatRupiah(), StatsResponse, ChartConfig (+10 more)
-
-### Community 22 - "Community 22"
-Cohesion: 0.10
-Nodes (18): react, react, timeAgo(), TrackingPage(), AdminForm(), normalizePhone(), LoginForm(), ActiveOrder (+10 more)
-
-### Community 23 - "Community 23"
-Cohesion: 0.21
-Nodes (16): GET, GET, GET, GET, GET, handleAuth(), ok(), buildDateWhere() (+8 more)
-
-### Community 24 - "Community 24"
-Cohesion: 0.09
-Nodes (21): aliases, components, hooks, lib, ui, utils, iconLibrary, menuAccent (+13 more)
-
-### Community 25 - "Community 25"
-Cohesion: 0.16
-Nodes (17): DELETE, GET, GET, POST, createRestock(), generateBatchCode(), getRestockById(), listRestocks() (+9 more)
-
-### Community 26 - "Community 26"
-Cohesion: 0.15
-Nodes (13): canCancel(), ChannelFilter, fmtDateTime(), fmtRupiah(), ListResponse, MutationResponse, Order, OrderListPage() (+5 more)
-
-### Community 27 - "Community 27"
-Cohesion: 0.19
-Nodes (14): DELETE, GET, PATCH, GET, getFinishedBatchById(), listFinishedBatches(), updateFinishedBatch(), voidFinishedBatch() (+6 more)
-
-### Community 28 - "Community 28"
-Cohesion: 0.15
-Nodes (14): CostHistory, DetailError(), DetailResponse, formatBytes(), formatDateTime(), formatNumber(), formatRupiah(), ImageItem (+6 more)
-
-### Community 29 - "Community 29"
-Cohesion: 0.15
-Nodes (12): finishedStatusBadge(), FinishedStatusFilter, FinishedStockItem, formatNumber(), formatRupiah(), materialStatusBadge(), MaterialStatusFilter, MaterialStockItem (+4 more)
-
-### Community 30 - "Community 30"
-Cohesion: 0.19
-Nodes (12): GET, GET, FinishedStockItem, getLowStockItems(), getStockSummary(), MaterialStockItem, MaterialStockStatus, StockSummary (+4 more)
-
-### Community 31 - "Community 31"
-Cohesion: 0.13
-Nodes (10): DetailResponse, EditAdminPage(), NewAdminPage(), DetailResponse, EditUserPage(), NewUserPage(), isoToDateInput(), normalizePhone() (+2 more)
-
-### Community 32 - "Community 32"
-Cohesion: 0.14
-Nodes (15): administration, dashboard, inventoryFlow, orders, reports, system, teams, NavProjects() (+7 more)
-
-### Community 33 - "Community 33"
-Cohesion: 0.16
-Nodes (14): hasActiveChild(), NavItem, NavItemRenderer(), NavMain(), NavMainProps, SidebarGroup(), SidebarGroupLabel(), SidebarMenuAction() (+6 more)
-
-### Community 34 - "Community 34"
-Cohesion: 0.20
-Nodes (14): GeoPosition, NavigatorWithBattery, useBattery(), useDeviceInfo(), useGeolocation(), UseGeolocationOptions, UseGeolocationReturn, useTrackingBroadcast() (+6 more)
-
-### Community 35 - "Community 35"
-Cohesion: 0.17
-Nodes (11): Batch, DetailError(), DetailResponse, formatDateTime(), formatNumber(), formatRupiah(), ItemDetail, ItemDetailView() (+3 more)
-
-### Community 36 - "Community 36"
-Cohesion: 0.24
-Nodes (10): GET, PATCH, GET, getInventoryBatchById(), listInventoryBatches(), updateInventoryBatch(), ListInventoryBatchQuery, listInventoryBatchQuerySchema (+2 more)
-
-### Community 37 - "Community 37"
-Cohesion: 0.20
-Nodes (9): FinishedBatch, FinishedBatchListPage(), formatDateTime(), formatNumber(), formatRupiah(), formatUnitCost(), ListResponse, MutationResponse (+1 more)
-
-### Community 38 - "Community 38"
-Cohesion: 0.19
-Nodes (5): DropdownMenuGroup(), DropdownMenuLabel(), DropdownMenuSeparator(), DropdownMenuShortcut(), SidebarMenu()
-
-### Community 39 - "Community 39"
-Cohesion: 0.16
-Nodes (6): Field(), FieldDescription(), FieldGroup(), FieldLabel(), fieldVariants, Separator()
-
-### Community 40 - "Community 40"
-Cohesion: 0.22
-Nodes (10): useLiveLocations(), UseLiveLocationsReturn, UseFirebaseLoginReturn, auth, firebaseConfig, computeStatus(), LiveLocation, subscribeToLocations() (+2 more)
-
-### Community 41 - "Community 41"
-Cohesion: 0.22
-Nodes (9): DetailError(), DetailResponse, formatDateTime(), formatNumber(), formatRupiah(), formatUnitCost(), ProductionComponent, ProductionDetail (+1 more)
-
-### Community 43 - "Community 43"
-Cohesion: 0.17
-Nodes (12): Accept Payments, API Reference, Backend Integration, Checkout Page, DOKU Checkout, Frontend Integration, DOKU Checkout Integration Guide, Integration Steps (+4 more)
-
-### Community 44 - "Community 44"
-Cohesion: 0.30
-Nodes (9): GET, DashboardStats, formatDateOnly(), getDashboardStats(), startOfDay(), startOfDaysAgo(), startOfMonth(), DashboardStatsQuery (+1 more)
-
-### Community 45 - "Community 45"
-Cohesion: 0.18
-Nodes (9): DetailResponse, EditProductPage(), NewProductPage(), formatBytes(), formatDigits(), formatRupiah(), ProductForm(), ProductFormData (+1 more)
-
-### Community 46 - "Community 46"
-Cohesion: 0.18
-Nodes (6): ListResponse, MutationResponse, Setting, SettingType, StatusFilter, TypeFilter
-
-### Community 47 - "Community 47"
-Cohesion: 0.31
-Nodes (6): GET, GET, getCostHistorySummary(), listCostHistories(), ListCostHistoryQuery, listCostHistoryQuerySchema
-
-### Community 48 - "Community 48"
-Cohesion: 0.29
-Nodes (5): getInitials(), NavUser(), Avatar(), AvatarFallback(), AvatarImage()
-
-### Community 49 - "Community 49"
-Cohesion: 0.31
-Nodes (9): fmtDateTime(), fmtNum(), fmtPct(), fmtRupiah(), marginClass(), MasterProductsTab(), MasterRow, ReportData (+1 more)
-
-### Community 52 - "Community 52"
-Cohesion: 0.22
-Nodes (9): @anthropic-ai/claude-code, leaflet, lucide-react, dependencies, @anthropic-ai/claude-code, leaflet, lucide-react, @prisma/adapter-pg (+1 more)
-
-### Community 53 - "Community 53"
-Cohesion: 0.28
-Nodes (5): AppSidebar(), ModeToggle(), NotificationButton(), SidebarInset(), SidebarTrigger()
-
-### Community 54 - "Community 54"
-Cohesion: 0.28
-Nodes (8): Barista, CartItem, getPaymentIcon(), PaymentMethod, PaymentResult, Product, SimulationPage(), formatRupiah()
-
-### Community 55 - "Community 55"
-Cohesion: 0.28
-Nodes (5): geistMono, geistSans, metadata, AppSessionProvider(), ThemeProvider()
-
-### Community 58 - "Community 58"
-Cohesion: 0.22
-Nodes (6): ListResponse, MutationResponse, Props, Role, User, UserStatus
-
-### Community 59 - "Community 59"
+### Community 0 - "Community 0"
 Cohesion: 0.25
-Nodes (4): formatDate(), formatDateTime(), getInitials(), UserDetailView()
+Nodes (8): Key Differences: SNAP vs Non-SNAP, Non-SNAP E-Wallet (Shopeepay), Non-SNAP Format (DOKU Checkout), Non-SNAP QRIS Notification, Non-SNAP Transaction Status Values, Non-SNAP Virtual Account Notification, Required Headers, Signature Verification (Non-SNAP)
 
-### Community 60 - "Community 60"
-Cohesion: 0.25
-Nodes (5): DetailResponse, EditItemPage(), NewItemPage(), ItemForm(), ItemFormData
-
-### Community 61 - "Community 61"
-Cohesion: 0.25
-Nodes (6): formatDateTime(), formatNumber(), formatRupiah(), formatUnitCost(), ItemRow(), RecipeDetailView()
-
-### Community 62 - "Community 62"
-Cohesion: 0.25
-Nodes (6): PageProps, canCancel(), fmtDateTime(), fmtRupiah(), OrderDetailView(), statusBadge()
-
-### Community 63 - "Community 63"
-Cohesion: 0.32
-Nodes (7): ActiveOrder, fmtRupiah(), ListResponse, OrdersLiveMap, OrdersLiveMapStyles, OrdersMapPage(), statusBadge()
-
-### Community 64 - "Community 64"
-Cohesion: 0.29
-Nodes (6): formatDateTime(), getInitials(), isoToDateInput(), normalizePhone(), ProfileEditForm(), snapshotFrom()
-
-### Community 65 - "Community 65"
-Cohesion: 0.36
-Nodes (7): buildSheet(), BuildSheetArgs, ColumnDef, exportProductsReportExcel(), fetchReport(), fmtDateTime(), ReportFilterParams
-
-### Community 66 - "Community 66"
-Cohesion: 0.36
-Nodes (7): fmtDateTime(), fmtNum(), fmtRupiah(), ProductionRow, ProductionsTab(), ReportData, TabProps
-
-### Community 67 - "Community 67"
-Cohesion: 0.29
-Nodes (7): AutoFitBounds(), getMarkerIcon(), MarkerVariant, TrackingMap(), TrackingMapProps, TrackingMapStyles(), EnrichedLocation
-
-### Community 70 - "Community 70"
-Cohesion: 0.29
-Nodes (3): formatDate(), getInitials(), UserListPage()
-
-### Community 71 - "Community 71"
-Cohesion: 0.29
-Nodes (5): PageProps, BaristaStockDetailView(), formatDateTime(), formatNumber(), formatRupiah()
-
-### Community 72 - "Community 72"
-Cohesion: 0.29
-Nodes (5): CostHistoryPage(), formatDateTime(), formatNumber(), formatRupiah(), marginTextClass()
-
-### Community 73 - "Community 73"
-Cohesion: 0.29
-Nodes (5): FinishedBatchDetailView(), formatDateTime(), formatNumber(), formatRupiah(), formatUnitCost()
-
-### Community 74 - "Community 74"
-Cohesion: 0.29
-Nodes (5): formatNumber(), formatRupiah(), marginBadgeClass(), ProductListPage(), truncate()
-
-### Community 75 - "Community 75"
-Cohesion: 0.29
-Nodes (5): formatDateTime(), formatNumber(), formatRupiah(), marginColorClass(), RecipeListPage()
-
-### Community 76 - "Community 76"
-Cohesion: 0.29
-Nodes (5): formatFee(), getMethodIcon(), PaymentMethodListPage(), formatValue(), SettingListPage()
-
-### Community 77 - "Community 77"
-Cohesion: 0.33
-Nodes (4): BaristaMovementsPage(), formatDateTime(), formatNumber(), typeBadge()
-
-### Community 78 - "Community 78"
-Cohesion: 0.33
-Nodes (4): BatchDetailView(), formatDateTime(), formatNumber(), formatRupiah()
-
-### Community 79 - "Community 79"
-Cohesion: 0.33
-Nodes (4): BatchListPage(), formatDateTime(), formatNumber(), formatRupiah()
-
-### Community 80 - "Community 80"
-Cohesion: 0.33
-Nodes (4): formatDateTime(), formatNumber(), formatRupiah(), ProductionListPage()
-
-### Community 81 - "Community 81"
-Cohesion: 0.33
-Nodes (4): formatDateTime(), formatNumber(), formatRupiah(), RestockDetailView()
-
-### Community 82 - "Community 82"
-Cohesion: 0.33
-Nodes (4): formatDateTime(), formatNumber(), formatRupiah(), RestockListPage()
-
-### Community 83 - "Community 83"
-Cohesion: 0.33
-Nodes (6): formatNumber(), formatRupiah(), formatUnitCost(), parseNumber(), ProductionForm(), stripNonDigits()
-
-### Community 84 - "Community 84"
-Cohesion: 0.33
-Nodes (6): emptyRow(), formatDigits(), formatRupiahDisplay(), parseNumber(), RestockForm(), stripNonDigits()
-
-### Community 85 - "Community 85"
-Cohesion: 0.33
-Nodes (5): AMENITY_LIST, POI_ICONS, POILayer(), POILayerProps, SHOP_LIST
-
-### Community 86 - "Community 86"
-Cohesion: 0.33
-Nodes (5): JWT, next-auth, next-auth/jwt, Session, User
-
-### Community 87 - "Community 87"
+### Community 1 - "Community 1"
 Cohesion: 0.40
-Nodes (3): BaristaStockPage(), formatNumber(), formatRupiah()
+Nodes (4): HTTP Notification Sample for SNAP | API Reference, Notes, Overview, Response Format
 
-### Community 88 - "Community 88"
+### Community 2 - "Community 2"
 Cohesion: 0.40
-Nodes (5): BaristaRestockForm(), emptyRow(), formatNumber(), parseNumber(), stripNonDigits()
-
-### Community 91 - "Community 91"
-Cohesion: 0.67
-Nodes (3): API Keys, Client ID, Secret Key
+Nodes (5): Required Headers, Signature Verification (SNAP), SNAP Format, SNAP Payment Notification (E-Wallet, VA, etc.), Transaction Status Codes (SNAP)
 
 ## Knowledge Gaps
-- **513 isolated node(s):** `$schema`, `style`, `rsc`, `tsx`, `config` (+508 more)
+- **763 isolated node(s):** `DOKU Checkout Integration Guide`, `DOKU Checkout`, `Backend Integration`, `Frontend Integration`, `Checkout Page` (+758 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **33 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **771 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `react` connect `Community 22` to `Recipe Editor`, `Reports`, `Community 16`, `Community 17`, `Community 18`, `Community 21`, `Community 26`, `Community 28`, `Community 29`, `Community 31`, `Community 32`, `Community 33`, `Community 34`, `Community 35`, `Community 37`, `Community 40`, `Community 41`, `Community 45`, `Community 52`, `Community 53`, `Community 59`, `Community 60`, `Community 61`, `Community 62`, `Community 63`, `Community 64`, `Community 67`, `Community 70`, `Community 71`, `Community 72`, `Community 73`, `Community 74`, `Community 75`, `Community 76`, `Community 77`, `Community 78`, `Community 79`, `Community 80`, `Community 81`, `Community 82`, `Community 83`, `Community 84`, `Community 85`, `Community 87`, `Community 88`, `Community 89`?**
-  _High betweenness centrality (0.146) - this node is a cross-community bridge._
-- **Why does `prisma` connect `Payment Setup` to `Order Lifecycle API`, `Admin Seeding`, `Community 36`, `Items API`, `User Management`, `Community 44`, `Production API`, `Barista API`, `Community 47`, `Recipe Activation`, `Community 16`, `Community 19`, `Community 20`, `Community 23`, `Community 25`, `Community 27`, `Community 30`?**
-  _High betweenness centrality (0.124) - this node is a cross-community bridge._
-- **Why does `dependencies` connect `Community 52` to `Project Config`, `Community 22`, `Community 93`, `Community 94`, `Community 95`, `Community 96`, `Community 97`, `Community 98`, `Community 100`, `Community 101`, `Community 102`, `Community 103`, `Community 104`, `Community 106`, `Community 107`, `Community 108`, `Community 109`, `Community 110`, `Community 111`, `Community 112`, `Community 113`, `Community 114`, `Community 115`, `Community 116`, `Community 117`, `Community 118`?**
-  _High betweenness centrality (0.105) - this node is a cross-community bridge._
-- **What connects `$schema`, `style`, `rsc` to the rest of the system?**
-  _513 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Admin UI Components` be split into smaller, more focused modules?**
-  _Cohesion score 0.05879692446856626 - nodes in this community are weakly interconnected._
-- **Should `Order Lifecycle API` be split into smaller, more focused modules?**
-  _Cohesion score 0.06345848757271286 - nodes in this community are weakly interconnected._
-- **Should `Barista Stock` be split into smaller, more focused modules?**
-  _Cohesion score 0.06140350877192982 - nodes in this community are weakly interconnected._
+- **Why does `Non-SNAP Format (DOKU Checkout)` connect `Community 0` to `Community 1`?**
+  _High betweenness centrality (0.000) - this node is a cross-community bridge._
+- **Why does `HTTP Notification Sample for SNAP | API Reference` connect `Community 1` to `Community 0`, `Community 2`?**
+  _High betweenness centrality (0.000) - this node is a cross-community bridge._
+- **Why does `SNAP Format` connect `Community 2` to `Community 1`?**
+  _High betweenness centrality (0.000) - this node is a cross-community bridge._
+- **What connects `DOKU Checkout Integration Guide`, `DOKU Checkout`, `Backend Integration` to the rest of the system?**
+  _763 weakly-connected nodes found - possible documentation gaps or missing edges._

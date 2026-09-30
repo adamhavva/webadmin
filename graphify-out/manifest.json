@@ -1,37 +1,44 @@
 {
-  "docs/API.md": {
+  "API.md": {
     "mtime": 1790581961.0205967,
+    "seen": 1790694581.5794802,
     "ast_hash": "4670d45dee0fa13aab710f0661c471fb",
-    "semantic_hash": ""
+    "semantic_hash": "4670d45dee0fa13aab710f0661c471fb"
   },
-  "docs/BARISTA-STOCK.md": {
+  "BARISTA-STOCK.md": {
     "mtime": 1790526881.60183,
+    "seen": 1790694581.579487,
     "ast_hash": "ec0aa59bf075553b38cac21003339fed",
-    "semantic_hash": ""
+    "semantic_hash": "ec0aa59bf075553b38cac21003339fed"
   },
-  "docs/DOKU.md": {
+  "DOKU.md": {
     "mtime": 1790609717.057499,
+    "seen": 1790694581.5794911,
     "ast_hash": "579167068fd51edc7348659f288370e8",
-    "semantic_hash": ""
+    "semantic_hash": "579167068fd51edc7348659f288370e8"
   },
-  "docs/PAYMENT.md": {
-    "mtime": 1790587101.7174454,
-    "ast_hash": "0d93319a85f059e6d5f9ec4ffce756c0",
-    "semantic_hash": ""
+  "PAYMENT.md": {
+    "mtime": 1790633915.1903949,
+    "seen": 1790694581.579493,
+    "ast_hash": "63519c246a5d587bc94cc13f72a63d9a",
+    "semantic_hash": "63519c246a5d587bc94cc13f72a63d9a"
   },
-  "docs/PRISMA-SCHEMA.md": {
+  "PRISMA-SCHEMA.md": {
     "mtime": 1790525320.6712558,
+    "seen": 1790694581.579496,
     "ast_hash": "837cb87478d6e40235ddb1a1b6349c14",
-    "semantic_hash": ""
+    "semantic_hash": "837cb87478d6e40235ddb1a1b6349c14"
   },
-  "docs/barista.md": {
+  "barista.md": {
     "mtime": 1790581610.1994555,
+    "seen": 1790694581.579498,
     "ast_hash": "50e7ed873a1a3070f8330d8dd2bdc135",
-    "semantic_hash": ""
+    "semantic_hash": "50e7ed873a1a3070f8330d8dd2bdc135"
   },
-  "docs/customer.md": {
+  "customer.md": {
     "mtime": 1790514310.5006168,
+    "seen": 1790694581.5795012,
     "ast_hash": "501aacf46853fffc513032e7b21a1dd1",
-    "semantic_hash": ""
+    "semantic_hash": "501aacf46853fffc513032e7b21a1dd1"
   }
 }

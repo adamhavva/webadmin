@@ -2,8 +2,6 @@
 // Payment Pricing - Fee Calculation
 // ============================================================
 
-import { prisma } from '@/lib/db';
-
 // ============================================================
 // Types
 // ============================================================
@@ -58,77 +56,36 @@ export function calculateFee(
 // Get Fee for Payment Method
 // ============================================================
 
-export async function getMethodFee(
-  methodCode: string
-): Promise<{
+export function getMethodFee(
+  _methodCode: string
+): {
   feeType: 'NONE' | 'PERCENTAGE' | 'NOMINAL';
   feeValue: number;
   feeLabel: string;
-}> {
-  const method = await prisma.paymentMethodConfig.findUnique({
-    where: { code: methodCode, isActive: true },
-  });
-
-  if (!method) {
-    throw new Error(`Payment method not found: ${methodCode}`);
-  }
-
-  let feeLabel = '';
-  if (method.feeType === 'NONE') {
-    feeLabel = 'Tanpa biaya admin';
-  } else if (method.feeType === 'PERCENTAGE') {
-    feeLabel = `Admin ${Number(method.feeValue)}%`;
-  } else {
-    feeLabel = `Admin Rp ${Number(method.feeValue).toLocaleString('id-ID')}`;
-  }
-
-  return {
-    feeType: method.feeType as 'NONE' | 'PERCENTAGE' | 'NOMINAL',
-    feeValue: Number(method.feeValue),
-    feeLabel,
-  };
+} {
+  // Payment method config removed from DB; no fees applied
+  return { feeType: 'NONE', feeValue: 0, feeLabel: 'Tanpa biaya admin' };
 }
 
 // ============================================================
 // Calculate Total with Fee
 // ============================================================
 
-export async function calculateTotalWithFee(
+export function calculateTotalWithFee(
   subtotal: number,
   methodCode: string
-): Promise<FeeBreakdown> {
-  const method = await prisma.paymentMethodConfig.findUnique({
-    where: { code: methodCode, isActive: true },
-  });
-
-  if (!method) {
-    throw new Error(`Payment method not found: ${methodCode}`);
-  }
-
-  const calculation = calculateFee(
-    subtotal,
-    method.feeType as 'NONE' | 'PERCENTAGE' | 'NOMINAL',
-    Number(method.feeValue)
-  );
-
-  let feeLabel = '';
-  if (calculation.feeType === 'NONE') {
-    feeLabel = 'Tanpa biaya admin';
-  } else if (calculation.feeType === 'PERCENTAGE') {
-    feeLabel = `${calculation.feeValue}% dari subtotal`;
-  } else {
-    feeLabel = `Rp ${calculation.feeValue.toLocaleString('id-ID')}`;
-  }
-
+): FeeBreakdown {
+  // Payment method config removed from DB; no fees applied
+  const calculation = calculateFee(subtotal, 'NONE', 0);
   return {
-    methodCode: method.code,
-    methodName: method.name,
+    methodCode,
+    methodName: methodCode,
     subtotal: calculation.subtotal,
     fee: {
-      type: calculation.feeType,
-      value: calculation.feeValue,
-      amount: calculation.feeAmount,
-      label: feeLabel,
+      type: 'NONE',
+      value: 0,
+      amount: 0,
+      label: 'Tanpa biaya admin',
     },
     total: calculation.total,
   };

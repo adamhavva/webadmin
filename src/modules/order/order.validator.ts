@@ -66,7 +66,7 @@ export const createOrderSchema = z.object({
     .min(1, "Minimal 1 produk")
     .max(30, "Maksimal 30 produk"),
 
-  // Payment (kode method dari PaymentMethodConfig)
+  // Payment method code
   paymentMethodCode: z
     .string()
     .min(1, "Metode pembayaran wajib dipilih")
