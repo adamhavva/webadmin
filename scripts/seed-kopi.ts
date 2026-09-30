@@ -152,7 +152,7 @@ async function main() {
     create: {
       id: "kopi-1",
       name: PRODUCT_NAME,
-      sellingPrice: 25000, // Rp 25.000
+      sellingPrice: 50000, // Rp 50.000
       description: "Kopi klasik dengan rasa khas",
       isActive: true,
     },

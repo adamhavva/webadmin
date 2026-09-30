@@ -18,7 +18,6 @@ datasource db {
 // ENUMS
 // ============================================================
 
-
 // ============================================================
 // ENUMS (Legacy - kept for backward compatibility)
 // These enums are deprecated and will be removed in future migrations.
@@ -688,26 +687,26 @@ model Order {
   statusHistory OrderStatusHistory[]
 
   // ---------- PAYMENT ----------
-  paymentStatus     PaymentStatus   @default(PENDING)
-  paymentProvider   String          @default("MIDTRANS") // "MIDTRANS" | "INTERNAL"
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentProvider String        @default("MIDTRANS") // "MIDTRANS" | "INTERNAL"
 
   // Payment channel dinamis - dari provider metadata (PREPAID, dll)
-  paymentChannel    String?
+  paymentChannel String?
 
   // Snapshot method (dari PaymentMethodConfig)
-  paymentMethodCode String?         // "QRIS", "VA_BCA", etc.
-  paymentMethodName String?         // "QRIS", "BCA Virtual Account"
-  paymentMethodGroup String?        // optional snapshot displayGroup
+  paymentMethodCode  String? // "QRIS", "VA_BCA", etc.
+  paymentMethodName  String? // "QRIS", "BCA Virtual Account"
+  paymentMethodGroup String? // optional snapshot displayGroup
 
   // Fee snapshot
   paymentFeeAmount Decimal @default(0)
 
   // Provider specific (Midtrans)
-  snapToken          String?   @unique
-  paymentUrl         String?   @db.Text
-  providerChannel    String?   // snapshot providerChannelCode
-  paymentExpiredAt   DateTime?
-  callbackPayload    Json?
+  snapToken        String?   @unique
+  paymentUrl       String?   @db.Text
+  providerChannel  String? // snapshot providerChannelCode
+  paymentExpiredAt DateTime?
+  callbackPayload  Json?
 
   paidAt DateTime?
 
@@ -717,13 +716,12 @@ model Order {
   updatedAt DateTime @updatedAt
 
   @@index([createdAt])
-  @@index([paymentStatus])       // kalau ada report payment
-  @@index([paymentMethodCode])   // kalau ada report channel
-
+  @@index([paymentStatus]) // kalau ada report payment
+  @@index([paymentMethodCode]) // kalau ada report channel
   // Composite — untuk query utama
-  @@index([baristaId, status])   // barista lihat order mereka
-  @@index([customerId, status])  // customer lihat order mereka
-  @@index([status, createdAt])   // admin dashboard (recent by status)
+  @@index([baristaId, status]) // barista lihat order mereka
+  @@index([customerId, status]) // customer lihat order mereka
+  @@index([status, createdAt]) // admin dashboard (recent by status)
   @@index([baristaId, createdAt]) // riwayat barista
 }
 
@@ -794,7 +792,6 @@ model OrderCharge {
   @@index([createdAt])
 }
 
-
 // ============================================================
 // PAYMENT WEBHOOK LOG - Webhook audit trail
 // ============================================================
@@ -803,24 +800,24 @@ model PaymentWebhookLog {
   id String @id @default(cuid())
 
   // Request info
-  requestId    String?  // X-EXTERNAL-ID
-  requestPath  String
-  requestMethod String @default("POST")
+  requestId      String? // X-EXTERNAL-ID
+  requestPath    String
+  requestMethod  String  @default("POST")
   requestHeaders Json?
-  requestBody   Json?
+  requestBody    Json?
 
   // Response info
   responseStatus Int?
   responseBody   Json?
 
   // Processing result
-  isProcessed  Boolean @default(false)
-  processedAt  DateTime?
-  processingError String? @db.Text
+  isProcessed     Boolean   @default(false)
+  processedAt     DateTime?
+  processingError String?   @db.Text
 
   // Linked payment (if determinable)
   paymentId String?
-  payment    Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -831,26 +828,26 @@ model PaymentWebhookLog {
 }
 
 model Payment {
-  id String @id @default(cuid())
+  id      String @id @default(cuid())
   orderId String @unique
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   amount   Decimal
   currency String  @default("IDR")
 
-  methodCode   String?           // "QRIS", "VA_BCA", "CASH"
-  methodName   String?           // snapshot
-  methodGroup  String?          // "VA", "EWALLET", "QRIS", "CASH"
-  providerChannel String?       // Midtrans payment_type: "qris", "bank_transfer", etc.
+  methodCode      String? // "QRIS", "VA_BCA", "CASH"
+  methodName      String? // snapshot
+  methodGroup     String? // "VA", "EWALLET", "QRIS", "CASH"
+  providerChannel String? // Midtrans payment_type: "qris", "bank_transfer", etc.
   methodFeeAmount Decimal @default(0)
 
   // Status - stored as String
   status String @default("PENDING") // "PENDING" | "PAID" | "FAILED" | "EXPIRED" | "REFUNDED"
 
   // Midtrans transaction info
-  snapToken         String? @unique  // Midtrans snap token
-  providerTransactionId String?      // Midtrans transaction_id
-  paymentUrl        String? @db.Text // Midtrans redirect_url
+  snapToken             String? @unique // Midtrans snap token
+  providerTransactionId String? // Midtrans transaction_id
+  paymentUrl            String? @db.Text // Midtrans redirect_url
 
   // Payload logging
   requestPayload  Json?
@@ -860,7 +857,7 @@ model Payment {
   paidAt        DateTime?
   expiredAt     DateTime?
   failedAt      DateTime?
-  failureReason String? @db.Text
+  failureReason String?   @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
