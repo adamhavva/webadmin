@@ -31,6 +31,7 @@ import {
   Receipt,
   PlusCircleIcon,
   CarFrontIcon,
+  ListOrderedIcon,
 } from "lucide-react";
 
 import { NavMain, type NavItem } from "@/components/nav-main";
@@ -65,17 +66,17 @@ const dashboard: NavItem = {
   icon: <LayoutDashboard className="size-[18px]" strokeWidth={1.8} />,
   items: [
     {
-  title: "Dashboard",
-  description: "Posisi real-time barista & customer",
-  url: "/",
-  icon: <LayoutDashboardIcon className="size-4" strokeWidth={1.8} />,
-},
+      title: "Dashboard",
+      description: "Posisi real-time barista & customer",
+      url: "/",
+      icon: <LayoutDashboardIcon className="size-4" strokeWidth={1.8} />,
+    },
     {
-  title: "Tracking Live",
-  description: "Posisi real-time barista & customer",
-  url: "/tracking",
-  icon: <MapPin className="size-4" strokeWidth={1.8} />,
-},
+      title: "Tracking Live",
+      description: "Posisi real-time barista & customer",
+      url: "/tracking",
+      icon: <MapPin className="size-4" strokeWidth={1.8} />,
+    },
   ]
 };
 
@@ -215,19 +216,11 @@ const inventoryFlow: NavItem[] = [
 
 const orders: NavItem[] = [
   {
-    title: "Order",
-    description: "Monitor order customer",
-    url: "#",
-    icon: <ShoppingBag className="size-4" strokeWidth={1.8} />,
-    items: [
-      {
-        title: "Daftar Order",
-        description: "Lihat semua order customer",
-        url: "/orders",
-        icon: <ClipboardList className="size-4" strokeWidth={1.8} />,
-      }
-    ],
-  },
+    title: "Daftar Order",
+    description: "Lihat semua order customer",
+    url: "/orders",
+    icon: <ListOrderedIcon className="size-4" strokeWidth={1.8} />,
+  }
 ];
 
 // =============================================================
@@ -252,13 +245,7 @@ const reports: NavItem[] = [
     description: "Analisis lengkap produk & HPP",
     url: "/reports/products",
     icon: <LineChart className="size-4" strokeWidth={1.8} />,
-  },
-  {
-    title: "Laporan Order",
-    description: "Laporan lengkap transaksi & profit",
-    url: "/reports/orders",
-    icon: <Receipt className="size-4" strokeWidth={1.8} />,
-  },
+  }
 ];
 
 // =============================================================
@@ -347,10 +334,10 @@ export function AppSidebar({
           <NavMain items={inventoryFlow} />
         </SidebarGroup>
 
-<SidebarGroup className="px-0">
-  <SidebarGroupLabel>Order</SidebarGroupLabel>
-  <NavMain items={orders} />
-</SidebarGroup> 
+        <SidebarGroup className="px-0">
+          <SidebarGroupLabel>Order</SidebarGroupLabel>
+          <NavMain items={orders} />
+        </SidebarGroup>
         {/* Laporan */}
         <SidebarGroup className="px-0">
           <SidebarGroupLabel>Laporan</SidebarGroupLabel>
