@@ -54,3 +54,4 @@ prisma/generated
 .windsurf
 .*
 docs/*.md
+graphify-out
