@@ -56,6 +56,21 @@ export const POST = handle(async (req: Request) => {
     throw ApiError.internal(snapResult.error || 'Gagal membuat sesi pembayaran Midtrans');
   }
 
+  // Set initial methodCode placeholder — webhook will update with real payment_type later
+  await prisma.payment.update({
+    where: { id: payment.id },
+    data: { methodCode: 'MIDTRANS_SNAP' },
+  });
+
+  // Also set on order for display
+  await prisma.order.update({
+    where: { id: input.orderId },
+    data: {
+      paymentMethodCode: 'MIDTRANS_SNAP',
+      paymentMethodName: 'Midtrans Snap',
+    },
+  });
+
   await updatePaymentFromMidtrans(payment.id, {
     snapToken: snapResult.token,
     paymentUrl: snapResult.redirectUrl,

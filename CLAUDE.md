@@ -292,8 +292,6 @@ These are mostly `$schema`, `style`, `rsc`, `tsx`, `config` references — they 
 | File | Description |
 |------|-------------|
 | `docs/API.md` | Complete API documentation |
-| `docs/PAYMENT.md` | Payment system (Midtrans) |
-| `docs/MIDTRANS.md` | Midtrans Payment integration |
 | `docs/BARISTA.md` | Barista workflow |
 | `docs/BARISTA-STOCK.md` | Barista stock management |
 

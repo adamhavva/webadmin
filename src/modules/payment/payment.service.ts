@@ -14,6 +14,14 @@ import { broadcastOrderToBaristas as broadcastToRTDB, findNearestBaristasWithSto
 
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED' | 'REFUNDED';
 
+/**
+ * Payment interface — represents a payment record in the system.
+ *
+ * NOTE: Fields methodCode, methodName, methodGroup, and providerChannel are
+ * SNAPSHOTS captured from the Midtrans notification at the time of payment.
+ * They are NOT always populated at creation time (before payment is completed).
+ */
+
 export interface Payment {
   id: string;
   orderId: string;
@@ -90,6 +98,48 @@ function convertToPayment(p: {
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
   };
+}
+
+// ============================================================
+// Payment Group Inference
+// Infers methodGroup from Midtrans payment_type
+// ============================================================
+
+const MIDTRANS_METHOD_NAME_MAP: Record<string, string> = {
+  qris: 'QRIS',
+  bank_transfer: 'Virtual Account',
+  bca_va: 'BCA Virtual Account',
+  bni_va: 'BNI Virtual Account',
+  bri_va: 'BRI Virtual Account',
+  mandiri_va: 'Mandiri Virtual Account',
+  permata_va: 'Permata Virtual Account',
+  cstore: 'Convenience Store',
+  alfamart: 'Alfamart',
+  indomaret: 'Indomaret',
+  gopay: 'GoPay',
+  shopeepay: 'ShopeePay',
+  dana: 'DANA',
+  ovo: 'OVO',
+  credit_card: 'Credit Card',
+  bca_klikpay: 'BCA KlikPay',
+  bca_klikbca: 'KlikBCA',
+  cimb_clicks: 'CIMB Clicks',
+  danamon_online: 'Danamon Online',
+  uob_ezpay: 'UOB EZ Pay',
+};
+
+export function inferPaymentGroup(paymentType: string): string {
+  const pt = paymentType.toLowerCase();
+  if (pt === 'qris') return 'QRIS';
+  if (pt === 'credit_card') return 'CARD';
+  if (pt === 'bank_transfer' || pt.endsWith('_va')) return 'VIRTUAL_ACCOUNT';
+  if (['gopay', 'shopeepay', 'dana', 'ovo', 'paypay', 'astrapay'].includes(pt)) return 'EWALLET';
+  if (['alfamart', 'indomaret', 'cstore'].includes(pt)) return 'CSTORE';
+  return 'OTHER';
+}
+
+export function getMidtransMethodName(paymentType: string): string {
+  return MIDTRANS_METHOD_NAME_MAP[paymentType.toLowerCase()] ?? paymentType;
 }
 
 // ============================================================
@@ -194,15 +244,24 @@ export async function updatePaymentFromWebhook(
 
   const FINAL_STATUSES = ['PAID', 'FAILED', 'EXPIRED', 'REFUNDED'];
 
+  // Build method metadata from payment_type
+  const methodCode = providerChannel ?? undefined;
+  const methodName = providerChannel ? getMidtransMethodName(providerChannel) : undefined;
+  const methodGroup = providerChannel ? inferPaymentGroup(providerChannel) : undefined;
+
   // Atomic status transition: only update if not already in a final state.
   // This prevents double-processing when Midtrans fires duplicate webhooks.
   const updateData: Prisma.PaymentUpdateInput = {
     status,
     callbackPayload: callbackPayload as Prisma.InputJsonValue | undefined,
+    // Always update method fields from webhook so the final method is recorded
+    ...(methodCode && { methodCode }),
+    ...(methodName && { methodName }),
+    ...(methodGroup && { methodGroup }),
+    ...(providerChannel && { providerChannel }),
   };
 
   if (transactionId) updateData.providerTransactionId = transactionId;
-  if (providerChannel) updateData.providerChannel = providerChannel;
 
   switch (status) {
     case 'PAID':    updateData.paidAt = new Date(); break;

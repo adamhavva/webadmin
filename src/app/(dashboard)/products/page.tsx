@@ -13,7 +13,6 @@ import {
   MapPin,
   Package,
   Search,
-  ShoppingBag,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -179,12 +178,6 @@ export default function ProductsPage() {
               className="pl-9"
             />
           </div>
-          <Link href="/orders/simulation">
-            <Button size="sm" variant="outline">
-              <ShoppingBag className="mr-1.5 size-4" />
-              Simulation
-            </Button>
-          </Link>
         </div>
       </div>
 

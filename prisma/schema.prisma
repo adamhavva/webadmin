@@ -625,12 +625,18 @@ model BaristaStockMovement {
 // ============================================================
 // ORDER — online + offline
 // ============================================================
-
+//
+// Payment flow: Order created with status=PENDING, channel=ONLINE/OFFLINE
+//   paymentChannel = "PREPAID" (always SNAP)
+//   paymentMethodCode/paymentMethodName = snapshot from Midtrans webhook
+//   After payment: status → SEARCHING, paymentStatus → PAID
+//
 model Order {
   id          String @id @default(cuid())
   orderNumber String @unique // "ORD-20260924-0001"
 
-  // Channel dinamis - ONLINE (customer app) atau OFFLINE (barista POS)
+  // Business channel: ONLINE (customer app) or OFFLINE (barista POS)
+  // NOT a payment channel — see paymentChannel for Midtrans payment type
   channel String?
 
   charges OrderCharge[]
@@ -690,21 +696,24 @@ model Order {
   paymentStatus   PaymentStatus @default(PENDING)
   paymentProvider String        @default("MIDTRANS") // "MIDTRANS" | "INTERNAL"
 
-  // Payment channel dinamis - dari Midtrans metadata
+  // Payment channel — always "PREPAID" for Midtrans Snap
   paymentChannel String?
 
-  // Snapshot method (dari PaymentMethodConfig)
-  paymentMethodCode  String? // "QRIS", "VA_BCA", etc.
-  paymentMethodName  String? // "QRIS", "BCA Virtual Account"
-  paymentMethodGroup String? // optional snapshot displayGroup
+  // Snapshot of Midtrans payment_type (qris, bank_transfer, gopay, shopeepay, etc.)
+  paymentMethodCode  String?
+  // Snapshot of Midtrans payment_name
+  paymentMethodName  String?
+  // Snapshot of Midtrans display_group (optional)
+  paymentMethodGroup String?
 
   // Fee snapshot
   paymentFeeAmount Decimal @default(0)
 
-  // Provider specific (Midtrans)
+  // Provider-specific (Midtrans)
   snapToken        String?   @unique
   paymentUrl       String?   @db.Text
-  providerChannel  String? // snapshot providerChannelCode
+  // Same as payment_type from Midtrans notification (qris, bank_transfer, etc.)
+  providerChannel  String?
   paymentExpiredAt DateTime?
   callbackPayload  Json?
 
@@ -835,10 +844,11 @@ model Payment {
   amount   Decimal
   currency String  @default("IDR")
 
-  methodCode      String? // "QRIS", "VA_BCA", "VA_MANDIRI", "VA_BNI", "EWALLET_*"
-  methodName      String? // snapshot
-  methodGroup     String? // "VA", "EWALLET", "QRIS"
-  providerChannel String? // Midtrans payment_type: "qris", "bank_transfer", etc.
+  // Midtrans payment method snapshot
+  methodCode      String? // Midtrans payment_type: qris, bank_transfer, gopay, shopeepay, etc.
+  methodName      String? // Midtrans payment_name
+  methodGroup     String? // Midtrans display_group: VA, EWALLET, QRIS
+  providerChannel String? // Same as payment_type from Midtrans notification
   methodFeeAmount Decimal @default(0)
 
   // Status - stored as String
