@@ -75,7 +75,7 @@ export async function createSnapToken(request: SnapTokenRequest): Promise<SnapTo
 
   // Redirect URL after payment (Midtrans will append transaction params)
   const appUrl = process.env.NEXTAUTH_URL || process.env.APP_URL || 'http://localhost:3000';
-  const finishUrl = request.finishUrl || `${appUrl}/orders`;
+  const finishUrl = request.finishUrl || `${appUrl}/checkout/finish`;
   payload.callbacks = {
     finish: finishUrl,
   };

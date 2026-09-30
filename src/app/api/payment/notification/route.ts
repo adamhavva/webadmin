@@ -67,10 +67,15 @@ async function logWebhook(params: {
 export const POST = handle(async (req: Request) => {
   const body = await req.json();
 
+  // Log raw request for debugging (without sensitive data)
+  const rawOrderId = body?.order_id || '(missing)';
+  const rawStatus = body?.transaction_status || '(missing)';
+  console.log(`[MIDTRANS WEBHOOK] Received — order: ${rawOrderId}, status: ${rawStatus}`);
+
   // Validate notification shape
   const parseResult = midtransNotificationSchema.safeParse(body);
   if (!parseResult.success) {
-    console.warn('[MIDTRANS] Invalid notification payload:', parseResult.error.message);
+    console.warn('[MIDTRANS WEBHOOK] Invalid payload — likely manual/test request with empty body or wrong format. Webhook URL should only receive requests from Midtrans servers.');
     return Response.json({ status: 'error', message: 'Invalid payload' }, { status: 400 });
   }
 
@@ -88,7 +93,7 @@ export const POST = handle(async (req: Request) => {
   );
 
   if (expectedSig !== notification.signature_key) {
-    console.warn('[MIDTRANS] Invalid signature for order:', notification.order_id);
+    console.warn('[MIDTRANS WEBHOOK] Invalid signature for order:', notification.order_id);
     await logWebhook({
       notification: body as Record<string, unknown>,
       responseStatus: 401,
@@ -109,7 +114,7 @@ export const POST = handle(async (req: Request) => {
   }
 
   if (!paymentStatus) {
-    console.warn('[MIDTRANS] Unknown transaction status:', txStatus);
+    console.warn('[MIDTRANS WEBHOOK] Unknown transaction status:', txStatus);
     await logWebhook({
       notification: body as Record<string, unknown>,
       responseStatus: 200,
@@ -125,7 +130,7 @@ export const POST = handle(async (req: Request) => {
   });
 
   if (!payment) {
-    console.warn('[MIDTRANS] Payment not found for order:', notification.order_id);
+    console.warn('[MIDTRANS WEBHOOK] Payment not found for order:', notification.order_id);
     await logWebhook({
       notification: body as Record<string, unknown>,
       responseStatus: 404,
@@ -164,11 +169,11 @@ export const POST = handle(async (req: Request) => {
       paymentId: payment.id,
     });
 
-    console.log('[MIDTRANS] Payment updated:', payment.id, '->', paymentStatus);
+    console.log('[MIDTRANS WEBHOOK] Payment updated:', payment.id, '->', paymentStatus);
     return Response.json({ status: 'ok' });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[MIDTRANS] Failed to process payment update:', msg);
+    console.error('[MIDTRANS WEBHOOK] Failed to process payment update:', msg);
 
     await logWebhook({
       notification: body as Record<string, unknown>,

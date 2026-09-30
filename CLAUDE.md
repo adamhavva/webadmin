@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+# STRICT BOUNDARY:
+1. JANGAN menambahkan fitur, endpoint, atau method API di luar yang diminta secara eksplisit dalam prompt ini (misalnya: JANGAN buat fitur subscription, atau payout).
+2. Fokus HANYA pada alur utama: Pembuatan Transaksi Snap + Notification Webhook Callback + Finish Redirect.
+3. Terapkan prinsip YAGNI: Jangan menambahkan helper, service, atau file utilitas "untuk persiapan masa depan" jika tidak digunakan secara langsung oleh endpoint yang diminta.
+4. Saat merujuk ke skill Midtrans, baca HANYA dokumentasi untuk "Snap API" dan "Notification Webhook Handler". Abaikan dokumentasi untuk Direct Refund, Account Linking, dan Core API.
+
+
+# [ATURAN KETAT / NO OVER-ENGINEERING]
+1. Hanya buat endpoint & fungsi yang diminta secara eksplisit.
+2. DILARANG membuat endpoint/method recurring, atau payout.
+3. Terapkan prinsip YAGNI (You Aren't Gonna Need It).
+
+Tolong jalankan migrasi pembayaran Midtrans ini dengan membaginya ke dalam 3 sub-agent...
+
 ## Project Overview
 
 ASCEND is a **three-application system** for a coffee business:
@@ -136,14 +150,29 @@ Semua pembayaran melalui Midtrans Snap — tidak ada COD/CASH.
 | `GET /api/payment?orderId=` | Query payment status |
 | `GET /api/payment/methods` | List available payment methods (dynamic from Midtrans) |
 
-### Midtrans Flow (semua metode)
+### Midtrans Dashboard Configuration
+
+Before going live, configure these in your Midtrans Dashboard:
+
+| Setting | URL / Value |
+|---------|-------------|
+| Payment Notification URL | `https://api.ascend.com/api/payment/notification` |
+| Finish Redirect URL | `https://api.ascend.com/checkout/finish` |
+| Sandbox Notification URL | `http://localhost:3000/api/payment/notification` |
+| Sandbox Finish URL | `http://localhost:3000/checkout/finish` |
+
+### Payment Flow (Complete)
 
 ```
-1. Pilih produk → Klik Bayar
-2. Redirect ke Midtrans Snap page (payment method dipilih di sana)
-3. Customer bayar via Midtrans
-4. Midtrans webhook → POST /api/payment/notification
-5. Order SEARCHING + PAID → Stok dikurangi → Broadcast ke baristas
+1. Customer selects products → adds to cart
+2. Customer submits order → POST /api/orders → status=PENDING
+3. Customer clicks "Bayar" → POST /api/payment/checkout → Midtrans Snap token created
+4. Customer redirected to Midtrans Snap page (payment method selected there)
+5. Customer completes payment on Midtrans
+6. Midtrans sends webhook → POST /api/payment/notification
+7. Payment status updated → Order status → SEARCHING + PAID
+8. Stock reduced → Order broadcasted to baristas
+9. Customer redirected to /checkout/finish?order_id=xxx
 ```
 
 ### Midtrans Signature Verification
@@ -151,6 +180,8 @@ Semua pembayaran melalui Midtrans Snap — tidak ada COD/CASH.
 ```
 SHA512(order_id + status_code + gross_amount + serverKey)
 ```
+
+> **Note**: Payment method information (methodCode, methodName, methodGroup) is captured as a SNAPSHOT from Midtrans webhook. It is not used for filtering or business logic — only for display in admin reports.
 
 ---
 ---
@@ -215,9 +246,12 @@ BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 | `src/lib/api-response.ts` | Response helpers |
 | `src/lib/db.ts` | Prisma client |
 | `src/modules/payment/midtrans.service.ts` | Midtrans Snap service |
+| `src/modules/payment/payment.service.ts` | Payment business logic |
+| `src/modules/payment/payment.validator.ts` | Payment Zod schemas |
 | `src/app/api/payment/checkout/route.ts` | Midtrans Snap checkout endpoint |
 | `src/app/api/payment/notification/route.ts` | Midtrans webhook |
 | `prisma/schema.prisma` | Database schema |
+| `tests/payment.test.ts` | Payment module unit tests |
 
 ---
 
@@ -227,7 +261,7 @@ BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 
 This project has a navigable knowledge graph built with graphify — run `/graphify .` to rebuild, or `/graphify query "question"` to query it.
 
-**Stats:** 291 files · 1,892 nodes · 4,651 edges · 99 communities
+**Stats:** 292 files · 1,919 nodes · 4,697 edges · 93 communities
 
 ### God Nodes (most-connected abstractions)
 
@@ -292,6 +326,8 @@ These are mostly `$schema`, `style`, `rsc`, `tsx`, `config` references — they 
 | File | Description |
 |------|-------------|
 | `docs/API.md` | Complete API documentation |
+| `docs/PAYMENT.md` | Payment system (Midtrans) |
+| `docs/MIDTRANS.md` | Midtrans Payment integration |
 | `docs/BARISTA.md` | Barista workflow |
 | `docs/BARISTA-STOCK.md` | Barista stock management |
 

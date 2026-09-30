@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Midtrans Payment Test - ASCEND</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    .disclaimer-banner {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      border: 1px solid #f59e0b;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+      transition: all 0.2s;
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+    .btn-primary:disabled {
+      background: #93c5fd;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .input-field {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 10px 14px;
+      width: 100%;
+      transition: all 0.2s;
+    }
+    .input-field:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .product-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 16px;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .product-card:hover {
+      border-color: #2563eb;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+    }
+    .product-card.selected {
+      border-color: #2563eb;
+      background: #eff6ff;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-pending { background: #fef3c7; color: #92400e; }
+    .badge-error { background: #fee2e2; color: #991b1b; }
+    .spinner {
+      border: 2px solid #e5e7eb;
+      border-top: 2px solid #2563eb;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .fade-in {
+      animation: fadeIn 0.3s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .cart-item {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-10">
+    <div class="max-w-4xl mx-auto px-4 py-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-xl font-bold text-gray-900">ASCEND Payment Test</h1>
+          <p class="text-sm text-gray-500">Midtrans Snap Integration Testing</p>
+        </div>
+        <div class="badge badge-pending">TEST MODE</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-8">
+    <!-- Disclaimer Banner -->
+    <div class="disclaimer-banner rounded-xl p-4 mb-8 fade-in">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-amber-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <div>
+          <p class="font-semibold text-amber-800 text-sm">HANYA UNTUK PENGUJIAN - Data produk adalah dummy</p>
+          <p class="text-amber-700 text-xs mt-1">Halaman ini digunakan untuk menguji integrasi Midtrans Snap. Gunakan kartu test dari Midtrans (misal: 4811 1111 1111 1114).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-8">
+      <!-- Left Column: Products & Cart -->
+      <div>
+        <!-- Products Section -->
+        <div class="card p-6 mb-6">
+          <h2 class="text-lg font-semibold text-gray-900 mb-4">Pilih Produk</h2>
+          <div id="products" class="space-y-3">
+            <!-- Products will be rendered here -->
+          </div>
+        </div>
+
+        <!-- Customer Info Section -->
+        <div class="card p-6 mb-6">
+          <h2 class="text-lg font-semibold text-gray-900 mb-4">Informasi Customer</h2>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+              <input type="text" id="customerName" class="input-field" placeholder="Masukkan nama lengkap" value="Test Customer">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Nomor Telepon</label>
+              <input type="tel" id="customerPhone" class="input-field" placeholder="08xxxxxxxxxx" value="081234567890">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Email (opsional)</label>
+              <input type="email" id="customerEmail" class="input-field" placeholder="email@example.com" value="">
+            </div>
+          </div>
+        </div>
+
+        <!-- Cart Summary -->
+        <div class="card p-6">
+          <h2 class="text-lg font-semibold text-gray-900 mb-4">Ringkasan Belanja</h2>
+          <div id="cartItems" class="mb-4">
+            <p class="text-gray-500 text-sm italic">Belum ada produk dipilih</p>
+          </div>
+          <div class="border-t pt-4">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-gray-600">Subtotal</span>
+              <span id="subtotal" class="font-medium">Rp 0</span>
+            </div>
+            <div class="flex justify-between items-center text-lg font-bold">
+              <span>Total</span>
+              <span id="total" class="text-blue-600">Rp 0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Actions & Status -->
+      <div>
+        <!-- Payment Section -->
+        <div class="card p-6 mb-6">
+          <h2 class="text-lg font-semibold text-gray-900 mb-4">Pembayaran</h2>
+
+          <div id="paymentSection">
+            <button id="btnPay" class="btn-primary w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2" onclick="startPayment()">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+              </svg>
+              Bayar dengan Midtrans
+            </button>
+            <p class="text-xs text-gray-500 text-center mt-3">
+              Anda akan diarahkan ke halaman pembayaran Midtrans Snap
+            </p>
+          </div>
+
+          <!-- Loading State -->
+          <div id="paymentLoading" class="hidden">
+            <div class="flex flex-col items-center gap-3 py-4">
+              <div class="spinner"></div>
+              <p class="text-sm text-gray-600">Membuat sesi pembayaran...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Order Status Section -->
+        <div class="card p-6 mb-6">
+          <h2 class="text-lg font-semibold text-gray-900 mb-4">Status Pesanan</h2>
+
+          <div id="orderStatusEmpty" class="text-center py-4">
+            <p class="text-gray-500 text-sm">Belum ada pesanan dibuat</p>
+          </div>
+
+          <div id="orderStatusInfo" class="hidden space-y-4">
+            <div class="bg-gray-50 rounded-lg p-4">
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p class="text-gray-500 text-xs">Order ID</p>
+                  <p id="statusOrderId" class="font-mono font-medium text-sm truncate"></p>
+                </div>
+                <div>
+                  <p class="text-gray-500 text-xs">Order Number</p>
+                  <p id="statusOrderNumber" class="font-mono font-medium text-sm"></p>
+                </div>
+                <div>
+                  <p class="text-gray-500 text-xs">Status Pembayaran</p>
+                  <span id="statusPayment" class="badge"></span>
+                </div>
+                <div>
+                  <p class="text-gray-500 text-xs">Status Pesanan</p>
+                  <span id="statusOrder" class="badge"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex gap-2">
+              <button id="btnRefresh" class="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition flex items-center justify-center gap-2" onclick="refreshStatus()">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Refresh
+              </button>
+              <button id="btnViewOrder" class="flex-1 py-2 px-4 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition flex items-center justify-center gap-2" onclick="viewOrder()">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+                Lihat Detail
+              </button>
+            </div>
+          </div>
+
+          <!-- Polling indicator -->
+          <div id="pollingIndicator" class="hidden mt-4 text-center">
+            <div class="flex items-center justify-center gap-2 text-sm text-gray-500">
+              <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span>Auto-refresh aktif (setiap 5 detik)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment URL Section (for manual redirect) -->
+        <div id="paymentUrlSection" class="card p-6 mb-6 hidden">
+          <h2 class="text-lg font-semibold text-gray-900 mb-4">Link Pembayaran</h2>
+          <p class="text-sm text-gray-600 mb-3">Salin link di bawah untuk melanjutkan pembayaran:</p>
+          <div class="flex gap-2">
+            <input type="text" id="paymentUrl" class="input-field text-sm font-mono" readonly>
+            <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition" onclick="copyUrl()" title="Salin">
+              <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+              </svg>
+            </button>
+          </div>
+          <a id="paymentUrlLink" href="#" target="_blank" class="mt-3 inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+            Buka di tab baru
+          </a>
+        </div>
+
+        <!-- Iframe Container -->
+        <div id="iframeContainer" class="card p-6 hidden">
+          <h2 class="text-lg font-semibold text-gray-900 mb-4">Midtrans Snap</h2>
+          <p class="text-sm text-gray-600 mb-3">Halaman pembayaran Midtrans:</p>
+          <div class="bg-gray-100 rounded-lg overflow-hidden" style="min-height: 400px;">
+            <iframe id="snapIframe" class="w-full h-[500px] border-0" src=""></iframe>
+          </div>
+        </div>
+
+        <!-- Test Cards Info -->
+        <div class="card p-6">
+          <h2 class="text-lg font-semibold text-gray-900 mb-4">Kartu Test Midtrans</h2>
+          <div class="space-y-3 text-sm">
+            <div class="bg-gray-50 rounded-lg p-3">
+              <p class="font-medium text-gray-900">Kartu Kredit (Success)</p>
+              <p class="font-mono text-gray-600">4811 1111 1111 1114</p>
+              <p class="text-xs text-gray-500">CVV: 123 | Exp: 03/25</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+              <p class="font-medium text-gray-900">Kartu Kredit (Denied)</p>
+              <p class="font-mono text-gray-600">4811 1111 1111 1122</p>
+              <p class="text-xs text-gray-500">CVV: 123 | Exp: 03/25</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+              <p class="font-medium text-gray-900">BCA VA (Success)</p>
+              <p class="font-mono text-gray-600">Created automatically</p>
+              <p class="text-xs text-gray-500">Pilih metode BCA Virtual Account</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+              <p class="font-medium text-gray-900">QRIS (Success)</p>
+              <p class="font-mono text-gray-600">Scan QRIS</p>
+              <p class="text-xs text-gray-500">Pilih metode QRIS</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-4 right-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg hidden fade-in">
+    <p id="toastMessage" class="text-sm"></p>
+  </div>
+
+  <script>
+    // ============================================
+    // Configuration
+    // ============================================
+    const API_BASE = 'http://localhost:3000/api';
+
+    // ============================================
+    // Product Data (Dummy)
+    // ============================================
+    const products = [
+      {
+        id: 'prod_1',
+        name: 'Espresso',
+        description: 'Shot espresso premium',
+        price: 18000,
+        image: '☕'
+      },
+      {
+        id: 'prod_2',
+        name: 'Cappuccino',
+        description: 'Espresso dengan foam susu',
+        price: 25000,
+        image: '🥛'
+      },
+      {
+        id: 'prod_3',
+        name: 'Americano',
+        description: 'Espresso dengan air panas',
+        price: 22000,
+        image: '🫖'
+      },
+      {
+        id: 'prod_4',
+        name: 'Latte',
+        description: 'Espresso dengan susu steamed',
+        price: 28000,
+        image: '🥤'
+      }
+    ];
+
+    // ============================================
+    // State
+    // ============================================
+    let cart = [];
+    let currentOrderId = null;
+    let pollingInterval = null;
+
+    // ============================================
+    // Initialize
+    // ============================================
+    function init() {
+      renderProducts();
+      updateCart();
+    }
+
+    // ============================================
+    // Render Products
+    // ============================================
+    function renderProducts() {
+      const container = document.getElementById('products');
+      container.innerHTML = products.map(product => `
+        <div class="product-card" onclick="toggleProduct('${product.id}')" id="product-${product.id}">
+          <div class="flex items-center gap-3">
+            <div class="text-3xl">${product.image}</div>
+            <div class="flex-1">
+              <h3 class="font-medium text-gray-900">${product.name}</h3>
+              <p class="text-sm text-gray-500">${product.description}</p>
+              <p class="font-semibold text-blue-600 mt-1">Rp ${formatRupiah(product.price)}</p>
+            </div>
+            <div class="quantity-controls hidden" id="qty-${product.id}">
+              <button onclick="event.stopPropagation(); changeQty('${product.id}', -1)" class="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center">−</button>
+              <span id="qty-val-${product.id}" class="mx-2 font-medium">1</span>
+              <button onclick="event.stopPropagation(); changeQty('${product.id}', 1)" class="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center">+</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ============================================
+    // Cart Functions
+    // ============================================
+    function toggleProduct(productId) {
+      const existing = cart.find(item => item.id === productId);
+      if (existing) {
+        cart = cart.filter(item => item.id !== productId);
+        document.getElementById(`product-${productId}`).classList.remove('selected');
+        document.getElementById(`qty-${productId}`).classList.add('hidden');
+      } else {
+        const product = products.find(p => p.id === productId);
+        cart.push({ ...product, quantity: 1 });
+        document.getElementById(`product-${productId}`).classList.add('selected');
+        document.getElementById(`qty-${productId}`).classList.remove('hidden');
+      }
+      updateCart();
+    }
+
+    function changeQty(productId, delta) {
+      const item = cart.find(item => item.id === productId);
+      if (item) {
+        item.quantity = Math.max(1, item.quantity + delta);
+        document.getElementById(`qty-val-${productId}`).textContent = item.quantity;
+        updateCart();
+      }
+    }
+
+    function updateCart() {
+      const container = document.getElementById('cartItems');
+      const subtotalEl = document.getElementById('subtotal');
+      const totalEl = document.getElementById('total');
+
+      if (cart.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-sm italic">Belum ada produk dipilih</p>';
+        subtotalEl.textContent = 'Rp 0';
+        totalEl.textContent = 'Rp 0';
+        document.getElementById('btnPay').disabled = true;
+        return;
+      }
+
+      document.getElementById('btnPay').disabled = false;
+
+      container.innerHTML = cart.map(item => `
+        <div class="cart-item flex justify-between items-center">
+          <div>
+            <p class="font-medium text-gray-900">${item.name}</p>
+            <p class="text-xs text-gray-500">${item.quantity}x Rp ${formatRupiah(item.price)}</p>
+          </div>
+          <p class="font-medium">Rp ${formatRupiah(item.price * item.quantity)}</p>
+        </div>
+      `).join('');
+
+      const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      subtotalEl.textContent = `Rp ${formatRupiah(subtotal)}`;
+      totalEl.textContent = `Rp ${formatRupiah(subtotal)}`;
+    }
+
+    function formatRupiah(number) {
+      return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    // ============================================
+    // Payment Functions
+    // ============================================
+    async function startPayment() {
+      if (cart.length === 0) {
+        showToast('Pilih produk terlebih dahulu', 'error');
+        return;
+      }
+
+      const customerName = document.getElementById('customerName').value;
+      const customerPhone = document.getElementById('customerPhone').value;
+      const customerEmail = document.getElementById('customerEmail').value;
+
+      if (!customerName || !customerPhone) {
+        showToast('Nama dan nomor telepon wajib diisi', 'error');
+        return;
+      }
+
+      // Show loading
+      document.getElementById('paymentSection').classList.add('hidden');
+      document.getElementById('paymentLoading').classList.remove('hidden');
+
+      try {
+        // First, create an order via API (you need to implement this endpoint)
+        // For testing, we'll generate a mock order ID
+        const orderId = 'ORD-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
+        // Calculate total
+        const grossAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+        // Call checkout API
+        const response = await fetch(`${API_BASE}/payment/checkout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            orderId,
+            customerName,
+            customerPhone,
+            customerEmail: customerEmail || undefined,
+            expiryMinutes: 60
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.error?.message || 'Gagal membuat sesi pembayaran');
+        }
+
+        // Store order ID
+        currentOrderId = data.data.orderId;
+
+        // Show payment URL section
+        document.getElementById('paymentLoading').classList.add('hidden');
+        document.getElementById('paymentUrlSection').classList.remove('hidden');
+        document.getElementById('paymentUrl').value = data.data.redirectUrl;
+        document.getElementById('paymentUrlLink').href = data.data.redirectUrl;
+
+        // Show iframe for embedded payment
+        // Note: Midtrans Snap can be embedded using snap.pay() with the token
+        // For redirect mode, we show a link instead
+        document.getElementById('iframeContainer').classList.remove('hidden');
+        document.getElementById('snapIframe').src = data.data.redirectUrl;
+
+        // Update status section
+        updateOrderStatus(data.data.orderId, data.data);
+
+        // Start polling for payment status
+        startPolling();
+
+        showToast('Sesi pembayaran berhasil dibuat!', 'success');
+
+      } catch (error) {
+        console.error('Payment error:', error);
+        document.getElementById('paymentLoading').classList.add('hidden');
+        document.getElementById('paymentSection').classList.remove('hidden');
+        showToast(error.message || 'Terjadi kesalahan', 'error');
+      }
+    }
+
+    function updateOrderStatus(orderId, data) {
+      document.getElementById('orderStatusEmpty').classList.add('hidden');
+      document.getElementById('orderStatusInfo').classList.remove('hidden');
+
+      document.getElementById('statusOrderId').textContent = orderId;
+      document.getElementById('statusOrderNumber').textContent = data.orderId || orderId;
+
+      const paymentBadge = document.getElementById('statusPayment');
+      paymentBadge.textContent = 'PENDING';
+      paymentBadge.className = 'badge badge-pending';
+
+      const orderBadge = document.getElementById('statusOrder');
+      orderBadge.textContent = 'PENDING';
+      orderBadge.className = 'badge badge-pending';
+    }
+
+    async function refreshStatus() {
+      if (!currentOrderId) return;
+
+      const btn = document.getElementById('btnRefresh');
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;"></div>';
+
+      try {
+        const response = await fetch(`${API_BASE}/payment?orderId=${encodeURIComponent(currentOrderId)}`);
+        const data = await response.json();
+
+        if (data.success && data.data) {
+          const paymentBadge = document.getElementById('statusPayment');
+          paymentBadge.textContent = data.data.paymentStatus || 'UNKNOWN';
+
+          if (data.data.paymentStatus === 'PAID') {
+            paymentBadge.className = 'badge badge-success';
+            stopPolling();
+            showToast('Pembayaran berhasil!', 'success');
+          } else if (data.data.paymentStatus === 'FAILED' || data.data.paymentStatus === 'EXPIRED') {
+            paymentBadge.className = 'badge badge-error';
+            stopPolling();
+            showToast('Pembayaran gagal atau expired', 'error');
+          } else {
+            paymentBadge.className = 'badge badge-pending';
+          }
+
+          const orderBadge = document.getElementById('statusOrder');
+          orderBadge.textContent = data.data.status || 'UNKNOWN';
+        }
+      } catch (error) {
+        console.error('Refresh error:', error);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Refresh
+        `;
+      }
+    }
+
+    function startPolling() {
+      document.getElementById('pollingIndicator').classList.remove('hidden');
+      pollingInterval = setInterval(refreshStatus, 5000);
+    }
+
+    function stopPolling() {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+      }
+      document.getElementById('pollingIndicator').classList.add('hidden');
+    }
+
+    function viewOrder() {
+      if (currentOrderId) {
+        // Open finish redirect page with the order ID
+        window.open(`/checkout/finish?order_id=${currentOrderId}`, '_blank');
+      }
+    }
+
+    function copyUrl() {
+      const url = document.getElementById('paymentUrl').value;
+      navigator.clipboard.writeText(url).then(() => {
+        showToast('Link berhasil disalin!', 'success');
+      }).catch(() => {
+        showToast('Gagal menyalin link', 'error');
+      });
+    }
+
+    // ============================================
+    // Toast Notification
+    // ============================================
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      const toastMessage = document.getElementById('toastMessage');
+
+      toastMessage.textContent = message;
+      toast.className = `fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg hidden fade-in ${
+        type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-gray-900'
+      } text-white`;
+
+      toast.classList.remove('hidden');
+
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3000);
+    }
+
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
