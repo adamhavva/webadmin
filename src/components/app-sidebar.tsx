@@ -29,6 +29,8 @@ import {
   LayoutDashboardIcon,
   ShoppingBag,
   Receipt,
+  PlusCircleIcon,
+  CarFrontIcon,
 } from "lucide-react";
 
 import { NavMain, type NavItem } from "@/components/nav-main";
@@ -159,7 +161,7 @@ const inventoryFlow: NavItem[] = [
         title: "Tambah Resep",
         description: "Buat resep produk baru",
         url: "/inventory/recipes/new",
-        icon: <BookOpen className="size-4" strokeWidth={1.8} />,
+        icon: <PlusCircleIcon className="size-4" strokeWidth={1.8} />,
       },
     ],
   },
@@ -179,21 +181,15 @@ const inventoryFlow: NavItem[] = [
         title: "Buat Produksi",
         description: "Catat produksi produk baru",
         url: "/inventory/productions/new",
-        icon: <Play className="size-4" strokeWidth={1.8} />,
+        icon: <PlusCircleIcon className="size-4" strokeWidth={1.8} />,
       },
     ],
-  },
-  {
-    title: "Produk Jadi",
-    description: "Kelola stok produk siap dijual",
-    url: "/inventory/finished-products",
-    icon: <Boxes className="size-4" strokeWidth={1.8} />,
   },
   {
     title: "Stok Barista",
     description: "Kelola stok yang dibawa barista",
     url: "#",
-    icon: <Bike className="size-4" strokeWidth={1.8} />,
+    icon: <CarFrontIcon className="size-4" strokeWidth={1.8} />,
     items: [
       {
         title: "Monitor Stok",
