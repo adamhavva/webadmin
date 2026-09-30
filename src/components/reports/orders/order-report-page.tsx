@@ -117,7 +117,6 @@ export function OrderReportPage() {
   const [filter, setFilter] = React.useState<OrderReportFilterValue>({
     status: "all",
     channel: "all",
-    paymentMethodCode: "",
     baristaId: "",
     search: "",
     dateFrom: "",
@@ -135,12 +134,6 @@ export function OrderReportPage() {
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const [paymentMethods] = React.useState<
-    Array<{ value: string; label: string }>
-  >([
-    { value: "QRIS", label: "QRIS" },
-    { value: "CASH", label: "CASH" },
-  ]);
   const [baristas, setBaristas] = React.useState<
     Array<{ value: string; label: string }>
   >([]);
@@ -174,8 +167,6 @@ export function OrderReportPage() {
         const params = new URLSearchParams();
         if (filter.status !== "all") params.set("status", filter.status);
         if (filter.channel !== "all") params.set("channel", filter.channel);
-        if (filter.paymentMethodCode)
-          params.set("paymentMethodCode", filter.paymentMethodCode);
         if (filter.baristaId) params.set("baristaId", filter.baristaId);
         if (debouncedSearch) params.set("search", debouncedSearch);
         if (filter.dateFrom) params.set("dateFrom", filter.dateFrom);
@@ -218,7 +209,6 @@ export function OrderReportPage() {
   }, [
     filter.status,
     filter.channel,
-    filter.paymentMethodCode,
     filter.baristaId,
     filter.dateFrom,
     filter.dateTo,
@@ -237,8 +227,6 @@ export function OrderReportPage() {
             filter.channel === "all"
               ? "Semua Channel"
               : filter.channel,
-          payment:
-            filter.paymentMethodCode || "Semua Method",
           period:
             filter.dateFrom && filter.dateTo
               ? `${filter.dateFrom} — ${filter.dateTo}`
@@ -294,7 +282,6 @@ export function OrderReportPage() {
       <OrderReportFilter
         value={filter}
         onChange={setFilter}
-        paymentMethods={paymentMethods}
         baristas={baristas}
         disabled={isLoading}
       />

@@ -17,7 +17,6 @@ type ExportMeta = {
   filterLabel: {
     status: string;
     channel: string;
-    payment: string;
     period: string;
   };
 };
@@ -77,7 +76,6 @@ export async function exportOrderReport(
     { item: "Dibuat", value: fmtDateTime(new Date().toISOString()) + " WIB" },
     { item: "Filter Status", value: meta.filterLabel.status },
     { item: "Filter Channel", value: meta.filterLabel.channel },
-    { item: "Filter Payment", value: meta.filterLabel.payment },
     { item: "Filter Periode", value: meta.filterLabel.period },
     { item: "", value: "" },
     { item: "Total Revenue", value: summary.totalRevenue },

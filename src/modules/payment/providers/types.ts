@@ -2,33 +2,6 @@
 // Payment Provider Types
 // ============================================================
 
-export interface PaymentProviderConfig {
-  id: string;
-  code: string;
-  name: string;
-  isActive: boolean;
-  isProduction: boolean;
-  webhookSecret?: string;
-}
-
-export interface PaymentMethodConfig {
-  id: string;
-  code: string;
-  name: string;
-  providerId: string;
-  providerChannel?: string;
-  groupCode?: string;
-  groupName?: string;
-  feeType: 'NONE' | 'PERCENTAGE' | 'NOMINAL';
-  feeValue: number;
-  icon?: string;
-  description?: string;
-  isActive: boolean;
-  sortOrder: number;
-  availableForCustomer: boolean;
-  availableForAdmin: boolean;
-}
-
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED' | 'REFUNDED';
 
 export interface Payment {
@@ -36,10 +9,8 @@ export interface Payment {
   orderId: string;
   amount: number;
   currency: string;
-  providerId: string;
-  providerCode: string;
-  methodCode: string;
-  methodName: string;
+  methodCode?: string;
+  methodName?: string;
   methodGroup?: string;
   providerChannel?: string;
   methodFeeAmount: number;
@@ -58,45 +29,8 @@ export interface Payment {
 }
 
 // ============================================================
-// Provider Adapter Interface
+// Midtrans Notification Types
 // ============================================================
-
-export interface CreatePaymentRequest {
-  orderId: string;
-  orderRef: string; // Partner reference number
-  amount: number;
-  currency?: string;
-  methodCode: string;
-  customerName: string;
-  customerEmail?: string;
-  customerPhone?: string;
-  expiryMinutes?: number;
-}
-
-export interface CreatePaymentResponse {
-  success: boolean;
-  providerCode: string;
-  methodCode: string;
-
-  // Snap / redirect
-  snapToken?: string;
-  paymentUrl?: string;
-
-  // VA response
-  virtualAccountNo?: string;
-  virtualAccountName?: string;
-
-  // QRIS response
-  qrContent?: string;
-
-  // e-Wallet response
-  webRedirectUrl?: string;
-
-  // Common
-  transactionId?: string;
-  expiryTime?: string;
-  rawResponse?: Record<string, unknown>;
-}
 
 export interface PaymentNotification {
   orderId: string;
@@ -108,20 +42,6 @@ export interface PaymentNotification {
   paymentType?: string;
   signatureKey?: string;
   rawPayload?: Record<string, unknown>;
-}
-
-export interface PaymentProviderAdapter {
-  readonly providerCode: string;
-
-  createPayment(request: CreatePaymentRequest): Promise<CreatePaymentResponse>;
-
-  handleNotification(notification: PaymentNotification): Promise<{
-    paymentId: string;
-    status: PaymentStatus;
-    transactionId?: string;
-  }>;
-
-  verifyWebhookSignature(signature: string, payload: Record<string, unknown>): boolean;
 }
 
 // ============================================================

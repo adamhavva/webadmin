@@ -113,7 +113,7 @@ enum SettingType {
 model Setting {
   id String @id @default(cuid())
 
-  key         String  @unique // "tax", "fee_barista", "fee_doku"
+  key         String  @unique // "tax", "fee_barista", "fee_midtrans"
   name        String // "Pajak", "Biaya Barista"
   description String? @db.Text
 
@@ -630,7 +630,7 @@ model Order {
   id          String @id @default(cuid())
   orderNumber String @unique // "ORD-20260924-0001"
 
-  // Channel dinamis - dari DOKU metadata (ONLINE, OFFLINE, dll)
+  // Channel dinamis - ONLINE (customer app) atau OFFLINE (barista POS)
   channel String?
 
   charges OrderCharge[]
@@ -690,7 +690,7 @@ model Order {
   paymentStatus   PaymentStatus @default(PENDING)
   paymentProvider String        @default("MIDTRANS") // "MIDTRANS" | "INTERNAL"
 
-  // Payment channel dinamis - dari provider metadata (PREPAID, dll)
+  // Payment channel dinamis - dari Midtrans metadata
   paymentChannel String?
 
   // Snapshot method (dari PaymentMethodConfig)
@@ -775,7 +775,7 @@ model OrderCharge {
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   // Snapshot setting saat order dibuat
-  settingKey  String // "tax", "fee_barista", "fee_doku"
+  settingKey  String // "tax", "fee_barista", "fee_midtrans"
   settingName String // "Pajak", "Biaya Barista" (snapshot)
   type        SettingType // PERCENTAGE / NOMINAL (snapshot)
   rateValue   Decimal // 12 (persen) atau 2000 (nominal)
@@ -835,9 +835,9 @@ model Payment {
   amount   Decimal
   currency String  @default("IDR")
 
-  methodCode      String? // "QRIS", "VA_BCA", "CASH"
+  methodCode      String? // "QRIS", "VA_BCA", "VA_MANDIRI", "VA_BNI", "EWALLET_*"
   methodName      String? // snapshot
-  methodGroup     String? // "VA", "EWALLET", "QRIS", "CASH"
+  methodGroup     String? // "VA", "EWALLET", "QRIS"
   providerChannel String? // Midtrans payment_type: "qris", "bank_transfer", etc.
   methodFeeAmount Decimal @default(0)
 

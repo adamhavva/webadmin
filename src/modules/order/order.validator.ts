@@ -70,7 +70,7 @@ export const createOrderSchema = z.object({
   paymentMethodCode: z
     .string()
     .min(1, "Metode pembayaran wajib dipilih")
-    .default("CASH"),
+    .optional(),
 });
 
 // ============================================================
@@ -85,7 +85,7 @@ export const previewOrderSchema = z.object({
   paymentMethodCode: z
     .string()
     .min(1, "Metode pembayaran wajib dipilih")
-    .default("CASH"),
+    .optional(),
 });
 
 // ============================================================

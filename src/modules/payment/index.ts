@@ -45,12 +45,6 @@ export {
   type FeeBreakdown,
 } from './payment.pricing';
 
-// Providers - re-export only what's needed
-export type {
-  PaymentProviderAdapter,
-  CreatePaymentRequest,
-  CreatePaymentResponse,
-  PaymentNotification,
-} from './providers/types';
-
-export { getProviderAdapter, getActivePaymentMethods, clearMethodCache } from './providers/registry';
+// Registry - payment methods from Midtrans API
+export { getActivePaymentMethods, clearMethodCache } from './providers/registry';
+export type { PaymentMethodOption, PaymentGroupOption } from './providers/types';

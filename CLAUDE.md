@@ -22,7 +22,7 @@ ASCEND is a **three-application system** for a coffee business:
 | Database | PostgreSQL ≥ 15, Prisma 7 |
 | Authentication | Firebase Auth |
 | Real-time | Firebase RTDB |
-| Payment | Midtrans Snap (QRIS, VA, e-Wallet) |
+| Payment | Midtrans Snap (dynamic — from Midtrans API) |
 | Storage | Cloudflare R2 |
 
 ### API Base URL
@@ -121,31 +121,29 @@ CANCELLED    CANCELLED
 
 ### Supported Methods
 
-| Code | Provider | Type | Flow |
-|------|----------|------|------|
-| QRIS | Midtrans | Online | Scan QR via Midtrans Snap |
-| VA_BCA, VA_MANDIRI, VA_BNI | Midtrans | Online | Virtual Account via Midtrans Snap |
-| EWALLET_OVO, EWALLET_DANA, EWALLET_SHOPEEPAY | Midtrans | Online | e-Wallet via Midtrans Snap |
+Payment methods are **dynamic** — fetched from Midtrans API (`GET /v1/payment-options`) based on your Midtrans Dashboard configuration. No hardcoded method codes.
 
-> **NOTE**: Tidak ada COD/CASH. Semua pembayaran melalui Midtrans Snap.
+Supported method types: QRIS, Virtual Account (BCA/Mandiri/BNI), E-Wallet (OVO/DANA/ShopeePay), Credit Card, Convenience Store, Cicilan.
+
+Semua pembayaran melalui Midtrans Snap — tidak ada COD/CASH.
 
 ### Payment APIs
 
 | Endpoint | Description |
 |----------|-------------|
-| `POST /api/payment/checkout` | Create Midtrans Snap token |
+| `POST /api/payment/checkout` | Create Midtrans Snap token → redirectUrl |
 | `POST /api/payment/notification` | Midtrans webhook callback |
 | `GET /api/payment?orderId=` | Query payment status |
+| `GET /api/payment/methods` | List available payment methods (dynamic from Midtrans) |
 
 ### Midtrans Flow (semua metode)
 
 ```
-1. Pilih produk → pilih metode (QRIS/VA/e-Wallet)
-2. Klik Bayar → POST /api/orders + POST /api/payment/checkout
-3. Redirect ke Midtrans Snap page (redirectUrl)
-4. Customer bayar via Midtrans
-5. Midtrans webhook → POST /api/payment/notification
-6. Order SEARCHING + PAID → Stok dikurangi → Broadcast ke baristas
+1. Pilih produk → Klik Bayar
+2. Redirect ke Midtrans Snap page (payment method dipilih di sana)
+3. Customer bayar via Midtrans
+4. Midtrans webhook → POST /api/payment/notification
+5. Order SEARCHING + PAID → Stok dikurangi → Broadcast ke baristas
 ```
 
 ### Midtrans Signature Verification
@@ -163,7 +161,7 @@ SHA512(order_id + status_code + gross_amount + serverKey)
 
 ```prisma
 PaymentStatus: PENDING, PAID, FAILED, EXPIRED, REFUNDED
-PaymentProvider: CASH, MIDTRANS
+PaymentProvider: MIDTRANS
 OrderStatus: PENDING, SEARCHING, ASSIGNED, ACCEPTED, DELIVERING, ARRIVED, COMPLETED, CANCELLED, FAILED
 BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 ```
@@ -179,7 +177,7 @@ BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 | Payment | Record pembayaran via Midtrans Snap |
 | PaymentWebhookLog | Log webhook Midtrans |
 
-> **NOTE**: `PaymentProviderConfig`, `PaymentMethodConfig`, dan `CustomerPaymentAccount` telah dihapus. Payment methods di-hardcode (QRIS, VA, e-Wallet) karena hanya pakai Midtrans.
+> **NOTE**: `PaymentProviderConfig`, `PaymentMethodConfig`, dan `CustomerPaymentAccount` telah dihapus.
 
 ---
 
@@ -258,7 +256,7 @@ Groups of tightly-coupled code, ranked by cohesion:
 | `Midtrans Payment` | 0.14 | Snap token + signature |
 | `Order Assignment` | 0.17 | Haversine distance assignment |
 | `Auth & Firebase Admin` | 0.12 | NextAuth + Firebase Admin |
-| `Maps & Leaflet` | 0.06 | Tracking map, inline checkout map |
+| `Maps & Leaflet` | 0.06 | Tracking map |
 | `Dashboard Stats API` | 0.32 | Stats aggregation |
 | `Cost History API` | 0.36 | Cost tracking API |
 | `Production API` | 0.17 | Production lifecycle |
@@ -294,7 +292,7 @@ These are mostly `$schema`, `style`, `rsc`, `tsx`, `config` references — they 
 | File | Description |
 |------|-------------|
 | `docs/API.md` | Complete API documentation |
-| `docs/PAYMENT.md` | Payment system (CASH + Midtrans) |
+| `docs/PAYMENT.md` | Payment system (Midtrans) |
 | `docs/MIDTRANS.md` | Midtrans Payment integration |
 | `docs/BARISTA.md` | Barista workflow |
 | `docs/BARISTA-STOCK.md` | Barista stock management |

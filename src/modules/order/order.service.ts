@@ -87,7 +87,7 @@ async function validateAndComputeItems(
 
 // ============================================================
 // Preview — hitung harga tanpa buat order
-// Payment method fee di-handle oleh DOKU Checkout (dynamic)
+// Payment method fee di-handle oleh Midtrans Snap (dynamic)
 // ============================================================
 
 export async function previewOrder(input: PreviewOrderInput) {

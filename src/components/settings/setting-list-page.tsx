@@ -739,7 +739,7 @@ export function SettingListPage() {
                 id="setting-key"
                 value={key}
                 onChange={(e) => setKey(e.target.value.toLowerCase())}
-                placeholder="tax, fee_barista, fee_doku"
+                placeholder="tax, fee_barista, fee_midtrans"
                 disabled={isSaving || editTarget !== null}
                 className="font-mono"
               />

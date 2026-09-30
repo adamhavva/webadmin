@@ -33,17 +33,17 @@ export const midtransNotificationSchema = z.object({
   status_message: z.string(),
   status_code: z.string(),
   signature_key: z.string(),
-  payment_type: z.string(), // qris, bank_transfer, gopay, shopeepay, etc.
+  payment_type: z.string(), // qris, bank_transfer, gopay, shopeepay, etc. — dynamic from Midtrans
   order_id: z.string(),
   merchant_id: z.string(),
   gross_amount: z.string(), // raw string like "50000.00"
   fraud_status: z.string().optional(), // accept, challenge, deny
   currency: z.string().optional(),
-  // VA-specific
+  // VA-specific fields (when payment_type is bank_transfer)
   va_numbers: z
     .array(z.object({ bank: z.string(), va_number: z.string() }))
     .optional(),
-  // QRIS
+  // QRIS / acquirer info
   acquirer: z.string().optional(),
   // Expiry
   expiry_time: z.string().optional(),
