@@ -227,7 +227,7 @@ async function main() {
 
   console.log(`  ✓ Production created: ${OUTPUT_QUANTITY} units`);
   console.log(
-    `  ✓ Finished Batch: ${production.finishedProductBatch.batchCode}`,
+    `  ✓ Finished Batch: ${production.finishedProductBatch?.batchCode}`,
   );
   console.log(
     `  ✓ Unit Cost: Rp ${unitCost.toLocaleString()} per Kopi 1`,
@@ -247,7 +247,7 @@ async function main() {
         items: {
           create: {
             productId: product.id,
-            finishedBatchId: finishedBatch.id,
+            finishedBatchId: finishedBatch?.id ?? "",
             quantity: 10,
             unitCost: unitCost,
           },
@@ -300,7 +300,7 @@ async function main() {
     });
 
     console.log(
-      `  ✓ ${barista.name}: 10x ${product.name} (Batch: ${finishedBatch.batchCode})`,
+      `  ✓ ${barista.name}: 10x ${product.name} (Batch: ${finishedBatch?.batchCode})`,
     );
   }
 
