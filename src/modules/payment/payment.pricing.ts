@@ -2,6 +2,8 @@
 // Payment Pricing - Fee Calculation
 // ============================================================
 
+import { prisma } from '@/lib/db';
+
 // ============================================================
 // Types
 // ============================================================
@@ -56,36 +58,77 @@ export function calculateFee(
 // Get Fee for Payment Method
 // ============================================================
 
-export function getMethodFee(
-  _methodCode: string
-): {
+export async function getMethodFee(
+  methodCode: string
+): Promise<{
   feeType: 'NONE' | 'PERCENTAGE' | 'NOMINAL';
   feeValue: number;
   feeLabel: string;
-} {
-  // Payment method config removed from DB; no fees applied
-  return { feeType: 'NONE', feeValue: 0, feeLabel: 'Tanpa biaya admin' };
+}> {
+  const method = await prisma.paymentMethodConfig.findUnique({
+    where: { code: methodCode, isActive: true },
+  });
+
+  if (!method) {
+    throw new Error(`Payment method not found: ${methodCode}`);
+  }
+
+  let feeLabel = '';
+  if (method.feeType === 'NONE') {
+    feeLabel = 'Tanpa biaya admin';
+  } else if (method.feeType === 'PERCENTAGE') {
+    feeLabel = `Admin ${Number(method.feeValue)}%`;
+  } else {
+    feeLabel = `Admin Rp ${Number(method.feeValue).toLocaleString('id-ID')}`;
+  }
+
+  return {
+    feeType: method.feeType as 'NONE' | 'PERCENTAGE' | 'NOMINAL',
+    feeValue: Number(method.feeValue),
+    feeLabel,
+  };
 }
 
 // ============================================================
 // Calculate Total with Fee
 // ============================================================
 
-export function calculateTotalWithFee(
+export async function calculateTotalWithFee(
   subtotal: number,
   methodCode: string
-): FeeBreakdown {
-  // Payment method config removed from DB; no fees applied
-  const calculation = calculateFee(subtotal, 'NONE', 0);
+): Promise<FeeBreakdown> {
+  const method = await prisma.paymentMethodConfig.findUnique({
+    where: { code: methodCode, isActive: true },
+  });
+
+  if (!method) {
+    throw new Error(`Payment method not found: ${methodCode}`);
+  }
+
+  const calculation = calculateFee(
+    subtotal,
+    method.feeType as 'NONE' | 'PERCENTAGE' | 'NOMINAL',
+    Number(method.feeValue)
+  );
+
+  let feeLabel = '';
+  if (calculation.feeType === 'NONE') {
+    feeLabel = 'Tanpa biaya admin';
+  } else if (calculation.feeType === 'PERCENTAGE') {
+    feeLabel = `${calculation.feeValue}% dari subtotal`;
+  } else {
+    feeLabel = `Rp ${calculation.feeValue.toLocaleString('id-ID')}`;
+  }
+
   return {
-    methodCode,
-    methodName: methodCode,
+    methodCode: method.code,
+    methodName: method.name,
     subtotal: calculation.subtotal,
     fee: {
-      type: 'NONE',
-      value: 0,
-      amount: 0,
-      label: 'Tanpa biaya admin',
+      type: calculation.feeType,
+      value: calculation.feeValue,
+      amount: calculation.feeAmount,
+      label: feeLabel,
     },
     total: calculation.total,
   };
