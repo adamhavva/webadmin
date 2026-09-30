@@ -97,7 +97,7 @@ export async function previewOrder(input: PreviewOrderInput) {
 
   const { charges, chargesTotal } = await computeCharges(subtotal);
 
-  // Payment fee = 0, DOKU Checkout handles payment method selection
+  // Payment fee = 0, Midtrans Snap handles payment method selection
   const deliveryFee = 0;
   const paymentFeeAmount = 0;
   const total = subtotal + chargesTotal + paymentFeeAmount + deliveryFee;
@@ -118,17 +118,13 @@ export async function previewOrder(input: PreviewOrderInput) {
 // ============================================================
 
 export async function createOrder(input: CreateOrderInput) {
-  const isOffline = input.channel === "OFFLINE";
-
-  // Validasi alamat untuk order online
+  // Validasi koordinat
   if (
-    !isOffline &&
-    (!input.deliveryAddress ||
-      input.deliveryLatitude === undefined ||
-      input.deliveryLongitude === undefined)
+    input.deliveryLatitude === undefined ||
+    input.deliveryLongitude === undefined
   ) {
     throw ApiError.unprocessable(
-      "Alamat + koordinat wajib diisi untuk order online"
+      "Koordinat pengiriman wajib diisi"
     );
   }
 
@@ -140,14 +136,13 @@ export async function createOrder(input: CreateOrderInput) {
   // Charge dari Setting
   const { charges, chargesTotal } = await computeCharges(subtotal);
 
-  // Payment fee = 0, DOKU Checkout handles payment method selection
+  // Payment fee = 0, Midtrans Snap handles payment method selection
   const deliveryFee = 0;
   const total = subtotal + chargesTotal + deliveryFee;
 
   const orderNumber = await generateOrderNumber();
 
-  // Initial status - semua online order PENDING (menunggu pembayaran DOKU)
-  const initialStatus = isOffline ? "COMPLETED" : "PENDING";
+  const initialStatus = "PENDING";
 
   // Transaction
   const result = await prisma.$transaction(
@@ -171,24 +166,14 @@ export async function createOrder(input: CreateOrderInput) {
           deliveryFee,
           total,
 
-          // Payment - semua via DOKU Checkout
-          paymentStatus: isOffline ? "PAID" : "PENDING",
-          paymentProvider: "DOKU" as "DOKU" | "INTERNAL",
+          paymentStatus: "PENDING",
+          paymentProvider: "MIDTRANS",
           paymentChannel: "PREPAID",
-          paymentMethodCode: "DOKU_SNAP",
-          paymentMethodName: "DOKU SNAP",
-          paymentMethodGroup: "DOKU",
+          paymentMethodCode: "MIDTRANS_SNAP",
+          paymentMethodName: "Midtrans Snap",
+          paymentMethodGroup: "MIDTRANS",
           paymentFeeAmount: 0,
-          dokuPaymentMethod: null,
-
-          // Offline → langsung selesai + paid
-          ...(isOffline
-            ? {
-                completedAt: new Date(),
-                actualDeliveryAt: new Date(),
-                paidAt: new Date(),
-              }
-            : {}),
+          providerChannel: null,
         },
       });
 
@@ -225,23 +210,16 @@ export async function createOrder(input: CreateOrderInput) {
         data: {
           orderId: order.id,
           status: initialStatus,
-          note: isOffline
-            ? "Order offline langsung selesai"
-            : "Order dibuat, menunggu pembayaran via DOKU SNAP",
+          note: "Order dibuat, menunggu pembayaran via Midtrans Snap",
         },
       });
 
-      // Payment log - DOKU SNAP handles all payment methods
+      // Payment log
       await tx.payment.create({
         data: {
           orderId: order.id,
           amount: total,
-          providerId: "",
-          providerCode: "",
-          methodCode: "",
-          methodName: "",
-          status: isOffline ? "PAID" : "PENDING",
-          paidAt: isOffline ? new Date() : null,
+          status: "PENDING",
         },
       });
 
@@ -642,22 +620,8 @@ export async function completeOrder(
           status: "COMPLETED",
           completedAt: new Date(),
           actualDeliveryAt: new Date(),
-          ...(order.paymentChannel === "COD"
-            ? { paymentStatus: "PAID", paidAt: new Date() }
-            : {}),
         },
       });
-
-      // Update payment log kalau COD
-      if (order.paymentChannel === "COD") {
-        await tx.payment.update({
-          where: { orderId },
-          data: {
-            status: "PAID",
-            paidAt: new Date(),
-          },
-        });
-      }
 
       // Kurangi BaristaStock + log
       for (const item of order.items) {
@@ -936,11 +900,10 @@ export async function getOrderById(orderId: string) {
       methodGroup: order.paymentMethodGroup,
       feeAmount: Number(order.paymentFeeAmount),
       paidAt: order.paidAt?.toISOString() ?? null,
-      dokuInvoiceNumber: order.dokuInvoiceNumber,
-      dokuPaymentUrl: order.dokuPaymentUrl,
-      dokuPaymentMethod: order.dokuPaymentMethod,
-      dokuPaidAt: order.dokuPaidAt?.toISOString() ?? null,
-      dokuExpiredAt: order.dokuExpiredAt?.toISOString() ?? null,
+      snapToken: order.snapToken,
+      paymentUrl: order.paymentUrl,
+      providerChannel: order.providerChannel,
+      paymentExpiredAt: order.paymentExpiredAt?.toISOString() ?? null,
     },
 
     statusHistory: order.statusHistory.map((h) => ({

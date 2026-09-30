@@ -7,15 +7,7 @@ export interface PaymentProviderConfig {
   code: string;
   name: string;
   isActive: boolean;
-  dokuClientId?: string;
-  dokuClientSecret?: string;
-  dokuPrivateKey?: string;
-  dokuPublicKey?: string;
   isProduction: boolean;
-  dokuSandboxClientId?: string;
-  dokuSandboxClientSecret?: string;
-  dokuSandboxPrivateKey?: string;
-  dokuSandboxPublicKey?: string;
   webhookSecret?: string;
 }
 
@@ -24,7 +16,7 @@ export interface PaymentMethodConfig {
   code: string;
   name: string;
   providerId: string;
-  dokuChannelCode?: string;
+  providerChannel?: string;
   groupCode?: string;
   groupName?: string;
   feeType: 'NONE' | 'PERCENTAGE' | 'NOMINAL';
@@ -49,12 +41,12 @@ export interface Payment {
   methodCode: string;
   methodName: string;
   methodGroup?: string;
-  dokuChannelCode?: string;
+  providerChannel?: string;
   methodFeeAmount: number;
   status: PaymentStatus;
-  dokuInvoiceNumber?: string;
-  dokuTransactionId?: string;
-  dokuPaymentUrl?: string;
+  snapToken?: string;
+  providerTransactionId?: string;
+  paymentUrl?: string;
   requestPayload?: Record<string, unknown>;
   callbackPayload?: Record<string, unknown>;
   paidAt?: Date;
@@ -86,10 +78,13 @@ export interface CreatePaymentResponse {
   providerCode: string;
   methodCode: string;
 
+  // Snap / redirect
+  snapToken?: string;
+  paymentUrl?: string;
+
   // VA response
   virtualAccountNo?: string;
   virtualAccountName?: string;
-  howToPayPage?: string;
 
   // QRIS response
   qrContent?: string;
@@ -99,22 +94,20 @@ export interface CreatePaymentResponse {
 
   // Common
   transactionId?: string;
-  invoiceNumber?: string;
-  paymentUrl?: string;
   expiryTime?: string;
   rawResponse?: Record<string, unknown>;
 }
 
 export interface PaymentNotification {
-  originalReferenceNo?: string;
-  originalPartnerReferenceNo?: string;
-  latestTransactionStatus: string;
-  transactionStatusDesc?: string;
-  amount?: {
-    value: string;
-    currency: string;
-  };
-  additionalInfo?: Record<string, unknown>;
+  orderId: string;
+  transactionStatus: string;
+  transactionId?: string;
+  statusCode?: string;
+  grossAmount?: string;
+  fraudStatus?: string;
+  paymentType?: string;
+  signatureKey?: string;
+  rawPayload?: Record<string, unknown>;
 }
 
 export interface PaymentProviderAdapter {
@@ -128,11 +121,7 @@ export interface PaymentProviderAdapter {
     transactionId?: string;
   }>;
 
-  verifyWebhookSignature(
-    signature: string,
-    timestamp: string,
-    body: string
-  ): boolean;
+  verifyWebhookSignature(signature: string, payload: Record<string, unknown>): boolean;
 }
 
 // ============================================================

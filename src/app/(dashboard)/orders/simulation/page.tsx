@@ -1,741 +1,920 @@
 "use client";
 
-import * as React from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
-import {
-  AlertTriangle,
-  ArrowLeft,
-  Building2,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  CircleUser,
-  Clock,
-  CreditCard,
-  Loader2,
-  MapPin,
-  Minus,
-  Navigation,
-  Package,
-  Plus,
-  QrCode,
-  RefreshCw,
-  Search,
-  ShoppingBag,
-  ShoppingCart,
-  Trash2,
-  Wallet,
-  X,
-} from "lucide-react";
-
-import { Badge } from "@/components/ui/badge";
+import { useSearchParams } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
+import {
+  ShoppingCart,
+  Coffee,
+  Minus,
+  Plus,
+  MapPin,
+  Users,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
+import {
+  subscribeToLocations,
+  type LiveLocation,
+} from "@/lib/firebases/firebase-rtdb";
 
 // ============================================================
 // Types
 // ============================================================
 
-interface Product {
-  id: string;
+interface SimProduct {
+  productId: string;
   name: string;
   price: number;
-  imageUrl?: string;
-  description?: string;
-  recipe?: {
-    name: string;
-    components: Array<{
-      inventoryItemName: string;
-      quantity: number;
-      unit: string;
-    }>;
-  };
+  imageUrl: string | null;
+  description: string | null;
+  totalStock: number;
+  baristaIds: string[];
 }
 
-interface CartItemType {
-  product: Product;
-  quantity: number;
-  baristaId: string;
-  baristaName: string;
+interface NearbyBarista {
+  uid: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  status: string;
+  distanceKm: number;
 }
 
-interface BaristaLocation {
-  baristaId: string;
-  baristaName: string;
-  lat: number;
-  lng: number;
-  distance?: number;
-  eta?: number;
-}
+// ============================================================
+// Lazy-loaded Map
+// ============================================================
+
+const InlineMap = dynamic(
+  () => import("@/components/map/InlineMap").then((m) => m.InlineMap),
+  { ssr: false }
+);
 
 // ============================================================
 // Helpers
 // ============================================================
 
-function toLocaleString(n: number): string {
-  return new Intl.NumberFormat("id-ID").format(n);
+function formatRupiah(amount: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(amount);
 }
 
-function formatDistance(km: number): string {
-  if (km < 1) {
-    return Math.round(km * 1000) + " m";
-  }
-  return km.toFixed(1) + " km";
+function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 // ============================================================
-// InlineCheckout Component (Dynamic Import)
+// Payment Result View
 // ============================================================
 
-const InlineCheckout = dynamic(
-  () => import("@/components/map/inline-checkout"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-gray-400" />
-      </div>
-    ),
-  }
-);
+function PaymentResult() {
+  const params = useSearchParams();
+  const status = params.get("transaction_status");
+  const orderId = params.get("order_id");
+  const [completing, setCompleting] = useState(false);
+  const [completed, setCompleted] = useState(false);
 
-// ============================================================
-// Main Component
-// ============================================================
+  if (!status) return null;
 
-export default function OrderSimulationPage() {
-  const router = useRouter();
+  const isSuccess = status === "settlement" || status === "capture";
+  const isPending = status === "pending";
 
-  // Data state
-  const [products, setProducts] = React.useState<Product[]>([]);
-  const [baristaLocations, setBaristaLocations] = React.useState<BaristaLocation[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-
-  // UI state
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [expandedProduct, setExpandedProduct] = React.useState<string | null>(null);
-  const [showCart, setShowCart] = React.useState(false);
-  const [showCheckout, setShowCheckout] = React.useState(false);
-  const [orderSuccess, setOrderSuccess] = React.useState<string | null>(null);
-
-  // Cart state
-  const [cart, setCart] = React.useState<CartItemType[]>([]);
-
-  // Customer state
-  const [customerName, setCustomerName] = React.useState("");
-  const [customerPhone, setCustomerPhone] = React.useState("");
-
-  // Barista stock map
-  const [baristaStocks, setBaristaStocks] = React.useState<Map<string, { stock: number; baristaId: string; baristaName: string }>>(new Map());
-
-  // ============================================================
-  // Fetch Data
-  // ============================================================
-
-  const fetchData = React.useCallback(async () => {
+  async function handleComplete() {
+    if (!orderId) return;
+    setCompleting(true);
     try {
-      setIsLoading(true);
-      setError(null);
-
-      // Fetch barista stock with location
-      const res = await fetch("/api/barista-stock");
+      const res = await fetch(`/api/orders/${orderId}/complete`, { method: "POST" });
       const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.error?.message ?? "Gagal mengambil data");
-      }
-
-      const items = json.data.items ?? [];
-
-      // Extract products and barista locations
-      const allProducts: Product[] = [];
-      const allBaristaLocations: BaristaLocation[] = [];
-      const stockMap = new Map<string, { stock: number; baristaId: string; baristaName: string }>();
-
-      // User location for distance calculation (default Jakarta)
-      const userLat = -6.2088;
-      const userLng = 106.8456;
-
-      for (const barista of items) {
-        if (barista.baristaStatus !== "ACTIVE") continue;
-
-        // Add barista location
-        if (barista.lat && barista.lng) {
-          const distance = calculateDistance(
-            userLat, userLng,
-            barista.lat, barista.lng
-          );
-          allBaristaLocations.push({
-            baristaId: barista.baristaId,
-            baristaName: barista.baristaName,
-            lat: barista.lat,
-            lng: barista.lng,
-            distance,
-            eta: Math.round(distance * 3),
-          });
-        }
-
-        // Add products
-        for (const product of barista.products ?? []) {
-          if (!product.productIsActive) continue;
-
-          const productId = product.productId;
-          const existing = stockMap.get(productId);
-
-          if (existing) {
-            if (product.quantity > existing.stock) {
-              existing.stock = product.quantity;
-              existing.baristaId = barista.baristaId;
-              existing.baristaName = barista.baristaName;
-            }
-          } else {
-            stockMap.set(productId, {
-              stock: product.quantity,
-              baristaId: barista.baristaId,
-              baristaName: barista.baristaName,
-            });
-          }
-
-          if (!allProducts.find((p) => p.id === productId)) {
-            allProducts.push({
-              id: productId,
-              name: product.productName,
-              price: product.sellingPrice,
-              imageUrl: product.imageUrl,
-              description: product.description,
-            });
-          }
-        }
-      }
-
-      // Sort baristas by distance
-      allBaristaLocations.sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
-
-      setProducts(allProducts);
-      setBaristaLocations(allBaristaLocations);
-      setBaristaStocks(stockMap);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+      if (json.success) setCompleted(true);
+      else alert(json.error?.message || "Gagal menyelesaikan order");
+    } catch {
+      alert("Gagal menyelesaikan order");
     } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
-
-  // ============================================================
-  // Distance Calculation
-  // ============================================================
-
-  function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLng = ((lng2 - lng1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  // ============================================================
-  // Cart Functions
-  // ============================================================
-
-  function getStockForProduct(productId: string): { stock: number; baristaId: string; baristaName: string } {
-    return baristaStocks.get(productId) ?? { stock: 0, baristaId: "", baristaName: "" };
-  }
-
-  function getNearestBaristaLocation(baristaId: string): BaristaLocation | undefined {
-    return baristaLocations.find((b) => b.baristaId === baristaId);
-  }
-
-  function addToCart(product: Product, quantity: number, baristaId: string, baristaName: string) {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        );
-      }
-      return [...prev, { product, quantity, baristaId, baristaName }];
-    });
-    setExpandedProduct(null);
-  }
-
-  function updateCartQuantity(productId: string, newQuantity: number) {
-    if (newQuantity <= 0) {
-      setCart((prev) => prev.filter((item) => item.product.id !== productId));
-    } else {
-      setCart((prev) =>
-        prev.map((item) =>
-          item.product.id === productId ? { ...item, quantity: newQuantity } : item
-        )
-      );
+      setCompleting(false);
     }
   }
-
-  function removeFromCart(productId: string) {
-    setCart((prev) => prev.filter((item) => item.product.id !== productId));
-  }
-
-  const cartTotal = React.useMemo(
-    () => cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
-    [cart]
-  );
-
-  const cartCount = React.useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
-
-  // ============================================================
-  // Filter Products
-  // ============================================================
-
-  const filteredProducts = React.useMemo(() => {
-    if (!searchQuery.trim()) return products;
-    const q = searchQuery.toLowerCase();
-    return products.filter((p) => p.name.toLowerCase().includes(q));
-  }, [products, searchQuery]);
-
-  // ============================================================
-  // Order Success Handler
-  // ============================================================
-
-  function handleOrderSuccess(orderId: string) {
-    setOrderSuccess(orderId);
-    setShowCheckout(false);
-    setCart([]);
-  }
-
-  // ============================================================
-  // Loading State
-  // ============================================================
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="size-8 animate-spin text-gray-400" />
-          <p className="text-sm text-gray-500">Memuat menu...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ============================================================
-  // Error State
-  // ============================================================
-
-  if (error) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <AlertTriangle className="size-8 text-red-500" />
-          <p className="text-sm text-gray-500">{error}</p>
-          <Button onClick={() => void fetchData()}>
-            <RefreshCw className="mr-2 size-4" />
-            Coba Lagi
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // ============================================================
-  // Order Success View
-  // ============================================================
-
-  if (orderSuccess) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 size={48} className="text-green-600" />
-          </div>
-          <h2 className="text-2xl font-bold mb-2">Order BERHASIL!</h2>
-          <p className="text-gray-500 mb-1">Nomor Order:</p>
-          <p className="text-xl font-mono font-bold mb-6">{orderSuccess}</p>
-          <Button
-            onClick={() => {
-              setOrderSuccess(null);
-              setCustomerName("");
-              setCustomerPhone("");
-            }}
-            className="w-full"
-          >
-            Pesan Lagi
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // ============================================================
-  // Main Render
-  // ============================================================
-
-  const nearestBarista = baristaLocations[0] ?? null;
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col w-full overflow-hidden">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between h-12">
-            {/* Left - Back & Logo */}
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.back()}
-                className="size-8"
-              >
-                <ArrowLeft className="size-5" />
-              </Button>
-              <div>
-                <h1 className="text-xl font-bold text-black">ASCEND</h1>
-                <p className="text-xs text-gray-500">Pesan kopi favorit</p>
-              </div>
-            </div>
-
-            {/* Right - Cart */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowCart(!showCart)}
-                className="relative bg-black text-white p-3 rounded-full hover:bg-gray-800 transition shadow-md"
-              >
-                <ShoppingCart size={24} />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full text-xs text-white flex items-center justify-center font-bold">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Search Bar */}
-          <div className="relative mt-3">
-            <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Cari kopi..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-100 border border-gray-200 rounded-xl py-3 pl-12 pr-4 text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white"
-            />
-          </div>
-        </div>
-      </header>
-
-      {/* Barista Distance Info */}
-      {baristaLocations.length > 0 && (
-        <div className="bg-orange-50 border-b border-orange-100">
-          <div className="max-w-6xl mx-auto px-4 py-3">
-            <div className="flex items-center gap-2 text-sm">
-              <Navigation size={16} className="text-orange-500" />
-              <span className="text-gray-700">
-                Barista terdekat: <strong>{baristaLocations[0]?.baristaName}</strong>
-              </span>
-              <span className="text-gray-400">|</span>
-              <span className="text-orange-600 font-medium">
-                {baristaLocations[0]?.distance !== undefined ? formatDistance(baristaLocations[0].distance) : "-"}
-              </span>
-              <span className="text-gray-400">|</span>
-              <span className="text-blue-600">
-                ~{baristaLocations[0]?.eta || "-"} menit
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6">
-        {/* Product Grid */}
-        <div className="mb-32">
-          {filteredProducts.length === 0 ? (
-            <div className="text-center py-20">
-              <Package size={64} className="mx-auto mb-4 text-gray-300" />
-              <p className="text-gray-500 text-lg">Menu tidak ditemukan</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {filteredProducts.map((product) => {
-                const { stock, baristaId, baristaName } = getStockForProduct(product.id);
-                const nearestBaristaLoc = getNearestBaristaLocation(baristaId);
-                const isExpanded = expandedProduct === product.id;
-
-                return (
-                  <div key={product.id} className="space-y-2">
-                    <button
-                      onClick={() => setExpandedProduct(isExpanded ? null : product.id)}
-                      className={cn(
-                        "bg-white border rounded-2xl overflow-hidden text-left hover:shadow-lg transition w-full",
-                        isExpanded ? "border-2 border-black shadow-lg" : "border-gray-100"
-                      )}
-                    >
-                      <div className="relative h-36 bg-gray-100">
-                        {product.imageUrl ? (
-                          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="flex items-center justify-center h-full text-gray-300">
-                            <Package size={40} />
-                          </div>
-                        )}
-                        {stock === 0 && (
-                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                            <span className="text-white font-semibold">Habis</span>
-                          </div>
-                        )}
-                        {stock > 0 && stock <= 5 && (
-                          <div className="absolute top-2 left-2 bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">
-                            Tinggal {stock}
-                          </div>
-                        )}
-                        {baristaName && (
-                          <div className="absolute bottom-2 left-2 bg-white/90 text-gray-700 text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <CircleUser size={10} />
-                            {baristaName}
-                          </div>
-                        )}
-                        <div className="absolute top-2 right-2 bg-white/90 rounded-full p-1">
-                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                        </div>
-                      </div>
-                      <div className="p-4">
-                        <h3 className="font-semibold text-gray-900 line-clamp-1">{product.name}</h3>
-                        <p className="text-black font-bold text-lg mt-1">Rp {toLocaleString(product.price)}</p>
-                        {nearestBaristaLoc?.distance && (
-                          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
-                            <MapPin size={12} /> ~{formatDistance(nearestBaristaLoc.distance)}
-                          </p>
-                        )}
-                      </div>
-                    </button>
-
-                    {/* Expanded Product Detail */}
-                    {isExpanded && (
-                      <div className="bg-white border-2 border-black rounded-2xl p-4 space-y-4">
-                        <div className="flex gap-4">
-                          {product.imageUrl && (
-                            <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                              <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
-                            </div>
-                          )}
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-lg">{product.name}</h4>
-                            {product.description && (
-                              <p className="text-sm text-gray-500 mt-1">{product.description}</p>
-                            )}
-                          </div>
-                        </div>
-
-                        {product.recipe && (
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <p className="text-xs font-medium text-gray-500 mb-2">Resep: {product.recipe.name}</p>
-                            <div className="space-y-1">
-                              {product.recipe.components.map((comp, i) => (
-                                <div key={i} className="flex justify-between text-xs">
-                                  <span>{comp.inventoryItemName}</span>
-                                  <span className="text-gray-500">{comp.quantity} {comp.unit}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-600">Stok:</span>
-                          <span className={cn("font-medium", stock <= 5 ? "text-yellow-600" : "text-green-600")}>
-                            {stock} units
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              addToCart(product, 1, baristaId, baristaName);
-                            }}
-                            disabled={stock === 0}
-                            className="flex-1 bg-black text-white py-3 rounded-xl font-semibold hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                          >
-                            <Plus size={18} />
-                            Tambah
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              addToCart(product, 1, baristaId, baristaName);
-                              setShowCart(true);
-                            }}
-                            disabled={stock === 0}
-                            className="bg-gray-100 text-black py-3 px-4 rounded-xl font-semibold hover:bg-gray-200 transition disabled:opacity-50"
-                          >
-                            <ShoppingCart size={18} />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* Floating Cart Button */}
-      {cartCount > 0 && !showCart && !showCheckout && (
-        <button
-          onClick={() => setShowCart(true)}
-          className="fixed bottom-6 right-6 bg-black text-white py-4 px-6 rounded-2xl font-semibold shadow-lg hover:bg-gray-800 transition flex items-center gap-3 z-30"
-        >
-          <div className="flex items-center gap-2">
-            <ShoppingCart size={20} />
-            <span>{cartCount} item</span>
-          </div>
-          <span className="border-l border-gray-600 pl-3">Rp {toLocaleString(cartTotal)}</span>
-        </button>
-      )}
-
-      {/* Sticky Cart Panel */}
-      <div className={cn(
-        "fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-40 transition-transform duration-300 flex flex-col",
-        showCart ? "translate-x-0" : "translate-x-full"
-      )}>
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <ShoppingCart size={20} />
-            <span className="font-semibold">Keranjang ({cartCount})</span>
-          </div>
-          <button onClick={() => setShowCart(false)} className="p-2 hover:bg-gray-100 rounded-full">
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {cart.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <ShoppingBag size={48} className="text-gray-300 mb-4" />
-              <p className="text-gray-500">Keranjang kosong</p>
-              <p className="text-sm text-gray-400 mt-1">Pilih produk untuk menambahkan</p>
-            </div>
-          ) : (
-            cart.map((item) => (
-              <div key={item.product.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
-                <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                  {item.product.imageUrl ? (
-                    <img src={item.product.imageUrl} alt={item.product.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-gray-400">
-                      <Package size={24} />
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-sm line-clamp-1">{item.product.name}</h4>
-                  <p className="text-xs text-gray-500 mt-0.5">{item.baristaName}</p>
-                  <p className="font-semibold text-sm mt-1">Rp {toLocaleString(item.product.price)}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <button
-                      onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)}
-                      className="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100"
-                    >
-                      <Minus size={14} />
-                    </button>
-                    <span className="w-8 text-center font-medium">{item.quantity}</span>
-                    <button
-                      onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)}
-                      className="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100"
-                    >
-                      <Plus size={14} />
-                    </button>
-                    <button
-                      onClick={() => removeFromCart(item.product.id)}
-                      className="ml-auto p-2 text-red-500 hover:bg-red-50 rounded-full"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {cart.length > 0 && (
-          <div className="p-4 border-t border-gray-200 bg-white">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-gray-600">Total</span>
-              <span className="text-xl font-bold">Rp {toLocaleString(cartTotal)}</span>
-            </div>
-            <div className="space-y-2">
-              {/* Customer Info */}
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  placeholder="Nama Pelanggan"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-black focus:border-black text-sm"
-                />
-                <input
-                  type="tel"
-                  placeholder="Nomor HP (opsional)"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-black focus:border-black text-sm"
-                />
-              </div>
-              <button
-                onClick={() => {
-                  if (!customerName.trim()) {
-                    alert("Masukkan nama pelanggan");
-                    return;
-                  }
-                  setShowCart(false);
-                  setShowCheckout(true);
-                }}
-                className="w-full bg-black text-white py-4 rounded-xl font-semibold hover:bg-gray-800 transition flex items-center justify-center gap-2"
-              >
-                Checkout
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
-              </button>
-            </div>
-          </div>
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 p-8">
+      <div
+        className={`w-24 h-24 rounded-full flex items-center justify-center ${
+          isSuccess
+            ? "bg-green-100"
+            : isPending
+              ? "bg-yellow-100"
+              : "bg-red-100"
+        }`}
+      >
+        {isSuccess ? (
+          <CheckCircle2 className="w-12 h-12 text-green-600" />
+        ) : isPending ? (
+          <Clock className="w-12 h-12 text-yellow-600" />
+        ) : (
+          <XCircle className="w-12 h-12 text-red-600" />
         )}
       </div>
 
-      {/* Inline Checkout */}
-      {showCheckout && (
-        <InlineCheckout
-          cart={cart}
-          cartTotal={cartTotal}
-          nearestBarista={nearestBarista}
-          onSuccess={handleOrderSuccess}
-          onBack={() => setShowCheckout(false)}
-        />
+      <div className="text-center">
+        <h2 className="text-2xl font-bold mb-2">
+          {completed
+            ? "Order Selesai!"
+            : isSuccess
+              ? "Pembayaran Berhasil!"
+              : isPending
+                ? "Menunggu Pembayaran"
+                : "Pembayaran Gagal"}
+        </h2>
+        <p className="text-muted-foreground">
+          {completed
+            ? "Order telah diselesaikan."
+            : isSuccess
+              ? "Order sedang diproses. Barista sedang menuju lokasi kamu."
+              : isPending
+                ? "Selesaikan pembayaran sesuai instruksi yang diberikan."
+                : "Pembayaran tidak berhasil. Silakan coba lagi."}
+        </p>
+        {orderId && (
+          <p className="text-sm text-muted-foreground mt-2">
+            Order ID: <span className="font-mono">{orderId}</span>
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        {isSuccess && !completed && orderId && (
+          <>
+            <Button variant="outline" onClick={() => { window.location.href = "/tracking"; }}>
+              <MapPin className="w-4 h-4 mr-2" /> Lihat Tracking
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleComplete}
+              disabled={completing}
+            >
+              {completing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Selesaikan Pesanan (Simulasi)
+            </Button>
+          </>
+        )}
+        <Button
+          onClick={() => { window.location.href = "/orders/simulation"; }}
+          variant={isSuccess ? "default" : "outline"}
+        >
+          {isSuccess ? "Order Lagi" : "Kembali ke Menu"}
+        </Button>
+      </div>
+
+      {isSuccess && (
+        <p className="text-xs text-muted-foreground text-center max-w-sm">
+          Tombol &ldquo;Selesaikan Pesanan&rdquo; hanya ada di simulasi. Di aplikasi nyata, barista yang konfirmasi pesanan selesai.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Main Page
+// ============================================================
+
+export default function SimulationPage() {
+  const params = useSearchParams();
+  const transactionStatus = params.get("transaction_status");
+
+  // Show result view if returning from Midtrans
+  if (transactionStatus) {
+    return (
+      <div className="container mx-auto max-w-2xl py-8">
+        <PaymentResult />
+      </div>
+    );
+  }
+
+  return <SimulationContent />;
+}
+
+function SimulationContent() {
+  const { data: session } = useSession();
+
+  // Products
+  const [products, setProducts] = useState<SimProduct[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+
+  // Cart: productId → quantity
+  const [cart, setCart] = useState<Map<string, number>>(new Map());
+
+  // Firebase barista locations
+  const [baristaLocations, setBaristaLocations] = useState<
+    Record<string, LiveLocation>
+  >({});
+
+  // User geolocation
+  const [userLat, setUserLat] = useState(-6.2088);
+  const [userLng, setUserLng] = useState(106.8456);
+
+  // Checkout sheet: step "barista" → "info" → submitting
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutStep, setCheckoutStep] = useState<"barista" | "info">("barista");
+  const [selectedBaristaId, setSelectedBaristaId] = useState<string | null>(null);
+  const [customerName, setCustomerName] = useState(session?.user?.name ?? "");
+  const [customerPhone, setCustomerPhone] = useState((session?.user as { phone?: string })?.phone ?? "");
+  const [customerEmail, setCustomerEmail] = useState(session?.user?.email ?? "");
+  const [isOrdering, setIsOrdering] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
+
+  // ── Fetch products ──────────────────────────────────────────
+
+  const fetchProducts = useCallback(async () => {
+    setLoadingProducts(true);
+    try {
+      const res = await fetch("/api/baristas/available");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data.items)) {
+        // Deduplicate products across baristas client-side
+        const map = new Map<string, SimProduct>();
+        for (const barista of json.data.items) {
+          for (const p of barista.products ?? []) {
+            const existing = map.get(p.productId);
+            if (existing) {
+              existing.totalStock += p.availableStock;
+              if (!existing.baristaIds.includes(barista.baristaId)) {
+                existing.baristaIds.push(barista.baristaId);
+              }
+            } else {
+              map.set(p.productId, {
+                productId: p.productId,
+                name: p.productName,
+                price: p.sellingPrice,
+                imageUrl: null,
+                description: null,
+                totalStock: p.availableStock,
+                baristaIds: [barista.baristaId],
+              });
+            }
+          }
+        }
+        setProducts(Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name)));
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoadingProducts(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  // ── Firebase RTDB subscription ──────────────────────────────
+
+  useEffect(() => {
+    const unsub = subscribeToLocations((locations) => {
+      setBaristaLocations(locations);
+    });
+    return () => unsub();
+  }, []);
+
+  // ── Geolocation ─────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLat(pos.coords.latitude);
+        setUserLng(pos.coords.longitude);
+      },
+      () => {
+        // keep defaults
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
+
+  // ── Cart helpers ────────────────────────────────────────────
+
+  const setQty = (productId: string, qty: number) => {
+    setCart((prev) => {
+      const next = new Map(prev);
+      if (qty <= 0) next.delete(productId);
+      else next.set(productId, qty);
+      return next;
+    });
+  };
+
+  const cartItems = Array.from(cart.entries())
+    .map(([pid, qty]) => ({
+      product: products.find((p) => p.productId === pid)!,
+      qty,
+    }))
+    .filter((i) => i.product);
+
+  const cartTotal = cartItems.reduce(
+    (sum, i) => sum + i.product.price * i.qty,
+    0
+  );
+
+  // ── Active baristas sorted by distance ─────────────────────
+
+  const nearbyBaristas: NearbyBarista[] = Object.values(baristaLocations)
+    .filter(
+      (loc) => loc.role === "BARISTA" && loc.isActive && loc.status !== "offline"
+    )
+    .map((loc) => ({
+      uid: loc.uid,
+      name: loc.name,
+      latitude: loc.latitude,
+      longitude: loc.longitude,
+      status: loc.status,
+      distanceKm: haversineKm(userLat, userLng, loc.latitude, loc.longitude),
+    }))
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+
+  // For map: show selected or nearest barista
+  const displayBarista =
+    nearbyBaristas.find((b) => b.uid === selectedBaristaId) ??
+    nearbyBaristas[0];
+
+  // ── Order submit ────────────────────────────────────────────
+
+  const handleOrder = async () => {
+    if (!customerName.trim()) {
+      setOrderError("Nama customer wajib diisi");
+      return;
+    }
+    if (cartItems.length === 0) {
+      setOrderError("Pilih minimal 1 produk");
+      return;
+    }
+
+    setIsOrdering(true);
+    setOrderError(null);
+
+    try {
+      // 1. Create order
+      const orderRes = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel: "ONLINE",
+          customerName: customerName.trim(),
+          customerPhone: customerPhone.trim() || undefined,
+          deliveryLatitude: userLat,
+          deliveryLongitude: userLng,
+          paymentMethodCode: "MIDTRANS",
+          baristaId: selectedBaristaId || undefined,
+          items: cartItems.map((i) => ({
+            productId: i.product.productId,
+            quantity: i.qty,
+          })),
+        }),
+      });
+
+      const orderJson = await orderRes.json();
+      if (!orderJson.success) {
+        setOrderError(orderJson.error?.message || "Gagal membuat order");
+        return;
+      }
+
+      const orderId = orderJson.data?.orderId || orderJson.data?.id;
+      if (!orderId) {
+        setOrderError("Order ID tidak ditemukan");
+        return;
+      }
+
+      // 2. Create payment (Midtrans Snap)
+      const paymentRes = await fetch("/api/payment/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          customerName: customerName.trim(),
+          customerPhone: customerPhone.trim() || undefined,
+          customerEmail: customerEmail.trim() || undefined,
+        }),
+      });
+
+      const paymentJson = await paymentRes.json();
+      if (!paymentJson.success) {
+        setOrderError(paymentJson.error?.message || "Gagal membuat pembayaran");
+        return;
+      }
+
+      const redirectUrl = paymentJson.data?.redirectUrl;
+      if (!redirectUrl) {
+        setOrderError("URL pembayaran tidak ditemukan");
+        return;
+      }
+
+      // 3. Redirect to Midtrans Snap
+      window.location.href = redirectUrl;
+    } catch (err) {
+      setOrderError("Terjadi kesalahan. Silakan coba lagi.");
+      console.error(err);
+    } finally {
+      setIsOrdering(false);
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────
+
+  return (
+    <div className="flex flex-col gap-4 p-4 md:p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Simulasi Order ASCEND Coffee</h1>
+          <p className="text-muted-foreground text-sm">
+            Demo alur pemesanan seperti GoFood / ShopeeFood
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={fetchProducts}>
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Refresh Menu
+        </Button>
+      </div>
+
+      {/* Main layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* LEFT: Map */}
+        <div className="flex flex-col gap-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-green-600" />
+                Peta Live
+                {nearbyBaristas.length > 0 && (
+                  <Badge variant="secondary" className="ml-auto">
+                    <Users className="w-3 h-3 mr-1" />
+                    {nearbyBaristas.length} barista online
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <InlineMap
+                userLocation={{ latitude: userLat, longitude: userLng }}
+                baristaLocation={
+                  displayBarista
+                    ? {
+                        latitude: displayBarista.latitude,
+                        longitude: displayBarista.longitude,
+                        baristaName: displayBarista.name,
+                      }
+                    : undefined
+                }
+                onLocationChange={(lat, lng) => {
+                  setUserLat(lat);
+                  setUserLng(lng);
+                }}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Nearby baristas list — clickable to select */}
+          {nearbyBaristas.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  Barista Terdekat
+                  {selectedBaristaId && (
+                    <Badge variant="outline" className="ml-auto text-xs">
+                      Dipilih
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1">
+                  {nearbyBaristas.map((b, idx) => {
+                    const isSelected = selectedBaristaId === b.uid;
+                    const isNearest = idx === 0;
+                    return (
+                      <button
+                        key={b.uid}
+                        onClick={() =>
+                          setSelectedBaristaId(isSelected ? null : b.uid)
+                        }
+                        className={`w-full flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-colors text-left ${
+                          isSelected
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        <div
+                          className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                            b.status === "online"
+                              ? isSelected ? "bg-green-300" : "bg-green-500"
+                              : isSelected ? "bg-yellow-300" : "bg-yellow-500"
+                          }`}
+                        />
+                        <span className="font-medium flex-1">{b.name}</span>
+                        {isNearest && !isSelected && (
+                          <Badge variant="secondary" className="text-xs px-1 py-0">
+                            Terdekat
+                          </Badge>
+                        )}
+                        <span className={`text-xs ${isSelected ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                          {b.distanceKm < 1
+                            ? `${Math.round(b.distanceKm * 1000)} m`
+                            : `${b.distanceKm.toFixed(1)} km`}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {!selectedBaristaId && nearbyBaristas.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    Sistem akan otomatis memilih barista terdekat saat order
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* RIGHT: Menu + Cart */}
+        <div className="flex flex-col gap-4">
+          {/* Product Grid */}
+          <Card className="flex-1">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Coffee className="w-4 h-4" />
+                Menu Kopi
+                {loadingProducts && (
+                  <Loader2 className="w-4 h-4 animate-spin ml-auto" />
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingProducts ? (
+                <div className="flex items-center justify-center h-32 text-muted-foreground">
+                  <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                  Memuat menu...
+                </div>
+              ) : products.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-32 text-muted-foreground gap-2">
+                  <Coffee className="w-8 h-8 opacity-30" />
+                  <p className="text-sm">Belum ada produk tersedia</p>
+                </div>
+              ) : (
+                <div className="max-h-[400px] overflow-y-auto pr-1">
+                  <div className="grid grid-cols-2 gap-3">
+                    {products.map((product) => {
+                      const qty = cart.get(product.productId) ?? 0;
+                      return (
+                        <ProductCard
+                          key={product.productId}
+                          product={product}
+                          qty={qty}
+                          onQtyChange={(q) => setQty(product.productId, q)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Cart Summary */}
+          {cartItems.length > 0 && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ShoppingCart className="w-4 h-4" />
+                  Pesanan Kamu
+                  <Badge className="ml-auto">{cartItems.length} item</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {cartItems.map(({ product, qty }) => (
+                  <div
+                    key={product.productId}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span>
+                      {product.name}{" "}
+                      <span className="text-muted-foreground">×{qty}</span>
+                    </span>
+                    <span className="font-medium">
+                      {formatRupiah(product.price * qty)}
+                    </span>
+                  </div>
+                ))}
+                <Separator />
+                <div className="flex items-center justify-between font-bold">
+                  <span>Total</span>
+                  <span className="text-primary">{formatRupiah(cartTotal)}</span>
+                </div>
+                <Button
+                  className="w-full mt-2"
+                  onClick={() => {
+                    setCheckoutStep("barista");
+                    setOrderError(null);
+                    setCheckoutOpen(true);
+                  }}
+                >
+                  Pesan Sekarang →
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {/* Checkout Sheet */}
+      <Sheet open={checkoutOpen} onOpenChange={setCheckoutOpen}>
+        <SheetContent side="bottom" className="h-auto max-h-[90vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5" />
+              {checkoutStep === "barista" ? "Pilih Barista" : "Data Pengiriman"}
+            </SheetTitle>
+          </SheetHeader>
+
+          <div className="mt-6 space-y-4">
+            {/* Order summary (always visible) */}
+            <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+              {cartItems.map(({ product, qty }) => (
+                <div
+                  key={product.productId}
+                  className="flex justify-between text-sm"
+                >
+                  <span>{product.name} ×{qty}</span>
+                  <span>{formatRupiah(product.price * qty)}</span>
+                </div>
+              ))}
+              <Separator className="my-2" />
+              <div className="flex justify-between font-bold">
+                <span>Total</span>
+                <span>{formatRupiah(cartTotal)}</span>
+              </div>
+            </div>
+
+            {/* Step 1: Barista selection */}
+            {checkoutStep === "barista" && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Pilih gerobak kopi terdekat dari lokasi kamu, atau biarkan sistem memilih otomatis.
+                </p>
+                {nearbyBaristas.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-6 text-sm">
+                    <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    Tidak ada barista aktif saat ini. Sistem akan mencari otomatis.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {nearbyBaristas.map((b, idx) => {
+                      const isSelected = selectedBaristaId === b.uid;
+                      return (
+                        <button
+                          key={b.uid}
+                          onClick={() =>
+                            setSelectedBaristaId(isSelected ? null : b.uid)
+                          }
+                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
+                            isSelected
+                              ? "border-primary bg-primary/5"
+                              : "border-muted hover:border-primary/40 bg-card"
+                          }`}
+                        >
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${isSelected ? "bg-primary/10" : "bg-muted"}`}>
+                            ☕
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">{b.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {b.distanceKm < 1
+                                ? `${Math.round(b.distanceKm * 1000)} meter dari kamu`
+                                : `${b.distanceKm.toFixed(1)} km dari kamu`}
+                              {idx === 0 && " · Terdekat"}
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <Button
+                  className="w-full h-12"
+                  onClick={() => setCheckoutStep("info")}
+                >
+                  {selectedBaristaId
+                    ? `Lanjut dengan ${nearbyBaristas.find(b => b.uid === selectedBaristaId)?.name ?? "barista dipilih"} →`
+                    : "Lanjut (Pilih Otomatis) →"}
+                </Button>
+              </div>
+            )}
+
+            {/* Step 2: Customer info + pay */}
+            {checkoutStep === "info" && (
+              <>
+                {/* Selected barista info */}
+                {selectedBaristaId && (
+                  <div className="flex items-center gap-2 text-sm bg-primary/5 border border-primary/20 rounded-lg p-3">
+                    <span className="text-lg">☕</span>
+                    <div className="flex-1">
+                      <span className="font-medium">
+                        {nearbyBaristas.find(b => b.uid === selectedBaristaId)?.name}
+                      </span>
+                      <span className="text-muted-foreground ml-1 text-xs">
+                        ({nearbyBaristas.find(b => b.uid === selectedBaristaId)?.distanceKm.toFixed(1)} km)
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setCheckoutStep("barista")}
+                      className="text-xs text-primary underline"
+                    >
+                      Ganti
+                    </button>
+                  </div>
+                )}
+
+                {/* Customer info */}
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="cname">
+                      Nama Customer <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="cname"
+                      placeholder="Masukkan nama..."
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="cphone">No. HP</Label>
+                    <Input
+                      id="cphone"
+                      placeholder="08xxxxxxxxxx"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="cemail">Email (opsional)</Label>
+                    <Input
+                      id="cemail"
+                      type="email"
+                      placeholder="email@example.com"
+                      value={customerEmail}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Delivery location */}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
+                  <MapPin className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  <span>
+                    Antar ke: {userLat.toFixed(5)}, {userLng.toFixed(5)}
+                  </span>
+                </div>
+
+                {/* Error */}
+                {orderError && (
+                  <div className="text-red-600 text-sm bg-red-50 rounded-lg p-3 flex items-center gap-2">
+                    <XCircle className="w-4 h-4 flex-shrink-0" />
+                    {orderError}
+                  </div>
+                )}
+
+                {/* Pay button */}
+                <Button
+                  className="w-full h-12 text-base"
+                  onClick={handleOrder}
+                  disabled={isOrdering || !customerName.trim()}
+                >
+                  {isOrdering ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Memproses...
+                    </>
+                  ) : (
+                    <>Bayar via Midtrans — {formatRupiah(cartTotal)}</>
+                  )}
+                </Button>
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+// ============================================================
+// Product Card Component
+// ============================================================
+
+function ProductCard({
+  product,
+  qty,
+  onQtyChange,
+}: {
+  product: SimProduct;
+  qty: number;
+  onQtyChange: (qty: number) => void;
+}) {
+  return (
+    <div className="rounded-xl border bg-card p-3 flex flex-col gap-2 hover:shadow-sm transition-shadow">
+      {/* Image / emoji */}
+      <div className="w-full h-24 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+        {product.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <span className="text-4xl">☕</span>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1">
+        <p className="font-medium text-sm leading-tight line-clamp-2">
+          {product.name}
+        </p>
+        <p className="text-primary font-bold text-sm mt-1">
+          {formatRupiah(product.price)}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Stok: {product.totalStock}
+        </p>
+      </div>
+
+      {/* Qty Controls */}
+      {qty === 0 ? (
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full h-8 text-xs"
+          onClick={() => onQtyChange(1)}
+          disabled={product.totalStock === 0}
+        >
+          <Plus className="w-3 h-3 mr-1" />
+          Tambah
+        </Button>
+      ) : (
+        <div className="flex items-center gap-1">
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-8 w-8 flex-shrink-0"
+            onClick={() => onQtyChange(qty - 1)}
+          >
+            <Minus className="w-3 h-3" />
+          </Button>
+          <span className="flex-1 text-center text-sm font-bold">{qty}</span>
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-8 w-8 flex-shrink-0"
+            onClick={() => onQtyChange(qty + 1)}
+            disabled={qty >= product.totalStock}
+          >
+            <Plus className="w-3 h-3" />
+          </Button>
+        </div>
       )}
     </div>
   );

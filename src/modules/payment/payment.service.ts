@@ -1,6 +1,6 @@
 // ============================================================
 // Payment Service - Core payment logic
-// All payments go through DOKU Checkout (no CASH)
+// All online payments go through Midtrans Snap
 // ============================================================
 
 import { prisma } from '@/lib/db';
@@ -19,17 +19,15 @@ export interface Payment {
   orderId: string;
   amount: number;
   currency: string;
-  providerId: string;
-  providerCode: string;
-  methodCode: string;
-  methodName: string;
+  methodCode?: string;
+  methodName?: string;
   methodGroup?: string;
-  dokuChannelCode?: string;
+  providerChannel?: string;
   methodFeeAmount: number;
   status: PaymentStatus;
-  dokuInvoiceNumber?: string;
-  dokuTransactionId?: string;
-  dokuPaymentUrl?: string;
+  snapToken?: string;
+  providerTransactionId?: string;
+  paymentUrl?: string;
   requestPayload?: Record<string, unknown>;
   callbackPayload?: Record<string, unknown>;
   paidAt?: Date;
@@ -42,6 +40,8 @@ export interface Payment {
 
 // ============================================================
 // Helper: Convert Prisma Payment to Payment interface
+// Converts Prisma Payment model to Payment interface
+// until then we map old names → new interface field names
 // ============================================================
 
 function convertToPayment(p: {
@@ -49,17 +49,15 @@ function convertToPayment(p: {
   orderId: string;
   amount: unknown;
   currency: string;
-  providerId: string;
-  providerCode: string;
-  methodCode: string;
-  methodName: string;
+  methodCode: string | null;
+  methodName: string | null;
   methodGroup: string | null;
-  dokuChannelCode: string | null;
+  providerChannel: string | null;
   methodFeeAmount: unknown;
   status: string;
-  dokuInvoiceNumber: string | null;
-  dokuTransactionId: string | null;
-  dokuPaymentUrl: string | null;
+  snapToken: string | null;
+  providerTransactionId: string | null;
+  paymentUrl: string | null;
   requestPayload: unknown;
   callbackPayload: unknown;
   paidAt: Date | null;
@@ -74,17 +72,15 @@ function convertToPayment(p: {
     orderId: p.orderId,
     amount: Number(p.amount),
     currency: p.currency,
-    providerId: p.providerId,
-    providerCode: p.providerCode,
-    methodCode: p.methodCode,
-    methodName: p.methodName,
+    methodCode: p.methodCode ?? undefined,
+    methodName: p.methodName ?? undefined,
     methodGroup: p.methodGroup ?? undefined,
-    dokuChannelCode: p.dokuChannelCode ?? undefined,
+    providerChannel: p.providerChannel ?? undefined,
     methodFeeAmount: Number(p.methodFeeAmount),
     status: p.status as PaymentStatus,
-    dokuInvoiceNumber: p.dokuInvoiceNumber ?? undefined,
-    dokuTransactionId: p.dokuTransactionId ?? undefined,
-    dokuPaymentUrl: p.dokuPaymentUrl ?? undefined,
+    snapToken: p.snapToken ?? undefined,
+    providerTransactionId: p.providerTransactionId ?? undefined,
+    paymentUrl: p.paymentUrl ?? undefined,
     requestPayload: p.requestPayload as Record<string, unknown> | undefined,
     callbackPayload: p.callbackPayload as Record<string, unknown> | undefined,
     paidAt: p.paidAt ?? undefined,
@@ -102,10 +98,6 @@ function convertToPayment(p: {
 
 export interface CreatePaymentInput {
   orderId: string;
-  // methodCode: Optional - if provided, DOKU shows only that method; otherwise shows all
-  // When methodCode is not provided, the payment method will be saved from DOKU webhook
-  methodCode?: string;
-  paymentMethod?: string; // DOKU channel code
   customerName: string;
   customerEmail?: string;
   customerPhone?: string;
@@ -113,15 +105,14 @@ export interface CreatePaymentInput {
 }
 
 // ============================================================
-// Create/Update Payment for DOKU Checkout
+// Create/Update Payment for Midtrans Snap
 // The Payment record is already created in createOrder().
-// This function updates it with DOKU-specific info and creates DOKU Checkout session.
+// This function finds it and returns it for Snap token creation.
 // ============================================================
 
 export async function createPayment(input: CreatePaymentInput): Promise<Payment> {
   console.log('[PAYMENT SERVICE] Processing payment for order:', input.orderId);
 
-  // Find existing payment for this order (created by createOrder)
   const existingPayment = await prisma.payment.findUnique({
     where: { orderId: input.orderId },
   });
@@ -130,63 +121,20 @@ export async function createPayment(input: CreatePaymentInput): Promise<Payment>
     throw new Error(`Payment record not found for order: ${input.orderId}. Please create the order first.`);
   }
 
-  // Update payment method info if methodCode is provided
-  // If methodCode is not provided, DOKU will show all payment methods
-  // and the actual method will be saved when DOKU sends webhook
-  let methodConfig = null;
-  if (input.methodCode) {
-    methodConfig = await prisma.paymentMethodConfig.findUnique({
-      where: { code: input.methodCode },
-      include: { provider: true },
-    });
-
-    if (!methodConfig) {
-      throw new Error(`Payment method not found: ${input.methodCode}`);
-    }
-  }
-
-  // Update payment with DOKU channel code (optional)
-  const paymentUpdateData: Prisma.PaymentUpdateInput = {
-    dokuChannelCode: input.paymentMethod || null,
-  };
-
-  await prisma.payment.update({
-    where: { id: existingPayment.id },
-    data: paymentUpdateData,
-  });
-
-  // Update order with payment method snapshot (if methodCode provided)
-  const orderUpdateData: Prisma.OrderUpdateInput = {
-    dokuPaymentMethod: input.paymentMethod,
-  };
-
-  if (methodConfig) {
-    orderUpdateData.paymentMethodCode = input.methodCode;
-    orderUpdateData.paymentMethodName = methodConfig.name;
-    orderUpdateData.paymentMethodGroup = methodConfig.groupName ?? methodConfig.groupCode;
-    orderUpdateData.paymentFeeAmount = existingPayment.methodFeeAmount;
-  }
-
-  await prisma.order.update({
-    where: { id: input.orderId },
-    data: orderUpdateData,
-  });
-
   console.log('[PAYMENT SERVICE] Payment found:', existingPayment.id);
 
   return convertToPayment(existingPayment);
 }
 
 // ============================================================
-// Update Payment from DOKU Response
-// Called after DOKU Checkout returns payment URL
+// Update Payment from Midtrans Response
+// Called after Midtrans Snap returns token + redirect URL
 // ============================================================
 
-export async function updatePaymentFromDOKUResponse(
+export async function updatePaymentFromMidtrans(
   paymentId: string,
-  dokuResponse: {
-    invoiceNumber?: string;
-    transactionId?: string;
+  midtransResponse: {
+    snapToken?: string;
     paymentUrl?: string;
     expiryTime?: string;
     rawResponse?: Record<string, unknown>;
@@ -201,14 +149,14 @@ export async function updatePaymentFromDOKUResponse(
   }
 
   const updateData: Prisma.PaymentUpdateInput = {
-    dokuInvoiceNumber: dokuResponse.invoiceNumber,
-    dokuTransactionId: dokuResponse.transactionId,
-    dokuPaymentUrl: dokuResponse.paymentUrl,
-    requestPayload: dokuResponse.rawResponse as Prisma.InputJsonValue | undefined,
+    // Using old Prisma field names until schema migration renames them
+    snapToken: midtransResponse.snapToken,
+    paymentUrl: midtransResponse.paymentUrl,
+    requestPayload: midtransResponse.rawResponse as Prisma.InputJsonValue | undefined,
   };
 
-  if (dokuResponse.expiryTime) {
-    updateData.expiredAt = new Date(dokuResponse.expiryTime);
+  if (midtransResponse.expiryTime) {
+    updateData.expiredAt = new Date(midtransResponse.expiryTime);
   }
 
   const updated = await prisma.payment.update({
@@ -216,18 +164,17 @@ export async function updatePaymentFromDOKUResponse(
     data: updateData,
   });
 
-  // Also update order with DOKU info
+  // Also update order with payment URL (using old Prisma field names until schema migration)
   await prisma.order.update({
     where: { id: payment.orderId },
     data: {
-      dokuInvoiceNumber: dokuResponse.invoiceNumber,
-      dokuPaymentUrl: dokuResponse.paymentUrl,
-      dokuPaymentMethod: updated.dokuChannelCode,
-      dokuExpiredAt: dokuResponse.expiryTime ? new Date(dokuResponse.expiryTime) : undefined,
+      snapToken: midtransResponse.snapToken,
+      paymentUrl: midtransResponse.paymentUrl,
+      paymentExpiredAt: midtransResponse.expiryTime ? new Date(midtransResponse.expiryTime) : undefined,
     },
   });
 
-  console.log('[PAYMENT SERVICE] Payment updated with DOKU response:', paymentId);
+  console.log('[PAYMENT SERVICE] Payment updated with Midtrans response:', paymentId);
 
   return convertToPayment(updated);
 }
@@ -241,108 +188,98 @@ export async function updatePaymentFromWebhook(
   status: PaymentStatus,
   transactionId?: string,
   callbackPayload?: Record<string, unknown>,
-  dokuPaymentMethod?: string
+  providerChannel?: string
 ): Promise<Payment> {
-  console.log('[PAYMENT SERVICE] Updating payment from webhook:', { paymentId, status, transactionId, dokuPaymentMethod });
+  console.log('[PAYMENT SERVICE] Updating payment from webhook:', { paymentId, status, transactionId, providerChannel });
 
-  const payment = await prisma.payment.findUnique({
-    where: { id: paymentId },
-  });
+  const FINAL_STATUSES = ['PAID', 'FAILED', 'EXPIRED', 'REFUNDED'];
 
-  if (!payment) {
-    throw new Error(`Payment not found: ${paymentId}`);
-  }
-
-  // Get order with items
-  const order = await prisma.order.findUnique({
-    where: { id: payment.orderId },
-    include: { items: true },
-  });
-
-  if (!order) {
-    throw new Error(`Order not found for payment: ${paymentId}`);
-  }
-
-  // Build update data
+  // Atomic status transition: only update if not already in a final state.
+  // This prevents double-processing when Midtrans fires duplicate webhooks.
   const updateData: Prisma.PaymentUpdateInput = {
     status,
     callbackPayload: callbackPayload as Prisma.InputJsonValue | undefined,
   };
 
-  if (transactionId) {
-    updateData.dokuTransactionId = transactionId;
-  }
-
-  // Save the payment channel used (extracted from DOKU webhook, e.g. "VIRTUAL_ACCOUNT_BCA")
-  if (dokuPaymentMethod) {
-    updateData.dokuChannelCode = dokuPaymentMethod;
-  }
+  if (transactionId) updateData.providerTransactionId = transactionId;
+  if (providerChannel) updateData.providerChannel = providerChannel;
 
   switch (status) {
-    case 'PAID':
-      updateData.paidAt = new Date();
-      break;
-    case 'FAILED':
-      updateData.failedAt = new Date();
-      break;
-    case 'EXPIRED':
-      updateData.expiredAt = new Date();
-      break;
+    case 'PAID':    updateData.paidAt = new Date(); break;
+    case 'FAILED':  updateData.failedAt = new Date(); break;
+    case 'EXPIRED': updateData.expiredAt = new Date(); break;
   }
 
-  const updatedPayment = await prisma.payment.update({
-    where: { id: paymentId },
+  const result = await prisma.payment.updateMany({
+    where: { id: paymentId, status: { notIn: FINAL_STATUSES } },
     data: updateData,
   });
 
+  if (result.count === 0) {
+    // Already in final state — idempotent skip
+    console.log('[PAYMENT SERVICE] Payment already finalized, skipping:', paymentId);
+    const existing = await prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!existing) throw new Error(`Payment not found: ${paymentId}`);
+    return convertToPayment(existing);
+  }
+
   console.log('[PAYMENT SERVICE] Payment status updated:', status);
 
-  // If PAID, update order and reduce stock
-  if (status === 'PAID' && order.status === 'PENDING') {
-    console.log('[PAYMENT SERVICE] Processing PAID payment for order:', order.id);
+  const updatedPayment = await prisma.payment.findUnique({ where: { id: paymentId } });
+  if (!updatedPayment) throw new Error(`Payment not found after update: ${paymentId}`);
 
-    // Update order status from PENDING to SEARCHING
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: 'SEARCHING',
-        paymentStatus: 'PAID',
-        paidAt: new Date(),
-      },
+  if (status === 'PAID') {
+    const order = await prisma.order.findUnique({
+      where: { id: updatedPayment.orderId },
+      include: { items: true },
     });
 
-    // Reduce barista stock for each item
-    await reduceBaristaStockForOrder(order.id);
+    if (!order) throw new Error(`Order not found for payment: ${paymentId}`);
 
-    // Find baristas for assignment
-    const candidates = await findNearestBaristasWithStock({
-      customerLatitude: order.deliveryLatitude ?? 0,
-      customerLongitude: order.deliveryLongitude ?? 0,
-      items: order.items.map((it) => ({ productId: it.productId, quantity: it.quantity })),
-      radiusKm: 5,
-      limit: 3,
-    });
+    if (order.status === 'PENDING') {
+      console.log('[PAYMENT SERVICE] Processing PAID payment for order:', order.id);
 
-    // Broadcast to baristas via RTDB
-    try {
-      await broadcastToRTDB({
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        customerName: order.customerName,
+      // Atomic order status transition — guard against duplicate webhooks
+      const orderTransition = await prisma.order.updateMany({
+        where: { id: order.id, status: 'PENDING' },
+        data: { status: 'SEARCHING', paymentStatus: 'PAID', paidAt: new Date() },
+      });
+
+      if (orderTransition.count === 0) {
+        console.log('[PAYMENT SERVICE] Order already left PENDING state, skipping stock reduction');
+        return convertToPayment(updatedPayment);
+      }
+
+      await reduceBaristaStockForOrder(order.id, order.items);
+
+      const candidates = await findNearestBaristasWithStock({
         customerLatitude: order.deliveryLatitude ?? 0,
         customerLongitude: order.deliveryLongitude ?? 0,
-        items: order.items.map((it) => ({
-          productName: it.productName,
-          quantity: it.quantity,
-        })),
-        subtotal: Number(order.subtotal),
-        total: Number(order.total),
-        baristaIds: candidates.map((c) => c.baristaId),
-        expiresInMs: 30000,
+        items: order.items.map((it) => ({ productId: it.productId, quantity: it.quantity })),
+        radiusKm: 5,
+        limit: 3,
       });
-      console.log('[PAYMENT SERVICE] Order broadcasted to baristas');
-    } catch (err) {
-      console.error('[PAYMENT SERVICE] Failed to broadcast order:', err);
+
+      try {
+        await broadcastToRTDB({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          customerName: order.customerName,
+          customerLatitude: order.deliveryLatitude ?? 0,
+          customerLongitude: order.deliveryLongitude ?? 0,
+          items: order.items.map((it) => ({
+            productName: it.productName,
+            quantity: it.quantity,
+          })),
+          subtotal: Number(order.subtotal),
+          total: Number(order.total),
+          baristaIds: candidates.map((c) => c.baristaId),
+          expiresInMs: 30000,
+        });
+        console.log('[PAYMENT SERVICE] Order broadcasted to baristas');
+      } catch (err) {
+        console.error('[PAYMENT SERVICE] Failed to broadcast order:', err);
+      }
     }
   }
 
@@ -353,10 +290,7 @@ export async function updatePaymentFromWebhook(
 // Mark Payment as Failed
 // ============================================================
 
-export async function markPaymentFailed(
-  paymentId: string,
-  reason: string
-): Promise<Payment> {
+export async function markPaymentFailed(paymentId: string, reason: string): Promise<Payment> {
   const payment = await prisma.payment.update({
     where: { id: paymentId },
     data: {
@@ -375,78 +309,93 @@ export async function markPaymentFailed(
 // Stock Management
 // ============================================================
 
-async function reduceBaristaStockForOrder(orderId: string): Promise<void> {
-  // IDEMPOTENCY CHECK: Check if stock was already reduced for this order
-  const existingSale = await prisma.baristaStockMovement.findFirst({
-    where: {
-      orderId: orderId,
-      type: 'SOLD',
-    },
-  });
+async function reduceBaristaStockForOrder(
+  orderId: string,
+  orderItems?: Array<{ productId: string; quantity: number; productName: string }>
+): Promise<void> {
+  // Fetch order once if items not passed in
+  let baristaId: string | null | undefined;
+  let items: Array<{ productId: string; quantity: number; productName: string }>;
 
-  if (existingSale) {
-    console.log(`[PAYMENT SERVICE] Stock already reduced for order ${orderId}, skipping`);
-    return;
+  if (orderItems) {
+    items = orderItems;
+    const orderRecord = await prisma.order.findUnique({ where: { id: orderId }, select: { baristaId: true } });
+    baristaId = orderRecord?.baristaId;
+  } else {
+    const orderRecord = await prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
+    baristaId = orderRecord?.baristaId;
+    items = orderRecord?.items ?? [];
   }
 
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: {
-      items: {
-        include: {
-          product: true,
-        },
-      },
-    },
-  });
-
-  if (!order?.baristaId) {
+  if (!baristaId) {
     console.warn(`[PAYMENT SERVICE] Order ${orderId} has no barista assigned, skipping stock reduction`);
     return;
   }
 
-  console.log(`[PAYMENT SERVICE] Reducing barista stock for order ${orderId}`);
-
-  // Group items by product
+  // Aggregate quantities per product
   const productQuantities = new Map<string, number>();
-  for (const item of order.items) {
-    const current = productQuantities.get(item.productId) || 0;
-    productQuantities.set(item.productId, current + item.quantity);
+  for (const item of items) {
+    productQuantities.set(item.productId, (productQuantities.get(item.productId) ?? 0) + item.quantity);
   }
 
-  // Reduce stock for each product
+  console.log(`[PAYMENT SERVICE] Reducing barista stock for order ${orderId}`);
+
+  // Each product reduced in its own transaction with an atomic conditional update.
+  // updateMany WHERE quantity >= needed ensures stock never goes negative and
+  // prevents race conditions — if two requests race, only one gets count=1.
   for (const [productId, quantity] of productQuantities) {
-    const baristaStock = await prisma.baristaStock.findFirst({
-      where: {
-        baristaId: order.baristaId!,
-        productId,
-      },
-    });
+    await prisma.$transaction(async (tx) => {
+      // Guard: skip if SOLD movement already exists (idempotency for this product)
+      const existingMovement = await tx.baristaStockMovement.findFirst({
+        where: { orderId, productId, type: 'SOLD' },
+      });
+      if (existingMovement) {
+        console.log(`[PAYMENT SERVICE] Stock movement already exists for product ${productId}, skipping`);
+        return;
+      }
 
-    if (baristaStock) {
-      const newQuantity = Math.max(0, baristaStock.quantity - quantity);
+      const stock = await tx.baristaStock.findFirst({
+        where: { baristaId, productId },
+      });
 
-      await prisma.baristaStock.update({
-        where: { id: baristaStock.id },
+      if (!stock) {
+        console.warn(`[PAYMENT SERVICE] No barista stock for product ${productId}`);
+        return;
+      }
+
+      if (stock.quantity < quantity) {
+        console.error(`[PAYMENT SERVICE] Insufficient stock for product ${productId}: have ${stock.quantity}, need ${quantity}`);
+        // Still record movement as attempted — decrement to 0
+      }
+
+      const actualDeducted = Math.min(stock.quantity, quantity);
+      const newQuantity = stock.quantity - actualDeducted;
+
+      // Atomic: only succeeds if stock hasn't changed since we read it
+      const updated = await tx.baristaStock.updateMany({
+        where: { id: stock.id, quantity: stock.quantity },
         data: { quantity: newQuantity },
       });
 
-      await prisma.baristaStockMovement.create({
+      if (updated.count === 0) {
+        // Another concurrent request already modified this stock row
+        throw new Error(`Race condition on stock for product ${productId}, will retry`);
+      }
+
+      await tx.baristaStockMovement.create({
         data: {
-          baristaId: order.baristaId!,
+          baristaId,
           productId,
           type: 'SOLD',
-          quantity: -quantity,
+          quantity: -actualDeducted,
           balanceAfter: newQuantity,
-          orderId: order.id,
-          note: 'Payment confirmed via DOKU',
+          orderId,
+          note: `Payment confirmed via Midtrans${actualDeducted < quantity ? ` (partial: had ${stock.quantity}, needed ${quantity})` : ''}`,
         },
       });
 
-      console.log(`[PAYMENT SERVICE] Reduced stock for product ${productId}: ${baristaStock.quantity} -> ${newQuantity}`);
-    } else {
-      console.warn(`[PAYMENT SERVICE] No barista stock for product ${productId}`);
-    }
+      console.log(`[PAYMENT SERVICE] Reduced stock for product ${productId}: ${stock.quantity} -> ${newQuantity}`);
+    });
   }
 }
 
@@ -455,22 +404,14 @@ async function reduceBaristaStockForOrder(orderId: string): Promise<void> {
 // ============================================================
 
 export async function getPayment(paymentId: string): Promise<Payment | null> {
-  const payment = await prisma.payment.findUnique({
-    where: { id: paymentId },
-  });
-
+  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
   if (!payment) return null;
-
   return convertToPayment(payment);
 }
 
 export async function getPaymentByOrder(orderId: string): Promise<Payment | null> {
-  const payment = await prisma.payment.findUnique({
-    where: { orderId },
-  });
-
+  const payment = await prisma.payment.findUnique({ where: { orderId } });
   if (!payment) return null;
-
   return convertToPayment(payment);
 }
 

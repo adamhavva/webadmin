@@ -7,18 +7,32 @@ export {
   createPayment,
   getPayment,
   getPaymentByOrder,
+  updatePaymentFromMidtrans,
   updatePaymentFromWebhook,
   getAvailablePaymentMethods,
   type CreatePaymentInput,
+  type Payment,
+  type PaymentStatus,
 } from './payment.service';
+
+// Midtrans service
+export {
+  createSnapToken,
+  verifyMidtransSignature,
+  checkTransactionStatus,
+  getMidtransConfig,
+  type MidtransConfig,
+  type SnapTokenRequest,
+  type SnapTokenResult,
+} from './midtrans.service';
 
 // Validators
 export {
   createPaymentSchema,
-  dokuNotificationSchema,
+  midtransNotificationSchema,
   paymentResponseSchema,
-  DOKU_STATUS_MAP,
-  type DokuNotification,
+  MIDTRANS_STATUS_MAP,
+  type MidtransNotification,
 } from './payment.validator';
 
 // Pricing
@@ -33,10 +47,6 @@ export {
 
 // Providers - re-export only what's needed
 export type {
-  PaymentProviderConfig,
-  PaymentMethodConfig,
-  PaymentStatus,
-  Payment,
   PaymentProviderAdapter,
   CreatePaymentRequest,
   CreatePaymentResponse,

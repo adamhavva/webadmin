@@ -270,26 +270,7 @@ export default function InlineCheckout({
       const newOrderId = orderJson.data.id;
       setOrderId(newOrderId);
 
-      // For CASH, process directly
-      if (actualPaymentMethod === "CASH") {
-        const cashRes = await fetch("/api/payment/cash", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderId: newOrderId,
-            amount: cartTotal,
-          }),
-        });
-        const cashJson = await cashRes.json();
-        if (!cashJson.success) {
-          throw new Error(cashJson.error?.message || "Gagal memproses pembayaran");
-        }
-        setPaymentStatus("success");
-        onSuccess(newOrderId);
-        return;
-      }
-
-      // Create DOKU checkout
+      // Create Midtrans checkout
       const checkoutRes = await fetch("/api/payment/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -329,7 +310,7 @@ export default function InlineCheckout({
           // Open deep link
           window.open(checkoutData.deepLinkUrl, "_blank");
         } else {
-          // Redirect to DOKU page
+          // Redirect to Midtrans payment page
           window.location.href = checkoutData.redirectUrl;
         }
       } else if (checkoutData.virtualAccountNumber) {
@@ -584,7 +565,7 @@ export default function InlineCheckout({
                 <div className="flex-1 text-left">
                   <p className="font-semibold">{method.name}</p>
                   {method.code === "QRIS" && (
-                    <p className="text-xs text-gray-500">Scan QR via DOKU</p>
+                    <p className="text-xs text-gray-500">Scan QR via Midtrans</p>
                   )}
                 </div>
                 {method.subMethods && (
