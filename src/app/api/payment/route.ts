@@ -1,6 +1,5 @@
-import { handle, ok } from '@/lib/api-response';
+import { handle, handleAuth, ok } from '@/lib/api-response';
 import { prisma } from '@/lib/db';
-import { getAvailablePaymentMethods } from '@/modules/payment/payment.service';
 
 /**
  * GET /api/payment?orderId=xxx
@@ -32,6 +31,10 @@ export const GET = handle(async (req) => {
   }
 
   // Otherwise, return available payment methods
-  const methods = await getAvailablePaymentMethods(true);
+  const methods = await prisma.paymentMethodConfig.findMany({
+    where: { isActive: true },
+    orderBy: { sortOrder: 'asc' },
+  });
+
   return ok({ methods });
 });

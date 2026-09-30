@@ -3,13 +3,24 @@
 // Maps method codes to provider adapters
 // ============================================================
 
-import type { PaymentProviderAdapter } from './types';
+import { prisma } from '@/lib/db';
+import { getDokuClient } from './doku-snap/client';
+import { DokuQRISAdapter } from './doku-snap/qris';
+import { DokuVAAdapter, VA_CHANNEL_CODES, type VAChannel } from './doku-snap/va';
+import { DokuEWalletAdapter, EWALLET_CHANNEL_CODES, type EWalletChannel } from './doku-snap/ewallet';
+import type { PaymentProviderAdapter, PaymentMethodConfig } from './types';
 
 // ============================================================
 // Provider Cache
 // ============================================================
 
-const providerCache = new Map<string, { expiresAt: number }>();
+interface CachedProvider {
+  adapter: PaymentProviderAdapter;
+  config: PaymentMethodConfig;
+  expiresAt: number;
+}
+
+const providerCache = new Map<string, CachedProvider>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 function clearExpiredCache(): void {
@@ -29,22 +40,88 @@ export function detectChannelType(
   methodCode: string
 ): 'QRIS' | 'VA' | 'EWALLET' | 'UNKNOWN' {
   if (methodCode === 'QRIS') return 'QRIS';
+
   if (methodCode.startsWith('VA_')) return 'VA';
+
   if (methodCode.startsWith('EWALLET_')) return 'EWALLET';
+
   return 'UNKNOWN';
 }
 
 // ============================================================
 // Provider Factory
-// NOTE: Midtrans uses a unified Snap flow — no per-method adapters needed.
 // ============================================================
 
 export async function getProviderAdapter(
-  _methodCode: string
+  methodCode: string
 ): Promise<PaymentProviderAdapter> {
-  throw new Error(
-    `getProviderAdapter is not used for Midtrans Snap. Use createSnapToken() directly from midtrans.service.ts.`
-  );
+  clearExpiredCache();
+
+  // Check cache first
+  const cached = providerCache.get(methodCode);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.adapter;
+  }
+
+  // Get method config from database
+  const methodConfig = await prisma.paymentMethodConfig.findUnique({
+    where: { code: methodCode },
+    include: { provider: true },
+  });
+
+  if (!methodConfig) {
+    throw new Error(`Payment method not found: ${methodCode}`);
+  }
+
+  if (!methodConfig.provider.isActive) {
+    throw new Error(`Payment provider is inactive: ${methodConfig.provider.code}`);
+  }
+
+  const channelType = detectChannelType(methodCode);
+
+  let adapter: PaymentProviderAdapter;
+
+  switch (channelType) {
+    case 'QRIS':
+      adapter = new DokuQRISAdapter(await getDokuClient());
+      break;
+
+    case 'VA': {
+      const bankCode = methodCode.replace('VA_', '') as VAChannel;
+      if (!VA_CHANNEL_CODES[bankCode]) {
+        throw new Error(`Unknown VA bank: ${bankCode}`);
+      }
+      // PartnerServiceId should be configured per bank in the provider settings
+      const partnerServiceId = methodConfig.provider.dokuClientId?.split('-')[1] ?? '00000';
+      adapter = new DokuVAAdapter(
+        await getDokuClient(),
+        bankCode,
+        partnerServiceId.padStart(8)
+      );
+      break;
+    }
+
+    case 'EWALLET': {
+      const walletCode = methodCode as EWalletChannel;
+      if (!EWALLET_CHANNEL_CODES[walletCode]) {
+        throw new Error(`Unknown e-Wallet: ${methodCode}`);
+      }
+      adapter = new DokuEWalletAdapter(await getDokuClient(), walletCode);
+      break;
+    }
+
+    default:
+      throw new Error(`Unknown payment method: ${methodCode}`);
+  }
+
+  // Cache the provider
+  providerCache.set(methodCode, {
+    adapter,
+    config: methodConfig as unknown as PaymentMethodConfig,
+    expiresAt: Date.now() + CACHE_TTL,
+  });
+
+  return adapter;
 }
 
 // ============================================================
@@ -69,33 +146,59 @@ export interface PaymentGroupOption {
 export async function getActivePaymentMethods(
   forCustomer: boolean = true
 ): Promise<PaymentGroupOption[]> {
-  return [
-    {
-      code: 'QRIS',
-      name: 'QRIS',
-      methods: [
-        { code: 'QRIS', name: 'QRIS', groupCode: 'QRIS', groupName: 'QRIS', icon: '🔲' },
-      ],
-    },
-    {
-      code: 'VA',
-      name: 'Virtual Account',
-      methods: [
-        { code: 'VA_BCA', name: 'BCA Virtual Account', groupCode: 'VA', groupName: 'Virtual Account', icon: '🏦' },
-        { code: 'VA_MANDIRI', name: 'Mandiri Virtual Account', groupCode: 'VA', groupName: 'Virtual Account', icon: '🏦' },
-        { code: 'VA_BNI', name: 'BNI Virtual Account', groupCode: 'VA', groupName: 'Virtual Account', icon: '🏦' },
-      ],
-    },
-    {
-      code: 'EWALLET',
-      name: 'E-Wallet',
-      methods: [
-        { code: 'EWALLET_OVO', name: 'OVO', groupCode: 'EWALLET', groupName: 'E-Wallet', icon: '💜' },
-        { code: 'EWALLET_DANA', name: 'DANA', groupCode: 'EWALLET', groupName: 'E-Wallet', icon: '💙' },
-        { code: 'EWALLET_SHOPEEPAY', name: 'ShopeePay', groupCode: 'EWALLET', groupName: 'E-Wallet', icon: '🧡' },
-      ],
-    },
-  ];
+  const whereClause = forCustomer
+    ? { isActive: true, availableForCustomer: true }
+    : { isActive: true, availableForAdmin: true };
+
+  const methods = await prisma.paymentMethodConfig.findMany({
+    where: whereClause,
+    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    include: { provider: true },
+  });
+
+  // Group by groupCode
+  const groups = new Map<string, PaymentGroupOption>();
+
+  for (const method of methods) {
+    const groupCode = method.groupCode ?? 'OTHER';
+    const groupName = method.groupName ?? 'Other';
+
+    if (!groups.has(groupCode)) {
+      groups.set(groupCode, {
+        code: groupCode,
+        name: groupName,
+        methods: [],
+      });
+    }
+
+    const feeLabel =
+      method.feeType === 'NONE'
+        ? undefined
+        : method.feeType === 'PERCENTAGE'
+          ? `+${method.feeValue}%`
+          : `+Rp ${Number(method.feeValue).toLocaleString('id-ID')}`;
+
+    groups.get(groupCode)!.methods.push({
+      code: method.code,
+      name: method.name,
+      groupCode,
+      groupName,
+      icon: method.icon ?? undefined,
+      feeLabel,
+    });
+  }
+
+  return Array.from(groups.values()).sort((a, b) => {
+    // Sort by predefined order (DOKU-based only, no CASH)
+    const order = ['QRIS', 'VA', 'EWALLET'];
+    const aIndex = order.indexOf(a.code);
+    const bIndex = order.indexOf(b.code);
+    // Unknown groups go to the end
+    if (aIndex === -1 && bIndex === -1) return 0;
+    if (aIndex === -1) return 1;
+    if (bIndex === -1) return -1;
+    return aIndex - bIndex;
+  });
 }
 
 // ============================================================

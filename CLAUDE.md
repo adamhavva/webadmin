@@ -22,7 +22,7 @@ ASCEND is a **three-application system** for a coffee business:
 | Database | PostgreSQL ≥ 15, Prisma 7 |
 | Authentication | Firebase Auth |
 | Real-time | Firebase RTDB |
-| Payment | Midtrans Snap (QRIS, VA, e-Wallet) |
+| Payment | DOKU (QRIS, VA, e-Wallet) |
 | Storage | Cloudflare R2 |
 
 ### API Base URL
@@ -46,7 +46,7 @@ npm run start    # serve production build
 npx prisma db push          # sync schema
 npx prisma generate         # regenerate client
 npx tsx scripts/seed-admin.ts
-npx tsx scripts/seed-kopi.ts  # seed products
+npx tsx scripts/seed-payment-methods.ts  # CASH + QRIS
 ```
 
 ---
@@ -117,42 +117,61 @@ CANCELLED    CANCELLED
 
 ---
 
-## Payment System
+## Payment System - All Methods
 
 ### Supported Methods
 
-| Code | Provider | Type | Flow |
-|------|----------|------|------|
-| QRIS | Midtrans | Online | Scan QR via Midtrans Snap |
-| VA_BCA, VA_MANDIRI, VA_BNI | Midtrans | Online | Virtual Account via Midtrans Snap |
-| EWALLET_OVO, EWALLET_DANA, EWALLET_SHOPEEPAY | Midtrans | Online | e-Wallet via Midtrans Snap |
-
-> **NOTE**: Tidak ada COD/CASH. Semua pembayaran melalui Midtrans Snap.
+| Code | Provider | Channel | Type | Flow |
+|------|----------|---------|------|------|
+| CASH | Internal | COD | Offline | Bayar di tempat |
+| QRIS | DOKU | PREPAID | Online | Scan QR via DOKU |
+| VA_BCA, VA_MANDIRI, dll | DOKU | PREPAID | Online | Virtual Account |
+| EWALLET_OVO, EWALLET_DANA, EWALLET_SHOPEEPAY | DOKU | PREPAID | Online | e-Wallet |
 
 ### Payment APIs
 
 | Endpoint | Description |
 |----------|-------------|
-| `POST /api/payment/checkout` | Create Midtrans Snap token |
-| `POST /api/payment/notification` | Midtrans webhook callback |
+| `POST /api/payment/cash` | Process CASH (COD) payment |
+| `POST /api/payment/checkout` | Create DOKU Checkout session |
+| `POST /api/payment/notification` | DOKU webhook callback |
 | `GET /api/payment?orderId=` | Query payment status |
 
-### Midtrans Flow (semua metode)
+### CASH Flow (COD)
+
+```
+1. Pilih produk → pilih CASH → input jumlah bayar
+2. Sistem hitung kembalian
+3. Klik Bayar → POST /api/payment/cash
+4. Order SEARCHING + PAID → Stok dikurangi → Broadcast ke baristas
+```
+
+### DOKU Flow (QRIS/VA/e-Wallet)
 
 ```
 1. Pilih produk → pilih metode (QRIS/VA/e-Wallet)
 2. Klik Bayar → POST /api/orders + POST /api/payment/checkout
-3. Redirect ke Midtrans Snap page (redirectUrl)
-4. Customer bayar via Midtrans
-5. Midtrans webhook → POST /api/payment/notification
+3. Redirect ke DOKU Checkout page
+4. Customer bayar via DOKU
+5. DOKU webhook → POST /api/payment/notification
 6. Order SEARCHING + PAID → Stok dikurangi → Broadcast ke baristas
 ```
 
-### Midtrans Signature Verification
+### DOKU Signature Format
 
+```typescript
+// Signature header format: HMACSHA256=<base64>
+// StringToSign:
+Client-Id:{clientId}
+Request-Id:{requestId}
+Request-Timestamp:{timestamp}
+Request-Target:{endpoint}
+Digest:{bodyHash}
 ```
-SHA512(order_id + status_code + gross_amount + serverKey)
-```
+
+### Timestamp Format
+
+DOKU requires: `YYYY-MM-DDTHH:mm:ssZ` (UTC, no milliseconds)
 
 ---
 
@@ -163,14 +182,22 @@ Menu `/orders/simulation` - Testing page for order and payment flow.
 ### Flow
 
 ```
-1. Pilih barista terdekat (ShopeeFood-style, sorted by Haversine distance)
-2. Pilih produk → cart
-3. Masukkan nama & no. HP customer
-4. Pilih metode pembayaran (QRIS / VA / e-Wallet)
-5. Klik "Bayar" → Redirect ke Midtrans Snap page
-6. Customer bayar via Midtrans
-7. Midtrans webhook → Stok dikurangi → Order SEARCHING + PAID
-8. Redirect back → Result
+1. Pilih barista → produk → cart
+2. Masukkan nama & no. HP customer
+3. Pilih metode pembayaran (CASH / QRIS / VA / e-Wallet)
+4. Klik "Pilih Pembayaran"
+
+For CASH:
+  → Input jumlah bayar
+  → Klik Bayar → Order langsung selesai
+  → Stok dikurangi, broadcast ke baristas
+
+For DOKU:
+  → Redirect ke DOKU Checkout page
+  → Pilih metode: QRIS / VA / e-Wallet
+  → Bayar via DOKU
+  → DOKU webhook → Stok dikurangi
+  → Redirect back → Result
 ```
 
 ### Stock Reduction
@@ -179,17 +206,6 @@ After successful payment:
 - BaristaStock dikurangi sesuai jumlah order
 - BaristaStockMovement recorded (type: SOLD)
 - Order broadcasted ke baristas via Firebase RTDB
-
-### Race Condition Protection (Concurrency Safety)
-
-`src/modules/payment/payment.service.ts` — `updatePaymentFromWebhook` + `reduceBaristaStockForOrder`:
-
-1. **Webhook idempotency** — `payment.updateMany WHERE status NOT IN final_statuses` (atomic). Jika dua webhook Midtrans tiba bersamaan, hanya satu yang lolos.
-2. **Order transition guard** — `order.updateMany WHERE status = 'PENDING'` (atomic). Hanya satu request yang bisa transisi ke SEARCHING, mencegah double stock deduction.
-3. **Stock atomic decrement** — `baristaStock.updateMany WHERE id = X AND quantity = current_qty`. Jika ada perubahan concurrent, count=0 → throw → Prisma transaction rollback otomatis → Midtrans retry akan coba lagi.
-4. **Movement idempotency** — cek `BaristaStockMovement` (type=SOLD, orderId, productId) sebelum update. Kalau sudah ada, skip.
-
-> **JANGAN** ganti kembali ke `update()` tanpa WHERE condition. Race condition ini sudah pernah terjadi: stok tinggal 1, dipesan 2 orang bersamaan, keduanya lolos.
 
 
 ---
@@ -200,7 +216,7 @@ After successful payment:
 
 ```prisma
 PaymentStatus: PENDING, PAID, FAILED, EXPIRED, REFUNDED
-PaymentProvider: CASH, MIDTRANS
+PaymentProvider: CASH, DOKU
 OrderStatus: PENDING, SEARCHING, ASSIGNED, ACCEPTED, DELIVERING, ARRIVED, COMPLETED, CANCELLED, FAILED
 BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 ```
@@ -213,10 +229,8 @@ BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 | Product | Master produk jadi |
 | BaristaStock | Stok produk di gerobak |
 | Order | Order dengan payment info |
-| Payment | Record pembayaran via Midtrans Snap |
-| PaymentWebhookLog | Log webhook Midtrans |
-
-> **NOTE**: `PaymentProviderConfig`, `PaymentMethodConfig`, dan `CustomerPaymentAccount` telah dihapus. Payment methods di-hardcode (QRIS, VA, e-Wallet) karena hanya pakai Midtrans.
+| Payment | Record pembayaran |
+| PaymentMethodConfig | Konfigurasi payment (CASH, QRIS) |
 
 ---
 
@@ -253,10 +267,10 @@ BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 | `src/lib/auth.ts` | NextAuth config |
 | `src/lib/api-response.ts` | Response helpers |
 | `src/lib/db.ts` | Prisma client |
-| `src/modules/payment/midtrans.service.ts` | Midtrans Snap service |
+| `src/modules/payment/doku.service.ts` | DOKU Checkout service |
 | `src/app/api/payment/cash/route.ts` | CASH (COD) payment endpoint |
-| `src/app/api/payment/checkout/route.ts` | Midtrans Snap checkout endpoint |
-| `src/app/api/payment/notification/route.ts` | Midtrans webhook |
+| `src/app/api/payment/checkout/route.ts` | DOKU Checkout endpoint |
+| `src/app/api/payment/notification/route.ts` | DOKU webhook |
 | `prisma/schema.prisma` | Database schema |
 
 ---
@@ -266,8 +280,8 @@ BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 | File | Description |
 |------|-------------|
 | `docs/API.md` | Complete API documentation |
-| `docs/PAYMENT.md` | Payment system (CASH + Midtrans) |
-| `docs/MIDTRANS.md` | Midtrans Payment integration |
+| `docs/PAYMENT.md` | Payment system (CASH + DOKU) |
+| `docs/DOKU.md` | DOKU Payment integration |
 | `docs/BARISTA.md` | Barista workflow |
 | `docs/BARISTA-STOCK.md` | Barista stock management |
 
