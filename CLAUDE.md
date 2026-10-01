@@ -263,7 +263,7 @@ BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 
 This project has a navigable knowledge graph built with graphify — run `/graphify .` to rebuild, or `/graphify query "question"` to query it.
 
-**Stats:** 292 files · 1,922 nodes · 4,700 edges · 93 communities
+**Stats:** 293 files · 1,918 nodes · 5,505 edges · 90 communities
 
 ### God Nodes (most-connected abstractions)
 
