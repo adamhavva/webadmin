@@ -35,9 +35,10 @@ ASCEND is a **three-application system** for a coffee business:
 | Backend | Next.js API Routes |
 | Database | PostgreSQL ≥ 15, Prisma 7 |
 | Authentication | Firebase Auth |
-| Real-time | Firebase RTDB |
+| Real-time | Firebase RTDB + **Supabase Realtime** |
 | Payment | Midtrans Snap (dynamic — from Midtrans API) |
 | Storage | Cloudflare R2 |
+| Serverless Functions | **Supabase Edge Functions** (gratis, untuk barista assignment) |
 
 ### API Base URL
 
@@ -182,6 +183,90 @@ SHA512(order_id + status_code + gross_amount + serverKey)
 ```
 
 > **Note**: Payment method information (methodCode, methodName, methodGroup) is captured as a SNAPSHOT from Midtrans webhook. It is not used for filtering or business logic — only for display in admin reports.
+
+---
+
+## Supabase Integration (Barista Assignment)
+
+**INFO:** Plan lengkap ada di `PLANS/supabase-barista-assignment.md`
+
+### Flow Barista Assignment via Supabase
+
+```
+Payment Webhook
+    ↓
+POST /api/payment/notification (existing)
+    ↓
+Call Supabase Edge Function: assignNearestBarista
+    ↓
+Haversine distance calculation
+    ↓
+Assign nearest online barista
+    ↓
+Supabase Realtime broadcast to barista app
+    ↓
+Barista receives order (Order Accept Page)
+```
+
+### Environment Variables
+
+```env
+# .env.local
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...  # Server-side only!
+```
+
+### Supabase Edge Functions
+
+```
+supabase/
+  functions/
+    assign-barista/
+      index.ts    # Haversine + assign logic
+```
+
+### API Endpoint
+
+```
+POST /functions/v1/assign-barista
+
+Request:
+{
+  "orderId": "uuid",
+  "customerLat": -6.902,
+  "customerLng": 107.603
+}
+
+Response:
+{
+  "success": true,
+  "baristaId": "uuid",
+  "baristaName": "Budi Santoso",
+  "distance": "1.5 km"
+}
+```
+
+### Dependencies
+
+```bash
+npm install @supabase/supabase-js
+```
+
+---
+
+## Barista Assignment Flow (Updated)
+
+```
+7. Midtrans sends webhook → POST /api/payment/notification
+7a. Update order status → PAID
+7b. Call Supabase Edge Function: assignNearestBarista
+7c. Haversine calculation → find nearest ONLINE barista
+7d. Update order: assignedBaristaId + status ASSIGNED
+7e. Supabase Realtime broadcasts to barista app
+8. Barista sees new order → Order Accept Page
+9. Barista accepts → status ACCEPTED
+```
 
 ---
 ---

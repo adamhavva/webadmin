@@ -3,13 +3,13 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
+  "description": "ASCEND Webadmin adalah sebuah sistem untuk mengelola ascend company",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "postinstall": "npx prisma db push && npx prisma generate",
     "seed:admin": "npx tsx scripts/seed-admin.ts",
-    "seed:coffe": "npx tsx scripts/seed-kopi.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

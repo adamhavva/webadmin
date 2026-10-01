@@ -8,53 +8,17 @@ import { prisma } from "../src/lib/db";
 
 const USERS = [
   {
-    email: "iqbal@ascend.com",
-    password: "iqbal123",
-    name: "Iqbal",
+    email: "admin@ascend.com",
+    password: "Ascend100%sukseS!",
+    name: "ASCEND Admin",
     role: "ADMIN" as const,
-    phone: "081234567801",
-    address: "Jl. Asia Afrika No. 10, Bandung",
-    idNumber: "3273010101900001",
-    birthDate: new Date("1990-01-01"),
-    joinDate: new Date("2026-09-01"),
-    addressKtp: "Jl. Asia Afrika No. 10, Bandung",
-  },
-  {
-    email: "dandi@ascend.com",
-    password: "dandi123",
-    name: "Dandi",
-    role: "ADMIN" as const,
-    phone: "081234567802",
-    address: "Jl. Braga No. 25, Bandung",
-    idNumber: "3273010202920002",
-    birthDate: new Date("1992-02-02"),
-    joinDate: new Date("2026-09-01"),
-    addressKtp: "Jl. Braga No. 25, Bandung",
-  },
-  {
-    email: "customer@ascend.com",
-    password: "customer123",
-    name: "Customer",
-    role: "CUSTOMER" as const,
-    phone: "081234567803",
-    address: "Jl. Buah Batu No. 50, Bandung",
-    idNumber: "3273010303950003",
-    birthDate: new Date("1995-03-03"),
-    joinDate: null,
-    addressKtp: "Jl. Buah Batu No. 50, Bandung",
-  },
-  {
-    email: "barista@ascend.com",
-    password: "barista123",
-    name: "Barista",
-    role: "BARISTA" as const,
-    phone: "081234567804",
-    address: "Jl. Cihampelas No. 75, Bandung",
-    idNumber: "3273010404970004",
-    birthDate: new Date("1997-04-04"),
-    joinDate: new Date("2026-09-15"),
-    addressKtp: "Jl. Cihampelas No. 75, Bandung",
-  },
+    phone: null,
+    address: "Jl. Sekecariu No 39, Cimekar, Cileunyi, Bandung, 40623",
+    idNumber: null,
+    birthDate: null,
+    joinDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    addressKtp: "Jl. Asia Afrika No. 10, Bandung"
+  }
 ];
 
 // ============================================================
