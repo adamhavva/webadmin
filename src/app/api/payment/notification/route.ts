@@ -12,6 +12,7 @@ import { prisma } from '@/lib/db';
 import type { Prisma } from '@/prisma/generated/client';
 import { updatePaymentFromWebhook } from '@/modules/payment/payment.service';
 import { midtransNotificationSchema, MIDTRANS_STATUS_MAP } from '@/modules/payment/payment.validator';
+import { syncOrderToSupabase, assignNearestBarista } from '@/lib/supabase';
 
 // ============================================================
 // Helper: Verify Midtrans Signature
@@ -161,6 +162,66 @@ export const POST = handle(async (req: Request) => {
       body as Record<string, unknown>,
       notification.payment_type
     );
+
+    // If payment is successful, trigger barista assignment flow
+    if (paymentStatus === 'PAID') {
+      const order = await prisma.order.findUnique({
+        where: { id: payment.orderId },
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          deliveryLatitude: true,
+          deliveryLongitude: true,
+        },
+      });
+
+      if (order && order.deliveryLatitude && order.deliveryLongitude) {
+        try {
+          // 1. Update order status to SEARCHING
+          await prisma.order.update({
+            where: { id: order.id },
+            data: { status: 'SEARCHING' },
+          });
+
+          // 2. Sync order to Supabase
+          await syncOrderToSupabase({
+            id: order.id,
+            orderNumber: order.orderNumber,
+            status: 'SEARCHING',
+            deliveryLatitude: order.deliveryLatitude,
+            deliveryLongitude: order.deliveryLongitude,
+          });
+
+          // 3. Call Supabase Edge Function to assign nearest barista
+          const assignResult = await assignNearestBarista({
+            orderId: order.id,
+            customerLat: order.deliveryLatitude,
+            customerLng: order.deliveryLongitude,
+          });
+
+          if (assignResult.success) {
+            console.log('[MIDTRANS WEBHOOK] Barista assigned:', assignResult.baristaName, 'at', assignResult.distance);
+
+            // 4. Update Prisma with assigned barista info
+            await prisma.order.update({
+              where: { id: order.id },
+              data: {
+                baristaId: assignResult.baristaId,
+                status: 'ASSIGNED',
+              },
+            });
+          } else {
+            console.warn('[MIDTRANS WEBHOOK] Failed to assign barista:', assignResult.message);
+          }
+        } catch (assignError) {
+          // Don't fail the webhook if barista assignment fails
+          console.error('[MIDTRANS WEBHOOK] Barista assignment error:', assignError);
+        }
+      } else {
+        console.warn('[MIDTRANS WEBHOOK] Order has no delivery coordinates:', order?.id);
+      }
+    }
 
     await logWebhook({
       notification: body as Record<string, unknown>,
