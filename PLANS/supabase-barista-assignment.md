@@ -1,5 +1,9 @@
 # Plan: Supabase Edge Functions + Realtime untuk Barista Assignment
 
+> **UPDATE 2025-01**: Barista locations are now stored in **Supabase User table** (latitude, longitude columns).
+> The Edge Function reads directly from Supabase PostgreSQL.
+> Firebase is only used for Authentication in barista/customer apps.
+
 ## Overview
 
 Setup Supabase untuk handle barista assignment (cari nearest barista) secara gratis menggunakan Edge Functions + Realtime subscriptions.
@@ -296,6 +300,12 @@ serve(async (req) => {
 3. Share keys ke developer
 
 ---
+
+---
+
+## Status
+- [x] Phase 1-7: Completed
+- [x] Firebase Integration: COMPLETED
 
 **Last Updated:** 2025
 **Status:** PLANNING

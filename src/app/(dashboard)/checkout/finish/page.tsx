@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -475,7 +476,7 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 // Main Component
 // ============================================================
 
-export default function CheckoutFinishPage() {
+function CheckoutFinishContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -628,5 +629,26 @@ export default function CheckoutFinishPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// ============================================================
+// Suspense Wrapper
+// ============================================================
+
+export default function CheckoutFinishPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[400px] items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="size-8 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Memuat...</p>
+          </div>
+        </div>
+      }
+    >
+      <CheckoutFinishContent />
+    </Suspense>
   );
 }

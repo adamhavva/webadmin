@@ -72,7 +72,7 @@ function mapError(err: unknown): Response {
 }
 
 type RouteCtx = { params: Promise<Record<string, string>> };
-type AuthCtx = RouteCtx & { user: SessionUser };
+export type AuthCtx = RouteCtx & { user: SessionUser };
 
 export function handle(
   fn: (req: Request, ctx: RouteCtx) => Promise<Response>

@@ -14,17 +14,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 2. DILARANG membuat endpoint/method recurring, atau payout.
 3. Terapkan prinsip YAGNI (You Aren't Gonna Need It).
 
-Tolong jalankan migrasi pembayaran Midtrans ini dengan membaginya ke dalam 3 sub-agent...
-
 ## Project Overview
 
 ASCEND is a **three-application system** for a coffee business:
 
-| App | Platform | Purpose | User |
-|-----|----------|---------|------|
-| **WebAdmin** | Next.js Web | Dashboard admin | Admin |
-| **Barista App** | Flutter Mobile | Order, stok, delivery | Barista |
-| **Customer App** | Flutter Mobile | Pesan, lacak pesanan | Customer |
+| App | Platform | Purpose | User | Data Source |
+|-----|----------|---------|------|-------------|
+| **WebAdmin** | Next.js Web | Dashboard admin | Admin | Supabase PostgreSQL |
+| **Barista App** | Flutter Mobile | Order, stok, delivery | Barista | Firebase Auth + Supabase |
+| **Customer App** | Flutter Mobile | Pesan, lacak pesanan | Customer | Firebase Auth + Supabase |
 
 ### Teknologi Stack
 
@@ -33,19 +31,22 @@ ASCEND is a **three-application system** for a coffee business:
 | Frontend Web | Next.js 16, React 19, Tailwind v4, shadcn |
 | Frontend Mobile | Flutter |
 | Backend | Next.js API Routes |
-| Database | PostgreSQL ≥ 15, Prisma 7 |
-| Authentication | Firebase Auth |
-| Real-time | Firebase RTDB + **Supabase Realtime** |
+| Database | PostgreSQL ≥ 15, Prisma 7, **Supabase PostgreSQL** |
+| Authentication | **Firebase Auth** (barista & customer apps) |
+| Real-time | **Supabase Realtime** |
 | Payment | Midtrans Snap (dynamic — from Midtrans API) |
 | Storage | Cloudflare R2 |
-| Serverless Functions | **Supabase Edge Functions** (gratis, untuk barista assignment) |
+| Serverless Functions | **Supabase Edge Functions** |
 
-### API Base URL
+### WebAdmin Navigation (Simplified)
 
-```
-Development: http://localhost:3000/api
-Production: https://api.ascend.com/api
-```
+| Route | Page | Description |
+|-------|------|-------------|
+| `/orders` | Order | Order list & management |
+| `/maps` | Maps | Barista locations on Leaflet map |
+| `/settings` | Pengaturan | App settings |
+
+> **Note:** No Home page — direct to Orders.
 
 ---
 
@@ -67,6 +68,14 @@ npx tsx scripts/seed-kopi.ts  # seed products
 ---
 
 ## Architecture
+
+### Data Source Separation
+
+| App | Authentication | Data Storage | Location Data |
+|-----|----------------|--------------|---------------|
+| WebAdmin | NextAuth | Supabase PostgreSQL | Supabase User table (latitude, longitude) |
+| Barista App | Firebase Auth | Supabase PostgreSQL | Firebase RTDB (barista app only) |
+| Customer App | Firebase Auth | Supabase PostgreSQL | Firebase RTDB (customer app only) |
 
 ### Path Aliases
 
@@ -186,26 +195,45 @@ SHA512(order_id + status_code + gross_amount + serverKey)
 
 ---
 
-## Supabase Integration (Barista Assignment)
+## Supabase Integration
 
-**INFO:** Plan lengkap ada di `PLANS/supabase-barista-assignment.md`
-
-### Flow Barista Assignment via Supabase
+### Barista Assignment Flow
 
 ```
 Payment Webhook
     ↓
-POST /api/payment/notification (existing)
+POST /api/payment/notification
     ↓
-Call Supabase Edge Function: assignNearestBarista
+Call Supabase Edge Function: assign-barista
+    ↓
+Read barista locations from Supabase User table
     ↓
 Haversine distance calculation
     ↓
-Assign nearest online barista
+Assign nearest ACTIVE barista
+    ↓
+Update order: status=ASSIGNED, baristaId
     ↓
 Supabase Realtime broadcast to barista app
     ↓
 Barista receives order (Order Accept Page)
+```
+
+### Edge Function: assign-barista
+
+Reads barista locations from **Supabase User table** (not Firebase RTDB).
+
+```typescript
+// supabase/functions/assign-barista/index.ts
+// Key: Reads from User table with latitude, longitude columns
+
+const { data: baristas } = await supabase
+  .from('User')
+  .select('id, name, phone, role, status, latitude, longitude')
+  .eq('role', 'BARISTA')
+  .eq('status', 'ACTIVE')
+  .not('latitude', 'is', null)
+  .not('longitude', 'is', null);
 ```
 
 ### Environment Variables
@@ -215,15 +243,6 @@ Barista receives order (Order Accept Page)
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...  # Server-side only!
-```
-
-### Supabase Edge Functions
-
-```
-supabase/
-  functions/
-    assign-barista/
-      index.ts    # Haversine + assign logic
 ```
 
 ### API Endpoint
@@ -243,32 +262,84 @@ Response:
   "success": true,
   "baristaId": "uuid",
   "baristaName": "Budi Santoso",
-  "distance": "1.5 km"
+  "baristaPhone": "6281234567890",
+  "distance": "1.5 km",
+  "assignedAt": "2025-01-01T12:00:00Z"
 }
 ```
 
-### Dependencies
+---
 
-```bash
-npm install @supabase/supabase-js
+## Firebase Integration
+
+### Overview
+
+Firebase is used **only for Authentication** in barista and customer apps.
+
+| App | Firebase Usage |
+|-----|----------------|
+| WebAdmin | ❌ Not used |
+| Barista App | Firebase Auth (login) |
+| Customer App | Firebase Auth (login) |
+
+### Firebase Auth Flow
+
+```
+Barista App:
+  Firebase Auth → Get ID Token → Send to API → Verify with Firebase Admin SDK
+
+Customer App:
+  Firebase Auth → Get ID Token → Send to API → Verify with Firebase Admin SDK
+```
+
+### Environment Variables
+
+```env
+FIREBASE_DATABASE_URL=https://xxx.firebaseio.com  # Not used (Supabase for data)
+FIREBASE_SERVICE_ACCOUNT={"type":"service_account",...}  # For token verification only
 ```
 
 ---
 
-## Barista Assignment Flow (Updated)
+## Maps Page
 
-```
-7. Midtrans sends webhook → POST /api/payment/notification
-7a. Update order status → PAID
-7b. Call Supabase Edge Function: assignNearestBarista
-7c. Haversine calculation → find nearest ONLINE barista
-7d. Update order: assignedBaristaId + status ASSIGNED
-7e. Supabase Realtime broadcasts to barista app
-8. Barista sees new order → Order Accept Page
-9. Barista accepts → status ACCEPTED
+WebAdmin includes a **Maps page** (`/maps`) showing barista locations on a Leaflet map.
+
+### Features
+
+- Display all ACTIVE baristas on map with markers
+- Real-time updates via Supabase Realtime subscriptions
+- Show barista info on marker click (name, phone, status)
+
+### Data Source
+
+Barista locations are read from **Supabase User table**:
+```sql
+SELECT id, name, phone, latitude, longitude, status
+FROM "User"
+WHERE role = 'BARISTA' AND status = 'ACTIVE'
+AND latitude IS NOT NULL AND longitude IS NOT NULL
 ```
 
 ---
+
+## Barista Assignment Flow (Complete)
+
+```
+1. Customer completes payment on Midtrans
+2. Midtrans sends webhook → POST /api/payment/notification
+3. Payment status updated → Order status → SEARCHING + PAID
+4. Stock reduced → Order ready for assignment
+5. Call Supabase Edge Function: assign-barista
+6. Haversine calculation → find nearest ACTIVE barista from User table
+7. Update order: baristaId + status = ASSIGNED
+8. Supabase Realtime broadcasts to barista app
+9. Barista sees new order → Order Accept Page
+10. Barista accepts → status = ACCEPTED
+```
+
+---
+
 ---
 
 ## Prisma Schema
@@ -280,16 +351,18 @@ PaymentStatus: PENDING, PAID, FAILED, EXPIRED, REFUNDED
 PaymentProvider: MIDTRANS
 OrderStatus: PENDING, SEARCHING, ASSIGNED, ACCEPTED, DELIVERING, ARRIVED, COMPLETED, CANCELLED, FAILED
 BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
+UserRole: ADMIN, CUSTOMER, BARISTA
+UserStatus: ACTIVE, INACTIVE
 ```
 
 ### Key Models
 
 | Model | Description |
 |-------|-------------|
-| User | ADMIN, CUSTOMER, BARISTA |
+| User | ADMIN, CUSTOMER, BARISTA (with latitude, longitude columns) |
 | Product | Master produk jadi |
 | BaristaStock | Stok produk di gerobak |
-| Order | Order dengan payment info |
+| Order | Order dengan payment info, baristaId |
 | Payment | Record pembayaran via Midtrans Snap |
 | PaymentWebhookLog | Log webhook Midtrans |
 
@@ -327,15 +400,19 @@ BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 | File | Purpose |
 |------|---------|
 | `src/proxy.ts` | Page protection |
-| `src/lib/auth.ts` | NextAuth config |
+| `src/lib/auth.ts` | NextAuth config + Firebase token verification |
 | `src/lib/api-response.ts` | Response helpers |
 | `src/lib/db.ts` | Prisma client |
+| `src/lib/supabase.ts` | Supabase client |
 | `src/modules/payment/midtrans.service.ts` | Midtrans Snap service |
 | `src/modules/payment/payment.service.ts` | Payment business logic |
 | `src/modules/payment/payment.validator.ts` | Payment Zod schemas |
 | `src/app/api/payment/checkout/route.ts` | Midtrans Snap checkout endpoint |
 | `src/app/api/payment/notification/route.ts` | Midtrans webhook |
 | `src/app/(dashboard)/checkout/finish/page.tsx` | Midtrans redirect finish page |
+| `src/app/(dashboard)/orders/page.tsx` | Order management page |
+| `src/app/(dashboard)/maps/page.tsx` | Barista locations map (Leaflet) |
+| `supabase/functions/assign-barista/index.ts` | Barista assignment edge function |
 | `prisma/schema.prisma` | Database schema |
 | `tests/payment.test.ts` | Payment module unit tests |
 | `tests/payment_test.html` | Midtrans integration test page |
@@ -348,7 +425,7 @@ BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 
 This project has a navigable knowledge graph built with graphify — run `/graphify .` to rebuild, or `/graphify query "question"` to query it.
 
-**Stats:** 293 files · 1,918 nodes · 5,505 edges · 90 communities
+**Stats:** 297 files · 1,954 nodes · 5,504 edges · 87 communities
 
 ### God Nodes (most-connected abstractions)
 
@@ -356,16 +433,16 @@ These 10 nodes bridge the most communities — they are the backbone of the code
 
 | Node | Degree | Role |
 |------|--------|------|
+| `Button()` | 153 | Primary UI component |
 | `ok()` | 146 | API response helper — used everywhere |
-| `buttonVariants` | 96 | shadcn button styling — used in 50+ places |
+| `buttonVariants` | 95 | shadcn button styling — used in 50+ places |
 | `react` | 91 | React library import — core rendering |
+| `Card()` | 90 | shadcn card wrapper |
+| `CardContent()` | 90 | shadcn card content |
+| `CardHeader()` | 88 | shadcn card header |
+| `CardTitle()` | 86 | shadcn card title |
+| `Badge()` | 85 | shadcn badge component |
 | `lucide-react` | 83 | Icon library — used across all UI |
-| `next` | 73 | Next.js framework — page/route root |
-| `Button()` | 63 | Primary UI component |
-| `handleAuth()` | 63 | Auth guard — protects API routes |
-| `Card()` | 44 | shadcn card wrapper |
-| `CardContent()` | 44 | shadcn card content |
-| `CardHeader()` | 43 | shadcn card header |
 
 ### Key Communities (architectural clusters)
 
@@ -373,38 +450,30 @@ Groups of tightly-coupled code, ranked by cohesion:
 
 | Community | Cohesion | Description |
 |----------|----------|-------------|
-| `FIFO Batch Logic` | 0.24 | FIFO consumption engine |
-| `Midtrans Payment` | 0.14 | Snap token + signature |
-| `Order Assignment` | 0.17 | Haversine distance assignment |
-| `Auth & Firebase Admin` | 0.12 | NextAuth + Firebase Admin |
-| `Maps & Leaflet` | 0.06 | Tracking map |
-| `Dashboard Stats API` | 0.32 | Stats aggregation |
-| `Cost History API` | 0.36 | Cost tracking API |
-| `Production API` | 0.17 | Production lifecycle |
-| `Report API` | 0.23 | Reporting queries |
-| `Finished Products API` | 0.22 | Finished batch management |
+| `login-form.tsx` | 0.06 | Login/auth pages |
+| `DialogContent` | 0.06 | Dialog/modal components |
+| `recipe-form.tsx` | 0.06 | Recipe management forms |
+| `react` | 0.08 | React core imports |
+| `order-report-page.tsx` | 0.15 | Order reporting |
+| `ok()` | 0.17 | API response helpers |
+| `payment/index.ts` | 0.19 | Midtrans payment integration |
+| `barista-stock.service.ts` | 0.22 | Barista stock management |
+| `assign-barista/index.ts` | 0.25 | Supabase Edge Function |
 
 ### Cross-Cutting Concerns
 
 These nodes span the most communities and deserve extra care when changing:
 
-- **`next`** — connects 24 communities (betweenness 0.321): framework spine
-- **`react`** — connects 33 communities (betweenness 0.130): universal rendering
-- **`zod`** — connects 18 API communities (betweenness 0.088): validation backbone
-- **`ok()`** — connects all API routes via `handle()` wrapper
+- **`Button()`** — connects 50+ files: primary UI component
+- **`ok()`** — connects 146 files: API response helper used everywhere
+- **`react`** — connects 33 communities: universal rendering
+- **`zod`** — connects 18 API communities: validation backbone
 
-### Low-Cohesion Communities (consider splitting)
+### Hyperedges (Grouped Relationships)
 
-These communities have cohesion < 0.10 — nodes are weakly interconnected:
-
-- `UI Forms & Cards` (0.05) — 54 nodes, too broad
-- `Detail Views & Dialogs` (0.04) — 52 nodes
-- `List Pages & Badges` (0.05) — 42 nodes
-- `Edit Pages & Utils` (0.07) — 37 nodes
-
-### Isolated Nodes (430 nodes with ≤1 connection)
-
-These are mostly `$schema`, `style`, `rsc`, `tsx`, `config` references — they may indicate documentation gaps or missing AST edges.
+- **ASCEND Payment Architecture** — Midtrans Snap integration
+- **Midtrans Integration Testing Stack** — Payment test pages
+- **Knowledge Graph Meta Statistics** — Graph documentation
 
 ---
 
@@ -414,6 +483,6 @@ These are mostly `$schema`, `style`, `rsc`, `tsx`, `config` references — they 
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with this work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->

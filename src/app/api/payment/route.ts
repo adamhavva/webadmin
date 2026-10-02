@@ -22,12 +22,14 @@ export const GET = handle(async (req) => {
     }
 
     return ok({
-      orderId,
+      id: order.id,
+      orderNumber: order.orderNumber,
       status: order.status,
       paymentStatus: order.paymentStatus,
-      paymentMethod: order.paymentMethodName,
-      paidAt: order.payment?.paidAt,
-      amount: order.total,
+      paymentMethodName: order.paymentMethodName,
+      total: Number(order.total),
+      customerName: order.customerName,
+      paidAt: order.paidAt?.toISOString() ?? null,
     });
   }
 
