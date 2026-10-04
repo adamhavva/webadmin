@@ -240,9 +240,21 @@ const { data: baristas } = await supabase
 
 ```env
 # .env.local
-NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...  # Server-side only!
+# Full documentation: credentials/API_KEYS.md
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
+
+# Firebase
+NEXT_PUBLIC_FIREBASE_API_KEY=<your-api-key>
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=ascend-v2-xxxxx
+
+# Midtrans
+MIDTRANS_MERCHANT_ID=<your-merchant-id>
+MIDTRANS_SERVER_KEY=Mid-server-...
+NEXT_PUBLIC_MIDTRANS_CLIENT_KEY=Mid-client-...
 ```
 
 ### API Endpoint
@@ -394,6 +406,34 @@ UserStatus: ACTIVE, INACTIVE
 | 500 | Internal Server Error |
 
 ---
+
+## Documentation (DOCS/)
+
+Lihat folder `DOCS/` untuk dokumentasi lengkap:
+
+| Document | Description |
+|----------|-------------|
+| `DOCS/README.md` | Index semua dokumentasi |
+| `DOCS/PROJECT_PLAN.md` | Full development plan |
+| `DOCS/architecture/system-architecture.md` | **Detailed system architecture** - START HERE for understanding |
+| `DOCS/architecture/overview.md` | System overview |
+| `DOCS/order/how-to-assign-order.md` | Order assignment flow |
+| `DOCS/order/api-contract.md` | API contracts |
+| `DOCS/payment/midtrans-integration.md` | Midtrans Snap integration |
+| `DOCS/barista/realtime-integration.md` | Supabase Realtime setup |
+
+## Testing
+
+```bash
+# Explore database (list tables, sample data)
+npx tsx scripts/explore-db.ts
+
+# Fake order generator (demo mode)
+DEMO_MODE=true npx tsx scripts/seed-fake-order.ts
+
+# Fake order generator (creates real data)
+npx tsx scripts/seed-fake-order.ts
+```
 
 ## Important Files
 

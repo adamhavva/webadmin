@@ -176,6 +176,10 @@ model User {
   joinDate   DateTime? // Tanggal masuk kerja
   addressKtp String? // Alamat sesuai KTP
 
+  // Online status for real-time tracking
+  online_status   String?  @default("OFFLINE") @db.VarChar(20)
+  last_active_at DateTime? @db.Timestamptz(6)
+
   // ---------- Relasi Order ----------
   ordersAsCustomer Order[] @relation("CustomerOrders")
   ordersAsBarista  Order[] @relation("BaristaOrders")
@@ -189,6 +193,8 @@ model User {
 
   @@index([role])
   @@index([status])
+  @@index([online_status])
+  @@index([role, online_status])
 }
 
 // ============================================================
