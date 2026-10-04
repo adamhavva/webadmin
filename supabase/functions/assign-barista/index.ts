@@ -1,43 +1,25 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import postgres from 'postgres';
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-interface AssignBaristaRequest {
-  orderId: string;
-  customerLat: number;
-  customerLng: number;
+// Database connection - use DATABASE_URL from env
+const DATABASE_URL = Deno.env.get('DATABASE_URL');
+if (!DATABASE_URL) {
+  console.error('[assign-barista] DATABASE_URL not set');
 }
 
-interface Barista {
-  id: string;
-  name: string;
-  phone: string;
-  role: string;
-  status: string;
-  latitude: number;
-  longitude: number;
-}
+// Firebase RTDB config from env
+const firebaseProjectId = Deno.env.get('FIREBASE_PROJECT_ID') || 'ascend-v2-4a67d';
+const firebaseDatabaseUrl = Deno.env.get('FIREBASE_DATABASE_URL') ||
+  `https://${firebaseProjectId}-default-rtdb.asia-southeast1.firebasedatabase.app`;
 
-// Haversine formula to calculate distance between two coordinates
-function haversine(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371; // Earth's radius in km
+// Haversine formula - calculate distance in km
+function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 serve(async (req: Request) => {
@@ -51,272 +33,176 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  let db;
   try {
-    const { orderId, customerLat, customerLng }: AssignBaristaRequest =
-      await req.json();
+    if (!DATABASE_URL) {
+      throw new Error('DATABASE_URL not configured');
+    }
+    db = postgres(DATABASE_URL, { max: 1 });
+  } catch (err) {
+    console.error('[assign-barista] DB connection error:', err);
+    return new Response(
+      JSON.stringify({ success: false, message: 'Database connection failed' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
 
-    if (!orderId || customerLat === undefined || customerLng === undefined) {
+  try {
+    const body = await req.json();
+    const { orderId, customerLat, customerLng } = body;
+
+    console.log(`[assign-barista] Processing orderId=${orderId}, lat=${customerLat}, lng=${customerLng}`);
+
+    if (!orderId) {
       return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Missing required fields: orderId, customerLat, customerLng',
-        }),
+        JSON.stringify({ success: false, message: 'Missing orderId' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Get order from database
+    const orders = await db`SELECT id, status, "deliveryLatitude", "deliveryLongitude" FROM "Order" WHERE id = ${orderId}`;
+    const order = orders[0];
 
-    // ============================================================
-    // STEP 1: Verify order exists and is in SEARCHING status
-    // ============================================================
-    const { data: order, error: orderError } = await supabase
-      .from('Order')
-      .select('id, status')
-      .eq('id', orderId)
-      .single();
-
-    if (orderError || !order) {
+    if (!order) {
       return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Order not found',
-        }),
+        JSON.stringify({ success: false, message: 'Order not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (order.status !== 'SEARCHING') {
+    // Use coordinates from request or from order
+    const lat = customerLat ?? order.deliveryLatitude;
+    const lng = customerLng ?? order.deliveryLongitude;
+
+    if (!lat || !lng) {
       return new Response(
-        JSON.stringify({
-          success: false,
-          message: `Order is not in SEARCHING status (current: ${order.status})`,
-        }),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, message: 'Customer location not available' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // ============================================================
-    // STEP 2: Use PostgreSQL advisory lock for race condition prevention
-    // This ensures only ONE assignment runs at a time per order
-    // ============================================================
-    // Lock the order for assignment using a transaction with advisory lock
-    const { data: lockResult, error: lockError } = await supabase.rpc('pg_try_advisory_lock', {
-      lock_id: Math.abs(orderId.split('').reduce((a, b) => {
-        a = ((a << 5) - a) + b.charCodeAt(0);
-        return a & a;
-      }, 0)),
-    });
+    // Get baristas with location from Supabase User table
+    const baristas = await db`
+      SELECT id, "firebaseUid", name, phone, latitude, longitude
+      FROM "User"
+      WHERE role = 'BARISTA'
+        AND status = 'ACTIVE'
+        AND latitude IS NOT NULL
+        AND longitude IS NOT NULL
+    `;
 
-    // If advisory lock fails (another process holds it), wait and retry
-    if (!lockResult) {
-      // Wait 500ms then retry once
-      await new Promise(resolve => setTimeout(resolve, 500));
+    console.log(`[assign-barista] Found ${baristas.length} baristas with location in Supabase`);
 
-      // Check if order was already assigned by another process
-      const { data: checkOrder } = await supabase
-        .from('Order')
-        .select('status, baristaId')
-        .eq('id', orderId)
-        .single();
-
-      if (checkOrder?.status === 'ASSIGNED' && checkOrder?.baristaId) {
-        return new Response(
-          JSON.stringify({
-            success: true,
-            baristaId: checkOrder.baristaId,
-            message: 'Order already assigned by another process',
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
+    if (baristas.length === 0) {
       return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Could not acquire lock for assignment, please retry',
-        }),
+        JSON.stringify({ success: false, message: 'No baristas with location available' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Fetch real-time locations from Firebase RTDB
+    // Path: /users/{firebaseUid}/location
+    const baristaLocations = [];
+    for (const barista of baristas) {
+      if (!barista.firebaseUid) continue;
+
+      try {
+        const rtdbRes = await fetch(`${firebaseDatabaseUrl}/users/${barista.firebaseUid}/location.json`);
+        if (rtdbRes.ok) {
+          const location = await rtdbRes.json();
+          if (location && location.lat && location.lng) {
+            baristaLocations.push({
+              ...barista,
+              rtdbLat: location.lat,
+              rtdbLng: location.lng,
+            });
+          }
+        }
+      } catch (err) {
+        console.error(`[assign-barista] Firebase RTDB error for ${barista.name}:`, err);
+      }
+    }
+
+    // Fallback: use Supabase lat/long if no Firebase data
+    if (baristaLocations.length === 0) {
+      console.log('[assign-barista] No Firebase locations, using Supabase lat/long');
+      baristaLocations.push(...baristas.map(b => ({
+        ...b,
+        rtdbLat: b.latitude,
+        rtdbLng: b.longitude,
+      })));
+    }
+
+    // Check barista availability (no active orders)
+    const baristaIds = baristaLocations.map(b => b.id);
+    const activeOrders = await db`
+      SELECT DISTINCT "baristaId"
+      FROM "Order"
+      WHERE "baristaId" IN ${db(baristaIds)}
+        AND status IN ('ASSIGNED', 'ACCEPTED', 'DELIVERING')
+    `;
+    const busyIds = new Set(activeOrders.map(o => o.baristaId));
+
+    const available = baristaLocations.filter(b => !busyIds.has(b.id));
+    console.log(`[assign-barista] ${available.length} baristas available (not busy)`);
+
+    if (available.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, message: 'All baristas are busy with active orders' }),
         { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    try {
-      // ============================================================
-      // STEP 3: Get ACTIVE baristas with location
-      // ============================================================
-      const { data: baristas, error: baristaError } = await supabase
-        .from('User')
-        .select('id, name, phone, role, status, latitude, longitude')
-        .eq('role', 'BARISTA')
-        .eq('status', 'ACTIVE')
-        .not('latitude', 'is', null)
-        .not('longitude', 'is', null);
-
-      if (baristaError || !baristas || baristas.length === 0) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'No online baristas found',
-          }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+    // Find nearest barista using Haversine
+    let nearest = available[0];
+    let minDist = Infinity;
+    for (const b of available) {
+      const d = haversine(lat, lng, b.rtdbLat, b.rtdbLng);
+      console.log(`[assign-barista] Distance to ${b.name}: ${d.toFixed(2)} km`);
+      if (d < minDist) {
+        minDist = d;
+        nearest = b;
       }
-
-      // ============================================================
-      // STEP 4: Check barista availability
-      // IMPORTANT: Barista must NOT have orders in active states
-      // ============================================================
-      const baristaIds = baristas.map(b => b.id);
-
-      const { data: activeOrders, error: ordersError } = await supabase
-        .from('Order')
-        .select('baristaId')
-        .in('baristaId', baristaIds)
-        .in('status', ['ASSIGNED', 'ACCEPTED', 'DELIVERING']);
-
-      if (ordersError) {
-        console.error('Error fetching active orders:', ordersError);
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Failed to check barista availability',
-            error: ordersError.message,
-          }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Create set of baristas who are busy (have active orders)
-      const busyBaristaIds = new Set(
-        activeOrders?.map(o => o.baristaId).filter(Boolean) || []
-      );
-
-      // Filter available baristas
-      const availableBaristas = baristas.filter(b => !busyBaristaIds.has(b.id));
-
-      if (availableBaristas.length === 0) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'All baristas are busy with active orders',
-          }),
-          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // ============================================================
-      // STEP 5: Find nearest available barista
-      // ============================================================
-      let nearestBarista: Barista | null = null;
-      let minDistance = Infinity;
-
-      for (const barista of availableBaristas) {
-        const distance = haversine(
-          customerLat,
-          customerLng,
-          barista.latitude,
-          barista.longitude
-        );
-        console.log(`Barista ${barista.name} (${barista.id}): ${distance.toFixed(2)} km`);
-        if (distance < minDistance) {
-          minDistance = distance;
-          nearestBarista = barista;
-        }
-      }
-
-      if (!nearestBarista) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Could not find nearest barista',
-          }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // ============================================================
-      // STEP 6: Double-check order status (re-check after lock)
-      // ============================================================
-      const { data: currentOrder } = await supabase
-        .from('Order')
-        .select('status, baristaId')
-        .eq('id', orderId)
-        .single();
-
-      if (currentOrder?.status !== 'SEARCHING') {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: `Order status changed to ${currentOrder?.status}`,
-          }),
-          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // ============================================================
-      // STEP 7: Assign order to barista
-      // Use atomic update with status check to prevent race conditions
-      // ============================================================
-      const now = new Date().toISOString();
-      const { error: updateError } = await supabase
-        .from('Order')
-        .update({
-          baristaId: nearestBarista.id,
-          status: 'ASSIGNED',
-          assignedAt: now,
-          distanceKm: Math.round(minDistance * 100) / 100,
-          updatedAt: now,
-        })
-        .eq('id', orderId)
-        .eq('status', 'SEARCHING');
-
-      if (updateError) {
-        console.error('Error updating order:', updateError);
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Failed to assign order',
-            error: updateError.message,
-          }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      console.log(
-        `Order ${orderId} assigned to barista ${nearestBarista.name} (${nearestBarista.id}) at ${minDistance.toFixed(2)} km`
-      );
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          baristaId: nearestBarista.id,
-          baristaName: nearestBarista.name,
-          baristaPhone: nearestBarista.phone,
-          distance: `${minDistance.toFixed(2)} km`,
-          assignedAt: now,
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-
-    } finally {
-      // Always release the advisory lock
-      await supabase.rpc('pg_advisory_unlock', {
-        lock_id: Math.abs(orderId.split('').reduce((a, b) => {
-          a = ((a << 5) - a) + b.charCodeAt(0);
-          return a & a;
-        }, 0)),
-      });
     }
 
-  } catch (error) {
-    console.error('Unexpected error:', error);
+    const now = new Date().toISOString();
+    const distKm = Math.round(minDist * 100) / 100;
+
+    // Assign order to barista
+    await db`
+      UPDATE "Order"
+      SET
+        "baristaId" = ${nearest.id},
+        status = 'ASSIGNED',
+        "assignedAt" = ${now},
+        "distanceKm" = ${distKm},
+        "updatedAt" = ${now}
+      WHERE id = ${orderId}
+        AND status = 'SEARCHING'
+    `;
+
+    console.log(`[assign-barista] Order ${orderId} assigned to ${nearest.name} (${nearest.id}) at ${distKm} km`);
+
     return new Response(
       JSON.stringify({
-        success: false,
-        message: 'Internal server error',
-        error: error instanceof Error ? error.message : String(error),
+        success: true,
+        baristaId: nearest.id,
+        baristaName: nearest.name,
+        baristaPhone: nearest.phone,
+        distance: `${distKm} km`,
+        assignedAt: now,
       }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (err) {
+    console.error('[assign-barista] Error:', err);
+    return new Response(
+      JSON.stringify({ success: false, message: 'Internal error', error: String(err) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+  } finally {
+    await db.end();
   }
 });

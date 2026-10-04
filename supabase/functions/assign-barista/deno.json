@@ -5,10 +5,9 @@
     "start": "deno run --allow-net --allow-env --allow-sys index.ts"
   },
   "imports": {
-    "@supabase/supabase-js": "npm:@supabase/supabase-js@2"
+    "postgres": "npm:postgres@3"
   },
   "compilerOptions": {
-    "allowJs": true,
     "lib": ["deno.window"],
     "strict": true
   },
