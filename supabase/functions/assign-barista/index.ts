@@ -71,7 +71,12 @@ async function signJwt(header: object, payload: object, privateKeyPem: string): 
     .replace('-----END RSA PRIVATE KEY-----', '')
     .replace(/\s/g, '');
 
-  const binaryKey = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
+  // Convert base64 key to binary
+  const keyBinary = atob(keyData);
+  const binaryKey = new Uint8Array(keyBinary.length);
+  for (let i = 0; i < keyBinary.length; i++) {
+    binaryKey[i] = keyBinary.charCodeAt(i);
+  }
 
   const cryptoKey = await crypto.subtle.importKey(
     'pkcs8',
