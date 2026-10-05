@@ -1,0 +1,19 @@
+{
+  "lock": false,
+  "tasks": {
+    "check": "deno check **/*.ts && deno check **/*.tsx",
+    "start": "deno run --allow-net --allow-env --allow-sys index.ts"
+  },
+  "imports": {
+    "postgres": "npm:postgres@3"
+  },
+  "compilerOptions": {
+    "lib": ["deno.window"],
+    "strict": true
+  },
+  "exclude": [
+    "**/_generated/**",
+    ".git",
+    "node_modules"
+  ]
+}

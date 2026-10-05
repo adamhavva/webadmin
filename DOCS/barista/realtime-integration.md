@@ -5,12 +5,19 @@
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Edge Function `assign-barista` | ✅ Done | Deployed to Supabase |
+| Edge Function `payment-webhook` | ✅ Done | Process Midtrans notifications |
+| Edge Function `order-accept` | ✅ Done | Barista accepts order |
+| Edge Function `order-reject` | ✅ Done | Barista rejects order |
+| Edge Function `order-complete` | ✅ Done | Mark order completed |
+| Edge Function `order-status` | ✅ Done | Update order status |
+| Edge Function `broadcast-order` | ✅ Done | Broadcast to order pool |
 | Supabase Realtime (Order table) | ✅ Done | Enabled on orders table |
 | Flutter SDK setup | ❌ TODO | Separate repository |
 | Barista GPS → Firebase RTDB | ❌ TODO | Implement in Flutter |
 | Order Accept Page | ❌ TODO | Implement in Flutter |
 | Order Status Updates | ❌ TODO | Implement in Flutter |
 | Maps page (WebAdmin) | ✅ Done | Leaflet + barista markers |
+| Firebase RTDB `/order_pool/{uid}/{id}` | ✅ Done | Order pool for baristas |
 
 ## Architecture
 
@@ -198,6 +205,16 @@ class BaristaLocationService {
 }
 ```
 
+### Order Pool (for baristas to claim)
+```
+/order_pool/{baristaUid}/{orderId} = {
+  "orderId": "uuid",
+  "orderNumber": "ORD-001",
+  "status": "PENDING",
+  "createdAt": 1728000000000
+}
+```
+
 ## Enable Realtime on Orders Table
 
 ```sql
@@ -228,7 +245,14 @@ SELECT * FROM pg_publication_tables WHERE pubname = 'supabase_realtime';
 
 | File | Purpose |
 |------|---------|
-| `supabase/functions/assign-barista/index.ts` | Edge Function |
+| `supabase/functions/assign-barista/index.ts` | Barista assignment with Haversine |
+| `supabase/functions/payment-webhook/index.ts` | Payment webhook processing |
+| `supabase/functions/order-accept/index.ts` | Barista accepts order |
+| `supabase/functions/order-reject/index.ts` | Barista rejects order |
+| `supabase/functions/order-complete/index.ts` | Order completion |
+| `supabase/functions/order-status/index.ts` | Status updates |
+| `supabase/functions/broadcast-order/index.ts` | Order pool broadcast |
+| `supabase/functions/firebase-token/index.ts` | Firebase token generation |
 | `DOCS/order/how-to-assign-order.md` | Complete assignment flow |
 | `DOCS/flow/complete-flow.md` | Three-app flow |
 

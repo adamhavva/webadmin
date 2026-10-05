@@ -240,7 +240,9 @@ PATCH /api/orders/:id/status
 
 ---
 
-### 9. Supabase Edge Function: assign-barista
+## Supabase Edge Functions
+
+### 1. assign-barista
 
 ```
 POST /functions/v1/assign-barista
@@ -267,13 +269,115 @@ POST /functions/v1/assign-barista
 }
 ```
 
-**Response (404) - No baristas available:**
+### 2. payment-webhook
+
+```
+POST /functions/v1/payment-webhook
+```
+
+Handles Midtrans payment notifications and triggers barista assignment.
+
+### 3. order-accept
+
+```
+POST /functions/v1/order-accept
+```
+
+**Request:**
 ```json
 {
-  "success": false,
-  "message": "No online baristas available"
+  "orderId": "uuid"
 }
 ```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "status": "ACCEPTED"
+}
+```
+
+### 4. order-reject
+
+```
+POST /functions/v1/order-reject
+```
+
+**Request:**
+```json
+{
+  "orderId": "uuid",
+  "reason": "optional reason"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "status": "SEARCHING",
+  "reassignedTo": "next-barista-uuid"
+}
+```
+
+### 5. order-complete
+
+```
+POST /functions/v1/order-complete
+```
+
+**Request:**
+```json
+{
+  "orderId": "uuid"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "status": "COMPLETED"
+}
+```
+
+### 6. order-status
+
+```
+POST /functions/v1/order-status
+```
+
+**Request:**
+```json
+{
+  "orderId": "uuid",
+  "status": "DELIVERING"
+}
+```
+
+### 7. broadcast-order
+
+```
+POST /functions/v1/broadcast-order
+```
+
+**Request:**
+```json
+{
+  "orderId": "uuid"
+}
+```
+
+Broadcasts order to order pool for baristas to claim.
+
+### 8. firebase-token
+
+```
+POST /functions/v1/firebase-token
+```
+
+Generates Firebase ID token for mobile app authentication.
 
 ---
 

@@ -57,11 +57,11 @@ Sistem assign order dari customer ke barista menggunakan pattern **ShopeeFood-st
 | COMPLETED | Order selesai | Barista/Customer |
 | CANCELLED | Order dibatalkan | Customer/Admin |
 
-## Edge Function: assign-barista
+## Edge Functions
+
+### 1. assign-barista
 
 **Deployed:** `https://wonjentqtxnnrfadkqkd.supabase.co/functions/v1/assign-barista`
-
-**Invoked by:** Payment webhook → `POST /functions/v1/assign-barista`
 
 **Location:** `supabase/functions/assign-barista/index.ts`
 
@@ -73,7 +73,69 @@ Sistem assign order dari customer ke barista menggunakan pattern **ShopeeFood-st
 5. Sort by distance (nearest first)
 6. Assign to nearest barista → order.status=ASSIGNED
 7. Write order tracking to Firebase RTDB (`/orders/{orderId}/locations`)
-8. Order auto-broadcasts via Supabase Realtime (postgres_changes on Order table)
+8. Broadcast to order pool (`/order_pool/{baristaUid}/{orderId}`)
+9. Order auto-broadcasts via Supabase Realtime (postgres_changes on Order table)
+
+### 2. payment-webhook
+
+**Location:** `supabase/functions/payment-webhook/index.ts`
+
+**Logic:**
+1. Process Midtrans payment notification
+2. Update payment status
+3. Call assign-barista for assignment
+
+### 3. order-accept
+
+**Location:** `supabase/functions/order-accept/index.ts`
+
+**Logic:**
+1. Mark order as ACCEPTED
+2. Update order pool (remove from pool)
+3. Broadcast status update
+
+### 4. order-reject
+
+**Location:** `supabase/functions/order-reject/index.ts`
+
+**Logic:**
+1. Mark order as SEARCHING (available for reassignment)
+2. Call assign-barista for next nearest barista
+3. Broadcast status update
+
+### 5. order-complete
+
+**Location:** `supabase/functions/order-complete/index.ts`
+
+**Logic:**
+1. Mark order as COMPLETED
+2. Update timestamps
+3. Broadcast status update
+
+### 6. order-status
+
+**Location:** `supabase/functions/order-status/index.ts`
+
+**Logic:**
+1. Update order status
+2. Add timestamp for the status
+3. Broadcast to realtime subscribers
+
+### 7. broadcast-order
+
+**Location:** `supabase/functions/broadcast-order/index.ts`
+
+**Logic:**
+1. Add order to order pool (`/order_pool/{baristaUid}/{orderId}`)
+2. Broadcast to all baristas
+
+### 8. firebase-token
+
+**Location:** `supabase/functions/firebase-token/index.ts`
+
+**Logic:**
+1. Generate Firebase ID token for mobile app authentication
+2. Used for Firebase RTDB access
 
 ## Haversine Formula
 
@@ -180,6 +242,19 @@ assignedAt          DateTime?    -- timestamp assignment
     },
     "distance": 2.5,
     "orderNumber": "ORD-001"
+  }
+}
+```
+
+## Firebase RTDB Structure (Order Pool)
+
+```json
+{
+  "/order_pool/{baristaUid}/{orderId}": {
+    "orderId": "uuid",
+    "orderNumber": "ORD-001",
+    "status": "PENDING",
+    "createdAt": 1728000000000
   }
 }
 ```

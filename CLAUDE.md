@@ -324,6 +324,7 @@ Customer App:
 ```
 /users/{firebaseUid}/location = { lat, lng, accuracy, timestamp }
 /orders/{orderId}/locations = { customer, barista, distance, orderNumber }
+/order_pool/{baristaUid}/{orderId} = { orderId, orderNumber, status, createdAt }
 ```
 
 ### Browser Environment Variables
@@ -372,12 +373,17 @@ AND latitude IS NOT NULL AND longitude IS NOT NULL
 2. Midtrans sends webhook → POST /api/payment/notification
 3. Payment status updated → Order status → SEARCHING + PAID
 4. Stock reduced → Order ready for assignment
-5. Call Supabase Edge Function: assign-barista
-6. Haversine calculation → find nearest ACTIVE barista from User table
-7. Update order: baristaId + status = ASSIGNED
-8. Supabase Realtime broadcasts to barista app
-9. Barista sees new order → Order Accept Page
-10. Barista accepts → status = ACCEPTED
+5. Call Supabase Edge Function: payment-webhook
+6. payment-webhook calls assign-barista
+7. Haversine calculation → find nearest ACTIVE barista from Firebase RTDB
+8. Update order: baristaId + status = ASSIGNED
+9. Broadcast to order pool (/order_pool/{baristaUid}/{orderId})
+10. Supabase Realtime broadcasts to barista app
+11. Barista sees new order → Order Accept Page
+12. Barista accepts → POST /functions/v1/order-accept → status = ACCEPTED
+13. Barista delivers → POST /functions/v1/order-status → DELIVERING
+14. Barista arrives → POST /functions/v1/order-status → ARRIVED
+15. Barista completes → POST /functions/v1/order-complete → COMPLETED
 ```
 
 ---
@@ -454,6 +460,8 @@ Lihat folder `DOCS/` untuk dokumentasi lengkap:
 
 ## Testing
 
+**Status: 63 tests passing**
+
 ```bash
 # Explore database (list tables, sample data)
 npx tsx scripts/explore-db.ts
@@ -463,6 +471,9 @@ DEMO_MODE=true npx tsx scripts/seed-fake-order.ts
 
 # Fake order generator (creates real data)
 npx tsx scripts/seed-fake-order.ts
+
+# Run tests
+npm test
 ```
 
 ## Important Files
@@ -483,9 +494,46 @@ npx tsx scripts/seed-fake-order.ts
 | `src/app/(dashboard)/orders/page.tsx` | Order management page |
 | `src/app/(dashboard)/maps/page.tsx` | Barista locations map (Leaflet) |
 | `supabase/functions/assign-barista/index.ts` | Barista assignment edge function |
+| `supabase/functions/payment-webhook/index.ts` | Payment webhook processing |
+| `supabase/functions/order-accept/index.ts` | Order accept edge function |
+| `supabase/functions/order-reject/index.ts` | Order reject edge function |
+| `supabase/functions/order-complete/index.ts` | Order complete edge function |
+| `supabase/functions/order-status/index.ts` | Order status edge function |
+| `supabase/functions/broadcast-order/index.ts` | Broadcast order to pool |
+| `supabase/functions/firebase-token/index.ts` | Firebase token generation |
+| `credentials/firebase/serviceAccountKey.json` | Firebase service account (private key) |
 | `prisma/schema.prisma` | Database schema |
 | `tests/payment.test.ts` | Payment module unit tests |
 | `tests/payment_test.html` | Midtrans integration test page |
+
+### Supabase Edge Functions (8 total)
+
+| Function | Trigger | Description |
+|---------|---------|-------------|
+| `assign-barista` | Payment | Haversine → nearest barista → assign order |
+| `payment-webhook` | Midtrans | Process payment notification |
+| `order-accept` | Barista | Accept order |
+| `order-reject` | Barista | Reject order (reassign) |
+| `order-complete` | Barista | Complete order |
+| `order-status` | Any | Update order status |
+| `broadcast-order` | New order | Broadcast to order pool |
+| `firebase-token` | Auth | Generate Firebase ID tokens |
+
+### API Routes (61 total)
+
+| Domain | Count | Routes |
+|--------|-------|--------|
+| auth | 5 | firebase-token, me, password, etc. |
+| orders | 8 | CRUD, accept, reject, complete, cancel, status |
+| payment | 3 | checkout, notification, status |
+| products | 2 | product catalog |
+| barista-stock | 7 | stock management |
+| inventory | 18 | inventory, recipes, productions |
+| reports | 6 | order & product reports |
+| users | 4 | user management |
+| settings | 4 | app settings |
+| dashboard | 1 | stats |
+| stock | 1 | summary |
 
 ---
 

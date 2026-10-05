@@ -70,35 +70,33 @@ Dokumentasi ini menjelaskan alur lengkap dari customer order hingga order selesa
                                     │ HTTP POST
                                     ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                    SUPABASE EDGE FUNCTION: assign-barista                     │
+│                    SUPABASE EDGE FUNCTIONS: Order Lifecycle                     │
 │                                                                              │
-│  Input: { orderId, customerLat, customerLng }                               │
+│  1. payment-webhook                                                         │
+│     └── Process Midtrans payment notification                                │
+│     └── Call assign-barista                                                 │
 │                                                                              │
-│  1. Read Barista Locations                                                 │
-│     └── Primary: Firebase RTDB                                              │
-│         GET /users/{uid}/location.json                                      │
-│     └── Fallback: Supabase User table (latitude, longitude)                 │
+│  2. assign-barista                                                          │
+│     └── Read barista locations from Firebase RTDB                            │
+│     └── Haversine calculation → nearest barista                              │
+│     └── Update order: status = ASSIGNED                                     │
+│     └── Broadcast to order pool                                             │
 │                                                                              │
-│  2. Filter Available Baristas                                               │
-│     └── role = BARISTA                                                      │
-│     └── status = ACTIVE                                                     │
-│     └── location IS NOT NULL                                                 │
-│     └── No active orders (ASSIGNED/ACCEPTED/DELIVERING)                    │
+│  3. broadcast-order                                                        │
+│     └── Write to /order_pool/{baristaUid}/{orderId}                        │
+│     └── Push notification                                                   │
 │                                                                              │
-│  3. Calculate Distances                                                     │
-│     └── Haversine formula                                                   │
-│     └── d = 2 * R * arcsin(sqrt(sin²(Δlat/2) + cos(lat1) * cos(lat2) * sin²(Δlng/2))) │
+│  4. order-accept (Barista action)                                          │
+│     └── Mark order: status = ACCEPTED                                       │
+│     └── Remove from order pool                                             │
 │                                                                              │
-│  4. Sort by Distance                                                        │
-│     └── Nearest barista first                                               │
+│  5. order-reject (Barista action)                                          │
+│     └── Mark order: status = SEARCHING                                       │
+│     └── Call assign-barista (reassign)                                     │
 │                                                                              │
-│  5. Assign Order                                                            │
-│     └── Update Order: baristaId = nearestBarista.id                         │
-│     └── Order.status = ASSIGNED                                              │
-│     └── Order.distanceKm = haversineDistance                                 │
-│     └── Order.assignedAt = NOW()                                            │
-│                                                                              │
-│  Output: { success, baristaId, baristaName, distance, assignedAt }          │
+│  6. order-complete (Barista action)                                         │
+│     └── Mark order: status = COMPLETED                                      │
+│     └── Cleanup order pool                                                 │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -311,7 +309,14 @@ Customer App                         Supabase
 | `src/app/api/payment/notification/route.ts` | Webhook handler |
 | `src/app/api/payment/route.ts` | Payment status |
 | `src/lib/supabase.ts` | `assignNearestBarista()` helper |
-| `supabase/functions/assign-barista/index.ts` | Edge function |
+| `supabase/functions/assign-barista/index.ts` | Barista assignment |
+| `supabase/functions/payment-webhook/index.ts` | Payment webhook |
+| `supabase/functions/order-accept/index.ts` | Order accept |
+| `supabase/functions/order-reject/index.ts` | Order reject |
+| `supabase/functions/order-complete/index.ts` | Order complete |
+| `supabase/functions/order-status/index.ts` | Order status |
+| `supabase/functions/broadcast-order/index.ts` | Order pool broadcast |
+| `supabase/functions/firebase-token/index.ts` | Firebase token |
 
 ### Barista App (`ascend_barista/`)
 

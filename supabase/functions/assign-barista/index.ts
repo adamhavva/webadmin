@@ -1,33 +1,14 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { readFileSync } from 'https://deno.land/std/fs/mod.ts';
 
 // Environment variables
 const databaseUrl = Deno.env.get('DATABASE_URL');
 
-// Firebase config - read from service account JSON file
+// Firebase config - read from environment variables (set via `supabase secrets set`)
 const firebaseProjectId = Deno.env.get('FIREBASE_PROJECT_ID') || 'ascend-v2-4a67d';
-const firebaseDatabaseUrl = Deno.env.get('FIREBASE_DATABASE_URL') || `https://${firebaseProjectId}-default-rtdb.asia-southeast1.firebasedatabase.app`;
-
-// Load service account from JSON file
-interface ServiceAccountJson {
-  project_id: string;
-  private_key: string;
-  client_email: string;
-}
-
-let firebaseClientEmail: string | undefined;
-let firebasePrivateKey: string | undefined;
-
-try {
-  const serviceAccountPath = Deno.env.get('SERVICE_ACCOUNT_PATH') || './credentials/firebase/serviceAccountKey.json';
-  const serviceAccountRaw = readFileSync(serviceAccountPath, 'utf-8');
-  const serviceAccount: ServiceAccountJson = JSON.parse(serviceAccountRaw);
-  firebaseClientEmail = serviceAccount.client_email;
-  firebasePrivateKey = serviceAccount.private_key;
-  console.log('[assign-barista] Loaded Firebase service account from:', serviceAccountPath);
-} catch (err) {
-  console.log('[assign-barista] Could not load service account:', err);
-}
+const firebaseDatabaseUrl = Deno.env.get('FIREBASE_DATABASE_URL') ||
+  `https://${firebaseProjectId}-default-rtdb.asia-southeast1.firebasedatabase.app`;
+const firebaseClientEmail = Deno.env.get('FIREBASE_CLIENT_EMAIL');
+const firebasePrivateKey = Deno.env.get('FIREBASE_PRIVATE_KEY');
 
 // Haversine formula - exported for testing
 export function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -41,11 +22,11 @@ export function haversine(lat1: number, lon1: number, lat2: number, lon2: number
 
 // Direct PostgreSQL client
 async function createDbClient() {
-  const postgres = await import('https://deno.land/x/postgres@v0.17.0/mod.ts');
+  const postgres = await import('npm:postgres@3');
   if (!databaseUrl) {
     throw new Error('DATABASE_URL not configured');
   }
-  const client = new postgres.Client(databaseUrl);
+  const client = postgres.default(databaseUrl);
   await client.connect();
   return client;
 }

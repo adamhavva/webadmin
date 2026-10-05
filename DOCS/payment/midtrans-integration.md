@@ -28,7 +28,8 @@ ASCEND menggunakan **Midtrans Snap** sebagai payment gateway. Customer melakukan
 │     └── POST /api/payment/notification                                    │
 │     └── Verify signature                                                   │
 │     └── Update payment status                                              │
-│     └── Call assign-barista edge function                                  │
+│     └── Call payment-webhook edge function                                 │
+│     └── payment-webhook calls assign-barista                              │
 │                                                                             │
 │  5. Finish Redirect                                                        │
 │     └── Customer redirected to /checkout/finish?order_id=xxx               │
@@ -73,8 +74,9 @@ POST /api/payment/notification
 Midtrans POSTs notification. Server must:
 1. Verify `order_id` + `status_code` + `gross_amount` + `SERVER_KEY` signature
 2. Update Order paymentStatus
-3. Call assign-barista if payment SUCCESS
-4. Return HTTP 200
+3. Call payment-webhook edge function
+4. payment-webhook calls assign-barista
+5. Return HTTP 200
 
 ### 3. Get Payment Status
 
@@ -179,6 +181,8 @@ When payment succeeds, we store payment method info for reporting:
 | `src/app/api/payment/notification/route.ts` | Webhook handler |
 | `src/app/api/payment/route.ts` | Get payment status |
 | `src/app/(dashboard)/checkout/finish/page.tsx` | Redirect finish page |
+| `supabase/functions/payment-webhook/index.ts` | Payment webhook processing |
+| `supabase/functions/assign-barista/index.ts` | Barista assignment |
 
 ## Related Documentation
 
