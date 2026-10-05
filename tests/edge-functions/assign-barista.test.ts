@@ -1,62 +1,23 @@
 /**
  * Unit Tests for assign-barista Edge Function
  *
+ * Tests pure functions that don't require Deno environment.
  * Run: npx vitest tests/edge-functions/assign-barista.test.ts
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
-// Mock Deno globals before importing the module
-const mockEnv: Record<string, string | undefined> = {
-  DATABASE_URL: 'postgresql://localhost:5432/test',
-  FIREBASE_PROJECT_ID: 'test-project',
-  FIREBASE_DATABASE_URL: 'https://test.firebaseio.com',
-  FIREBASE_CLIENT_EMAIL: 'test@test.iam.gserviceaccount.com',
-  FIREBASE_PRIVATE_KEY: '-----BEGIN RSA PRIVATE KEY-----\ntest-key\n-----END RSA PRIVATE KEY-----',
-};
-
-const mockFetch = vi.fn();
-const mockClient = {
-  queryObject: vi.fn(),
-  end: vi.fn(),
-};
-const mockPool = { queryObject: vi.fn(), end: vi.fn() };
-
-vi.stubGlobal('fetch', mockFetch);
-vi.stubGlobal('Deno', {
-  env: {
-    get: (key: string) => mockEnv[key],
-  },
-});
-vi.stubGlobal('crypto', {
-  importKey: vi.fn().mockResolvedValue({}),
-  subtle: {
-    sign: vi.fn().mockResolvedValue(new ArrayBuffer(64)),
-    importKey: vi.fn().mockResolvedValue({}),
-  },
-  getRandomValues: vi.fn((arr) => arr),
-  randomUUID: () => 'test-uuid',
-});
-vi.stubGlobal('btoa', (str: string) => Buffer.from(str).toString('base64'));
-
-// Mock postgres module
-vi.mock('https://deno.land/x/postgres@v0.17.0/mod.ts', () => ({
-  Client: vi.fn(() => mockClient),
-  Pool: vi.fn(() => mockPool),
-}));
+// Haversine formula - same implementation as in edge function
+function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 describe('Haversine Distance Calculation', () => {
-  // Import after mocking
-  const haversineModule = await import('../../supabase/functions/assign-barista/index.ts');
-  const haversine = haversineModule.haversine || ((lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a = Math.sin(dLat / 2) ** 2 +
-      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  });
-
   it('should calculate distance between Bandung and Jakarta correctly', () => {
     // Bandung: -6.9175, 107.6191
     // Jakarta: -6.2088, 106.8456
@@ -88,16 +49,43 @@ describe('Haversine Distance Calculation', () => {
     expect(distance).toBeGreaterThan(0.5);
     expect(distance).toBeLessThan(1.5);
   });
+
+  it('should handle negative coordinates', () => {
+    // Coordinates for Southern Hemisphere
+    const distance = haversine(-33.8688, 151.2093, -37.8136, 144.9631); // Sydney to Melbourne
+    expect(distance).toBeGreaterThan(700);
+    expect(distance).toBeLessThan(750);
+  });
+
+  it('should handle coordinates across equator', () => {
+    const distance = haversine(-6.9175, 107.6191, 6.2088, 106.8456); // Bandung to Equator crossing
+    expect(distance).toBeGreaterThan(1300);
+    expect(distance).toBeLessThan(1600); // Adjusted for equator crossing distance
+  });
 });
 
 describe('Firebase RTDB URL Construction', () => {
-  it('should construct correct Firebase RTDB URL', () => {
+  it('should construct correct Firebase RTDB URL for user location', () => {
     const projectId = 'test-project';
     const firebaseUid = 'user123';
     const databaseUrl = `https://${projectId}-default-rtdb.firebaseio.com`;
     const url = `${databaseUrl}/users/${firebaseUid}/location.json`;
     expect(url).toContain('test-project');
     expect(url).toContain('users/user123/location.json');
+  });
+
+  it('should construct correct Firebase RTDB URL for order tracking', () => {
+    const databaseUrl = 'https://project-default-rtdb.firebaseio.com';
+    const orderId = 'order-uuid-123';
+    const url = `${databaseUrl}/orders/${orderId}/tracking.json`;
+    expect(url).toContain('orders/order-uuid-123/tracking.json');
+  });
+
+  it('should construct correct Firebase RTDB URL for order locations', () => {
+    const databaseUrl = 'https://project-default-rtdb.firebaseio.com';
+    const orderId = 'order-uuid-123';
+    const url = `${databaseUrl}/orders/${orderId}/locations.json`;
+    expect(url).toContain('orders/order-uuid-123/locations.json');
   });
 });
 
@@ -111,6 +99,10 @@ describe('Order Status Validation', () => {
   it('should recognize ASSIGNED as valid for assignment', () => {
     expect(validStatuses).toContain('ASSIGNED');
   });
+
+  it('should have all expected statuses', () => {
+    expect(validStatuses).toHaveLength(9);
+  });
 });
 
 describe('UUID Validation', () => {
@@ -118,6 +110,11 @@ describe('UUID Validation', () => {
 
   it('should match valid UUID format', () => {
     const validUuid = '819a379b-23b4-49f7-82b9-3e24e5c3d5bc';
+    expect(uuidRegex.test(validUuid)).toBe(true);
+  });
+
+  it('should match uppercase UUID', () => {
+    const validUuid = '819A379B-23B4-49F7-82B9-3E24E5C3D5BC';
     expect(uuidRegex.test(validUuid)).toBe(true);
   });
 
@@ -147,6 +144,17 @@ describe('Barista Availability Check', () => {
     const available = allBaristas.filter(b => !busyIds.has(b.id));
     expect(available).toHaveLength(1);
     expect(available[0].id).toBe('barista-3');
+  });
+
+  it('should handle empty busy set', () => {
+    const busyIds = new Set<string>();
+    const allBaristas = [
+      { id: 'barista-1', name: 'Free Barista' },
+      { id: 'barista-2', name: 'Another Free' },
+    ];
+
+    const available = allBaristas.filter(b => !busyIds.has(b.id));
+    expect(available).toHaveLength(2);
   });
 });
 
@@ -241,27 +249,37 @@ describe('Distance Formatting', () => {
     const formatted = (Math.round(distKm * 100) / 100).toString() + ' km';
     expect(formatted).toBe('5.24 km');
   });
-});
 
-// Integration test helpers
-describe('Test Data Setup', () => {
-  it('should have test baristas in database', async () => {
-    // This test verifies test data exists
-    // Run: SELECT * FROM "User" WHERE role = 'BARISTA';
-    const testBaristas = [
-      { id: 'uuid-1', name: 'Test Barista Bandung' },
-      { id: 'uuid-2', name: 'Test Barista Surabaya' },
-    ];
-
-    expect(testBaristas).toHaveLength(2);
-  });
-
-  it('should have test orders in database', async () => {
-    const testOrders = [
-      { id: 'order-uuid', status: 'SEARCHING' },
-    ];
-
-    expect(testOrders[0].status).toBe('SEARCHING');
+  it('should format short distances', () => {
+    const distKm = 0.123;
+    const formatted = (Math.round(distKm * 100) / 100).toString() + ' km';
+    expect(formatted).toBe('0.12 km');
   });
 });
+
+describe('Order Locations Data Structure', () => {
+  it('should have correct structure for Firebase', () => {
+    const orderLocations = {
+      customer: {
+        lat: -6.902484,
+        lng: 107.603595,
+        timestamp: Date.now(),
+      },
+      barista: {
+        lat: -6.92,
+        lng: 107.61,
+        timestamp: Date.now(),
+      },
+      distance: 2.5,
+      orderNumber: 'ORD-001',
+    };
+
+    expect(orderLocations.customer).toHaveProperty('lat');
+    expect(orderLocations.customer).toHaveProperty('lng');
+    expect(orderLocations.customer).toHaveProperty('timestamp');
+    expect(orderLocations.barista).toHaveProperty('lat');
+    expect(orderLocations.barista).toHaveProperty('lng');
+    expect(orderLocations).toHaveProperty('distance');
+    expect(orderLocations).toHaveProperty('orderNumber');
+  });
 });

@@ -30,16 +30,11 @@ Edge Function assign-barista (Supabase)
   ├── Reads barista locations from Firebase RTDB via REST API
   │   GET /users/{uid}/location.json
   │
-  └── Writes Order.baristaId on assignment
-       (Supabase JS SDK)
-
-Edge Function
-  │
-  ├── Updates Order.baristaId = baristaId
+  ├── Writes Order.baristaId on assignment
   │    (status = 'ASSIGNED')
   │
-  └── Supabase Realtime broadcasts on the orders table
-       (automatic — postgres_changes publication)
+  └── Writes order tracking to Firebase RTDB
+       PUT /orders/{orderId}/locations.json
 
 Barista App (Flutter)                    WebAdmin
   │
@@ -170,6 +165,36 @@ class BaristaLocationService {
   void dispose() {
     _locationSubscription?.cancel();
   }
+}
+```
+
+## Firebase RTDB Structure
+
+### Barista/Customer Location
+```
+/users/{firebaseUid}/location = {
+  "lat": -6.902484,
+  "lng": 107.603595,
+  "accuracy": 10,
+  "timestamp": 1728072345000
+}
+```
+
+### Order Tracking
+```
+/orders/{orderId}/locations = {
+  "customer": {
+    "lat": -6.902,
+    "lng": 107.603,
+    "timestamp": 1728000000000
+  },
+  "barista": {
+    "lat": -6.92,
+    "lng": 107.61,
+    "timestamp": 1728000001000
+  },
+  "distance": 2.5,
+  "orderNumber": "ORD-001"
 }
 ```
 

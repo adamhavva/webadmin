@@ -83,7 +83,7 @@ ASCEND is a coffee delivery platform with 3 apps communicating through Supabase 
 
 | App | Auth | Database | Realtime | Location | Edge Functions |
 |-----|------|----------|----------|----------|-----------------|
-| **WebAdmin** | NextAuth | Supabase PostgreSQL | ✅ | Supabase (admin) | ✅ assign-barista |
+| **WebAdmin** | NextAuth | Supabase PostgreSQL | ✅ | Firebase RTDB (Admin SDK) | ✅ assign-barista |
 | **Barista App** | Firebase Auth | Supabase PostgreSQL | ✅ | Firebase RTDB | ❌ |
 | **Customer App** | Firebase Auth | Supabase PostgreSQL | ✅ | Firebase RTDB | ❌ |
 
@@ -93,7 +93,7 @@ ASCEND is a coffee delivery platform with 3 apps communicating through Supabase 
 
 | Function | Status | Trigger | Action |
 |----------|--------|---------|--------|
-| `assign-barista` | ✅ Done | Payment webhook | Haversine → nearest barista → status=ASSIGNED |
+| `assign-barista` | ✅ Done | Payment webhook | Haversine → nearest barista → status=ASSIGNED → write to Firebase RTDB |
 | (future) `notify-barista` | ❌ TODO | Order assigned | Push notification |
 | (future) `stock-check` | ❌ TODO | Order creation | Validate barista stock |
 
@@ -137,13 +137,19 @@ SELECT * FROM pg_publication_tables WHERE pubname = 'supabase_realtime';
     },
     "orders": {
       "{orderId}": {
-        "tracking": {
-          "status": "DELIVERING",
-          "baristaLocation": {
-            "lat": -6.90,
-            "lng": 107.60
+        "locations": {
+          "customer": {
+            "lat": -6.902,
+            "lng": 107.603,
+            "timestamp": 1728000000000
           },
-          "eta": "2024-10-04T14:30:00Z"
+          "barista": {
+            "lat": -6.92,
+            "lng": 107.61,
+            "timestamp": 1728000001000
+          },
+          "distance": 2.5,
+          "orderNumber": "ORD-001"
         }
       }
     }

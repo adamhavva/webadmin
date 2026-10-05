@@ -73,9 +73,9 @@ npx tsx scripts/seed-kopi.ts  # seed products
 
 | App | Authentication | Data Storage | Location Data |
 |-----|----------------|--------------|---------------|
-| WebAdmin | NextAuth | Supabase PostgreSQL | Supabase User table (latitude, longitude) |
-| Barista App | Firebase Auth | Supabase PostgreSQL | Firebase RTDB (barista app only) |
-| Customer App | Firebase Auth | Supabase PostgreSQL | Firebase RTDB (customer app only) |
+| WebAdmin | NextAuth | Supabase PostgreSQL | WebAdmin reads from Firebase RTDB via Admin SDK |
+| Barista App | Firebase Auth | Supabase PostgreSQL | Firebase RTDB (GPS tracking) |
+| Customer App | Firebase Auth | Supabase PostgreSQL | Firebase RTDB (GPS tracking) |
 
 ### Path Aliases
 
@@ -221,12 +221,17 @@ Barista receives order (Order Accept Page)
 
 ### Edge Function: assign-barista
 
-Reads barista locations from **Supabase User table** (not Firebase RTDB).
+Reads barista locations from **Firebase RTDB** (primary) or **Supabase User table** (fallback).
 
 ```typescript
 // supabase/functions/assign-barista/index.ts
-// Key: Reads from User table with latitude, longitude columns
+// Primary: Read from Firebase RTDB
+const response = await fetch(
+  `${FIREBASE_RTDB_URL}/users.json`,
+  { headers: { Authorization: `Bearer ${idToken}` } }
+);
 
+// Fallback: Read from Supabase User table
 const { data: baristas } = await supabase
   .from('User')
   .select('id, name, phone, role, status, latitude, longitude')
@@ -243,19 +248,21 @@ const { data: baristas } = await supabase
 # Full documentation: credentials/API_KEYS.md
 
 # Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
-SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
+NEXT_PUBLIC_SUPABASE_URL=https://kjezwxrebnixdpxljklv.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_lxUoSapUenHBrn-NO7cAoA_CfTvBZG2
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_GnHv4mwJ6zUd8OpkUZJ87Q_opFJLsyQ
 
 # Firebase
-NEXT_PUBLIC_FIREBASE_API_KEY=<your-api-key>
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=ascend-v2-xxxxx
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyDFyGlLlXvStJ0XfxiRIZMHB4o19JuaBGk
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=ascend-v2-4a67d
 
 # Midtrans
-MIDTRANS_MERCHANT_ID=<your-merchant-id>
-MIDTRANS_SERVER_KEY=Mid-server-...
-NEXT_PUBLIC_MIDTRANS_CLIENT_KEY=Mid-client-...
+MIDTRANS_MERCHANT_ID=M682600491
+MIDTRANS_SERVER_KEY=Mid-server-Yadeh0UQAOgAOzrFIGzXYVQX
+NEXT_PUBLIC_MIDTRANS_CLIENT_KEY=Mid-client-7OmPZSrNqpDMOKmU
 ```
+
+> **API Key Format**: Supabase uses `sb_publishable_...` for browser-safe keys and `sb_secret_...` for server-side operations.
 
 ### API Endpoint
 
@@ -286,13 +293,21 @@ Response:
 
 ### Overview
 
-Firebase is used **only for Authentication** in barista and customer apps.
+Firebase is used for **Authentication** (barista & customer apps) and **Real-time Database** (location tracking).
 
 | App | Firebase Usage |
 |-----|----------------|
-| WebAdmin | ❌ Not used |
-| Barista App | Firebase Auth (login) |
-| Customer App | Firebase Auth (login) |
+| WebAdmin | Firebase Admin SDK (server-side token verification) |
+| Barista App | Firebase Auth + Firebase RTDB (GPS tracking) |
+| Customer App | Firebase Auth + Firebase RTDB (GPS tracking) |
+
+### Firebase Credentials
+
+**Service Account Key File:**
+```
+credentials/firebase/serviceAccountKey.json
+```
+Contains service account with private key for Firebase Admin SDK.
 
 ### Firebase Auth Flow
 
@@ -304,12 +319,22 @@ Customer App:
   Firebase Auth → Get ID Token → Send to API → Verify with Firebase Admin SDK
 ```
 
-### Environment Variables
+### Firebase RTDB Structure
+
+```
+/users/{firebaseUid}/location = { lat, lng, accuracy, timestamp }
+/orders/{orderId}/locations = { customer, barista, distance, orderNumber }
+```
+
+### Browser Environment Variables
 
 ```env
-FIREBASE_DATABASE_URL=https://xxx.firebaseio.com  # Not used (Supabase for data)
-FIREBASE_SERVICE_ACCOUNT={"type":"service_account",...}  # For token verification only
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyDFyGlLlXvStJ0XfxiRIZMHB4o19JuaBGk
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=ascend-v2-4a67d
+NEXT_PUBLIC_FIREBASE_DATABASE_URL=https://ascend-v2-4a67d-default-rtdb.asia-southeast1.firebasedatabase.app
 ```
+
+> **Note:** `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`, and other server-side Firebase env vars have been replaced by `credentials/firebase/serviceAccountKey.json`.
 
 ---
 
@@ -325,7 +350,12 @@ WebAdmin includes a **Maps page** (`/maps`) showing barista locations on a Leafl
 
 ### Data Source
 
-Barista locations are read from **Supabase User table**:
+Barista locations are read from **Firebase RTDB** via Admin SDK:
+```
+/users/{firebaseUid}/location = { lat, lng, timestamp }
+```
+
+Also reads from Supabase User table as fallback:
 ```sql
 SELECT id, name, phone, latitude, longitude, status
 FROM "User"

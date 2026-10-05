@@ -7,6 +7,38 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import crypto from 'crypto';
 
 // ============================================================
+// Mock firebase-admin
+vi.mock('@/lib/firebases/firebase-admin', () => ({
+  adminAuth: {
+    verifyIdToken: vi.fn().mockResolvedValue({ uid: 'test-uid' }),
+  },
+  adminDatabase: {
+    ref: vi.fn().mockReturnValue({
+      set: vi.fn().mockResolvedValue(undefined),
+      update: vi.fn().mockResolvedValue(undefined),
+    }),
+  },
+  default: {},
+  getAdminAuth: vi.fn(),
+  getAdminDatabase: vi.fn(),
+  getFirebaseInitError: vi.fn().mockReturnValue(null),
+  isFirebaseInitialized: vi.fn().mockReturnValue(true),
+}));
+
+// Mock order.assignment.service to avoid firebase imports
+vi.mock('@/modules/order/order.assignment.service', () => ({
+  broadcastOrderToBaristas: vi.fn().mockResolvedValue(undefined),
+  findNearestBaristasWithStock: vi.fn().mockResolvedValue([]),
+}));
+
+// Mock Prisma
+vi.mock('@/lib/db', () => ({
+  prisma: {
+    // Mock Prisma client methods as needed
+  },
+}));
+
+// ============================================================
 // Import modules under test (these must be pure, no Prisma dependency)
 // ============================================================
 

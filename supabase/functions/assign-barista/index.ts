@@ -1,43 +1,36 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { readFileSync } from 'https://deno.land/std/fs/mod.ts';
 
 // Environment variables
 const databaseUrl = Deno.env.get('DATABASE_URL');
 
-// Firebase config
+// Firebase config - read from service account JSON file
 const firebaseProjectId = Deno.env.get('FIREBASE_PROJECT_ID') || 'ascend-v2-4a67d';
 const firebaseDatabaseUrl = Deno.env.get('FIREBASE_DATABASE_URL') || `https://${firebaseProjectId}-default-rtdb.asia-southeast1.firebasedatabase.app`;
-const firebaseClientEmail = Deno.env.get('FIREBASE_CLIENT_EMAIL');
-const firebasePrivateKeyRaw = Deno.env.get('FIREBASE_PRIVATE_KEY') || '';
 
-// Parse private key - handle both escaped and unescaped newlines
-// Firebase env vars store the key with literal \n characters that need conversion
-function parsePrivateKey(raw: string): string {
-  if (!raw) return raw;
-
-  // First, normalize escaped newlines: convert literal \n to real newlines
-  // Handle multiple variations: \\n (escaped backslash) or \n (literal)
-  let normalized = raw;
-
-  // Replace literal \n (backslash followed by n) with actual newline
-  if (normalized.includes('\\n')) {
-    normalized = normalized.replace(/\\n/g, '\n');
-  }
-
-  // If still doesn't have proper format, try other patterns
-  // Sometimes the key might come with actual \n characters encoded differently
-  if (!normalized.includes('-----BEGIN PRIVATE KEY-----') &&
-      !normalized.includes('-----BEGIN RSA PRIVATE KEY-----')) {
-    // Try replacing actual newline escape sequences if any
-    normalized = normalized.replace(/\\n/g, '\n');
-  }
-
-  return normalized;
+// Load service account from JSON file
+interface ServiceAccountJson {
+  project_id: string;
+  private_key: string;
+  client_email: string;
 }
 
-const firebasePrivateKey = parsePrivateKey(firebasePrivateKeyRaw);
+let firebaseClientEmail: string | undefined;
+let firebasePrivateKey: string | undefined;
 
-// Haversine formula
-function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+try {
+  const serviceAccountPath = Deno.env.get('SERVICE_ACCOUNT_PATH') || './credentials/firebase/serviceAccountKey.json';
+  const serviceAccountRaw = readFileSync(serviceAccountPath, 'utf-8');
+  const serviceAccount: ServiceAccountJson = JSON.parse(serviceAccountRaw);
+  firebaseClientEmail = serviceAccount.client_email;
+  firebasePrivateKey = serviceAccount.private_key;
+  console.log('[assign-barista] Loaded Firebase service account from:', serviceAccountPath);
+} catch (err) {
+  console.log('[assign-barista] Could not load service account:', err);
+}
+
+// Haversine formula - exported for testing
+export function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
@@ -59,10 +52,7 @@ async function createDbClient() {
 
 // Convert base64 string to Uint8Array (binary)
 function base64ToUint8Array(base64: string): Uint8Array {
-  // Remove any whitespace and newlines
   const cleanBase64 = base64.replace(/\s/g, '');
-
-  // Use atob to decode base64 to binary string, then convert to Uint8Array
   const binaryString = atob(cleanBase64);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
@@ -74,75 +64,40 @@ function base64ToUint8Array(base64: string): Uint8Array {
 // JWT signing for Firebase using Web Crypto API
 async function signJwt(header: object, payload: object, privateKeyPem: string): Promise<string> {
   const encoder = new TextEncoder();
-
-  // Base64url encode (standard base64 with URL-safe chars)
   const base64UrlEncode = (str: string): string => {
-    // Use TextEncoder to get UTF-8 bytes first
     const bytes = encoder.encode(str);
-    // Convert to binary string, then to base64
     let binary = '';
     for (let i = 0; i < bytes.length; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
-    return btoa(binary)
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '');
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   };
-
-  // Create signing input
   const headerJson = JSON.stringify(header);
   const payloadJson = JSON.stringify(payload);
   const headerBase64 = base64UrlEncode(headerJson);
   const payloadBase64 = base64UrlEncode(payloadJson);
   const signingInput = `${headerBase64}.${payloadBase64}`;
-
-  // Extract the base64 content from PEM, handling both formats
-  // Firebase uses "-----BEGIN PRIVATE KEY-----" (PKCS#8)
-  // Some older keys use "-----BEGIN RSA PRIVATE KEY-----" (PKCS#1)
   let keyContent = privateKeyPem
     .replace('-----BEGIN PRIVATE KEY-----', '')
     .replace('-----END PRIVATE KEY-----', '')
     .replace('-----BEGIN RSA PRIVATE KEY-----', '')
     .replace('-----END RSA PRIVATE KEY-----', '');
-
-  // Remove all whitespace including newlines
   keyContent = keyContent.replace(/\s/g, '');
-
-  // Convert base64 key to binary
   const binaryKey = base64ToUint8Array(keyContent);
-
-  // Import the RSA private key in PKCS#8 format
-  // Note: Web Crypto expects PKCS#8 format for the key data
   const cryptoKey = await crypto.subtle.importKey(
     'pkcs8',
     binaryKey,
-    {
-      name: 'RSASSA-PKCS1-v1_5',
-      hash: 'SHA-256',
-    },
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
     false,
     ['sign']
   );
-
-  // Sign the input
-  const signature = await crypto.subtle.sign(
-    'RSASSA-PKCS1-v1_5',
-    cryptoKey,
-    encoder.encode(signingInput)
-  );
-
-  // Convert signature to base64url
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, encoder.encode(signingInput));
   const signatureBytes = new Uint8Array(signature);
   let signatureBinary = '';
   for (let i = 0; i < signatureBytes.length; i++) {
     signatureBinary += String.fromCharCode(signatureBytes[i]);
   }
-  const signatureBase64 = btoa(signatureBinary)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-
+  const signatureBase64 = btoa(signatureBinary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   return `${signingInput}.${signatureBase64}`;
 }
 
@@ -151,15 +106,11 @@ async function getFirebaseToken(): Promise<string> {
   if (!firebaseClientEmail || !firebasePrivateKey) {
     throw new Error('Firebase credentials not configured');
   }
-
-  // Validate the private key format
   if (!firebasePrivateKey.includes('-----BEGIN PRIVATE KEY-----') &&
       !firebasePrivateKey.includes('-----BEGIN RSA PRIVATE KEY-----')) {
     throw new Error('Invalid private key format: missing PEM header');
   }
-
   const now = Math.floor(Date.now() / 1000);
-
   const header = { alg: 'RS256', typ: 'JWT' };
   const payload = {
     iss: firebaseClientEmail,
@@ -168,24 +119,16 @@ async function getFirebaseToken(): Promise<string> {
     iat: now,
     exp: now + 3600,
   };
-
   const signedJwt = await signJwt(header, payload, firebasePrivateKey);
-
-  // Exchange for access token
   const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: signedJwt,
-    }),
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: signedJwt }),
   });
-
   if (!tokenResponse.ok) {
     const error = await tokenResponse.text();
     throw new Error(`Firebase token exchange failed: ${error}`);
   }
-
   const data = await tokenResponse.json();
   return data.access_token;
 }
@@ -195,41 +138,72 @@ async function getFirebaseLocation(firebaseUid: string, token: string): Promise<
   try {
     const url = `${firebaseDatabaseUrl}/users/${firebaseUid}/location.json?auth=${token}`;
     const response = await fetch(url);
-
     if (!response.ok) {
       console.log(`[assign-barista] Firebase fetch failed for ${firebaseUid}: HTTP ${response.status}`);
       return null;
     }
-
     const data = await response.json();
-
     if (data && typeof data.lat === 'number' && typeof data.lng === 'number') {
       return { lat: data.lat, lng: data.lng };
     }
-
     return null;
-  } catch (err) {
+  } catch (err: any) {
     console.log(`[assign-barista] Firebase error: ${err.message}`);
     return null;
   }
 }
 
-// Write barista location to Firebase RTDB
-async function updateFirebaseLocation(
-  firebaseUid: string,
+// Write order data to Firebase RTDB
+// Structure: /orders/{orderId}/locations = {lat, lng, timestamp, ...}
+async function writeOrderLocations(
+  orderId: string,
   token: string,
-  data: { lat: number; lng: number; name: string; role: string; status: string }
+  data: {
+    orderNumber: string;
+    status: string;
+    customerLat: number;
+    customerLng: number;
+    baristaId?: string;
+    baristaLat?: number;
+    baristaLng?: number;
+    distance?: number;
+  }
 ): Promise<boolean> {
   try {
-    const url = `${firebaseDatabaseUrl}/users/${firebaseUid}.json?auth=${token}`;
+    // Write to /orders/{orderId}/locations
+    const locationsData = {
+      customer: {
+        lat: data.customerLat,
+        lng: data.customerLng,
+        timestamp: Date.now(),
+      },
+      ...(data.baristaLat !== undefined && data.baristaLng !== undefined && {
+        barista: {
+          lat: data.baristaLat,
+          lng: data.baristaLng,
+          timestamp: Date.now(),
+        }
+      }),
+      distance: data.distance,
+      orderNumber: data.orderNumber,
+    };
+
+    const url = `${firebaseDatabaseUrl}/orders/${orderId}/locations.json?auth=${token}`;
     const response = await fetch(url, {
-      method: 'PATCH',
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify(locationsData),
     });
-    return response.ok;
-  } catch (err) {
-    console.log(`[assign-barista] Firebase write error: ${err.message}`);
+
+    if (!response.ok) {
+      console.log(`[assign-barista] Failed to write order locations: HTTP ${response.status}`);
+      return false;
+    }
+
+    console.log(`[assign-barista] Order locations written to Firebase: /orders/${orderId}/locations`);
+    return true;
+  } catch (err: any) {
+    console.log(`[assign-barista] Firebase write order locations error: ${err.message}`);
     return false;
   }
 }
@@ -248,7 +222,7 @@ async function updateFirebaseOrderTracking(
       body: JSON.stringify(data),
     });
     return response.ok;
-  } catch (err) {
+  } catch (err: any) {
     console.log(`[assign-barista] Firebase order tracking write error: ${err.message}`);
     return false;
   }
@@ -270,15 +244,6 @@ serve(async (req: Request) => {
   console.log('[assign-barista] DATABASE_URL:', databaseUrl ? 'SET' : 'NOT SET');
   console.log('[assign-barista] FIREBASE_PROJECT_ID:', firebaseProjectId);
 
-  // Debug: log the private key format (first 50 chars only for security)
-  if (firebasePrivateKeyRaw) {
-    console.log('[assign-barista] FIREBASE_PRIVATE_KEY format check:');
-    console.log('  - Contains \\n literals:', firebasePrivateKeyRaw.includes('\\n'));
-    console.log('  - Contains real newlines:', firebasePrivateKeyRaw.includes('\n'));
-    console.log('  - Has BEGIN header:', firebasePrivateKeyRaw.includes('-----BEGIN'));
-    console.log('  - First 50 chars:', firebasePrivateKeyRaw.substring(0, 50));
-  }
-
   if (!databaseUrl) {
     return new Response(
       JSON.stringify({ success: false, message: 'DATABASE_URL not configured' }),
@@ -293,7 +258,7 @@ serve(async (req: Request) => {
       firebaseToken = await getFirebaseToken();
       console.log('[assign-barista] Firebase token obtained');
     }
-  } catch (tokenErr) {
+  } catch (tokenErr: any) {
     console.log('[assign-barista] Firebase token error:', tokenErr.message);
   }
 
@@ -380,7 +345,6 @@ serve(async (req: Request) => {
       let useLng = barista.longitude;
       let locationSource = 'supabase';
 
-      // Try Firebase RTDB first if token available
       if (firebaseToken && barista.firebaseUid) {
         const fbLoc = await getFirebaseLocation(barista.firebaseUid, firebaseToken);
         if (fbLoc) {
@@ -410,7 +374,7 @@ serve(async (req: Request) => {
       [baristaIds]
     );
 
-    const busyIds = new Set(activeResult.rows.map(o => o.baristaId));
+    const busyIds = new Set(activeResult.rows.map((o: any) => o.baristaId));
     const available = baristaLocations.filter(b => !busyIds.has(b.id));
 
     console.log(`[assign-barista] ${busyIds.size} busy, ${available.length} available`);
@@ -458,8 +422,19 @@ serve(async (req: Request) => {
 
     await client.end();
 
-    // Update Firebase RTDB order tracking
+    // Update Firebase RTDB - write order locations
     if (firebaseToken) {
+      await writeOrderLocations(orderId, firebaseToken, {
+        orderNumber: order.orderNumber,
+        status: 'ASSIGNED',
+        customerLat: lat,
+        customerLng: lng,
+        baristaId: nearest.id,
+        baristaLat: nearest.rtdbLat,
+        baristaLng: nearest.rtdbLng,
+        distance: distKm,
+      });
+
       await updateFirebaseOrderTracking(orderId, firebaseToken, {
         status: 'ASSIGNED',
         baristaLocation: { lat: nearest.rtdbLat, lng: nearest.rtdbLng },
@@ -483,7 +458,7 @@ serve(async (req: Request) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (err) {
+  } catch (err: any) {
     if (client) await client.end();
     console.error('[assign-barista] Error:', err.message);
     return new Response(

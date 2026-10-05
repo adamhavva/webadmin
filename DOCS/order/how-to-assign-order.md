@@ -66,13 +66,14 @@ Sistem assign order dari customer ke barista menggunakan pattern **ShopeeFood-st
 **Location:** `supabase/functions/assign-barista/index.ts`
 
 **Logic:**
-1. Read barista locations from Firebase RTDB (`/users/{firebaseUid}/location`) or Supabase User table (fallback)
+1. Read barista locations from Firebase RTDB (`/users/{firebaseUid}/location`) using Firebase ID token
 2. Filter by: role=BARISTA, status=ACTIVE, has location
 3. Filter by: no active orders (ASSIGNED/ACCEPTED/DELIVERING)
 4. Haversine distance calculation from customer to barista
 5. Sort by distance (nearest first)
 6. Assign to nearest barista → order.status=ASSIGNED
-7. Order auto-broadcasts via Supabase Realtime (postgres_changes on Order table)
+7. Write order tracking to Firebase RTDB (`/orders/{orderId}/locations`)
+8. Order auto-broadcasts via Supabase Realtime (postgres_changes on Order table)
 
 ## Haversine Formula
 
@@ -158,6 +159,27 @@ assignedAt          DateTime?    -- timestamp assignment
     "role": "BARISTA",
     "name": "Budi Santoso",
     "status": "ONLINE"
+  }
+}
+```
+
+## Firebase RTDB Structure (Order Tracking)
+
+```json
+{
+  "/orders/{orderId}/locations": {
+    "customer": {
+      "lat": -6.902,
+      "lng": 107.603,
+      "timestamp": 1728000000000
+    },
+    "barista": {
+      "lat": -6.92,
+      "lng": 107.61,
+      "timestamp": 1728000001000
+    },
+    "distance": 2.5,
+    "orderNumber": "ORD-001"
   }
 }
 ```
