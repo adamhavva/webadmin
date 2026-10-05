@@ -10,17 +10,28 @@ const firebaseClientEmail = Deno.env.get('FIREBASE_CLIENT_EMAIL');
 const firebasePrivateKeyRaw = Deno.env.get('FIREBASE_PRIVATE_KEY') || '';
 
 // Parse private key - handle both escaped and unescaped newlines
+// Firebase env vars store the key with literal \n characters that need conversion
 function parsePrivateKey(raw: string): string {
-  // If already has proper PEM format with real newlines, return as-is
-  if (raw.includes('-----BEGIN RSA PRIVATE KEY-----')) {
-    return raw;
+  if (!raw) return raw;
+
+  // First, normalize escaped newlines: convert literal \n to real newlines
+  // Handle multiple variations: \\n (escaped backslash) or \n (literal)
+  let normalized = raw;
+
+  // Replace literal \n (backslash followed by n) with actual newline
+  if (normalized.includes('\\n')) {
+    normalized = normalized.replace(/\\n/g, '\n');
   }
-  // If has \\n literals, convert to real newlines
-  if (raw.includes('\\n')) {
-    return raw.replace(/\\n/g, '\n');
+
+  // If still doesn't have proper format, try other patterns
+  // Sometimes the key might come with actual \n characters encoded differently
+  if (!normalized.includes('-----BEGIN PRIVATE KEY-----') &&
+      !normalized.includes('-----BEGIN RSA PRIVATE KEY-----')) {
+    // Try replacing actual newline escape sequences if any
+    normalized = normalized.replace(/\\n/g, '\n');
   }
-  // Otherwise return as-is
-  return raw;
+
+  return normalized;
 }
 
 const firebasePrivateKey = parsePrivateKey(firebasePrivateKeyRaw);
@@ -46,13 +57,34 @@ async function createDbClient() {
   return client;
 }
 
+// Convert base64 string to Uint8Array (binary)
+function base64ToUint8Array(base64: string): Uint8Array {
+  // Remove any whitespace and newlines
+  const cleanBase64 = base64.replace(/\s/g, '');
+
+  // Use atob to decode base64 to binary string, then convert to Uint8Array
+  const binaryString = atob(cleanBase64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
 // JWT signing for Firebase using Web Crypto API
 async function signJwt(header: object, payload: object, privateKeyPem: string): Promise<string> {
   const encoder = new TextEncoder();
 
-  // Base64url encode
-  const base64UrlEncode = (obj: string): string => {
-    return btoa(obj)
+  // Base64url encode (standard base64 with URL-safe chars)
+  const base64UrlEncode = (str: string): string => {
+    // Use TextEncoder to get UTF-8 bytes first
+    const bytes = encoder.encode(str);
+    // Convert to binary string, then to base64
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary)
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=/g, '');
@@ -65,35 +97,51 @@ async function signJwt(header: object, payload: object, privateKeyPem: string): 
   const payloadBase64 = base64UrlEncode(payloadJson);
   const signingInput = `${headerBase64}.${payloadBase64}`;
 
-  // Import the RSA private key
-  const keyData = privateKeyPem
+  // Extract the base64 content from PEM, handling both formats
+  // Firebase uses "-----BEGIN PRIVATE KEY-----" (PKCS#8)
+  // Some older keys use "-----BEGIN RSA PRIVATE KEY-----" (PKCS#1)
+  let keyContent = privateKeyPem
+    .replace('-----BEGIN PRIVATE KEY-----', '')
+    .replace('-----END PRIVATE KEY-----', '')
     .replace('-----BEGIN RSA PRIVATE KEY-----', '')
-    .replace('-----END RSA PRIVATE KEY-----', '')
-    .replace(/\s/g, '');
+    .replace('-----END RSA PRIVATE KEY-----', '');
+
+  // Remove all whitespace including newlines
+  keyContent = keyContent.replace(/\s/g, '');
 
   // Convert base64 key to binary
-  const keyBinary = atob(keyData);
-  const binaryKey = new Uint8Array(keyBinary.length);
-  for (let i = 0; i < keyBinary.length; i++) {
-    binaryKey[i] = keyBinary.charCodeAt(i);
-  }
+  const binaryKey = base64ToUint8Array(keyContent);
 
+  // Import the RSA private key in PKCS#8 format
+  // Note: Web Crypto expects PKCS#8 format for the key data
   const cryptoKey = await crypto.subtle.importKey(
     'pkcs8',
     binaryKey,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    {
+      name: 'RSASSA-PKCS1-v1_5',
+      hash: 'SHA-256',
+    },
     false,
     ['sign']
   );
 
-  // Sign
+  // Sign the input
   const signature = await crypto.subtle.sign(
     'RSASSA-PKCS1-v1_5',
     cryptoKey,
     encoder.encode(signingInput)
   );
 
-  const signatureBase64 = base64UrlEncode(String.fromCharCode(...new Uint8Array(signature)));
+  // Convert signature to base64url
+  const signatureBytes = new Uint8Array(signature);
+  let signatureBinary = '';
+  for (let i = 0; i < signatureBytes.length; i++) {
+    signatureBinary += String.fromCharCode(signatureBytes[i]);
+  }
+  const signatureBase64 = btoa(signatureBinary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
 
   return `${signingInput}.${signatureBase64}`;
 }
@@ -102,6 +150,12 @@ async function signJwt(header: object, payload: object, privateKeyPem: string): 
 async function getFirebaseToken(): Promise<string> {
   if (!firebaseClientEmail || !firebasePrivateKey) {
     throw new Error('Firebase credentials not configured');
+  }
+
+  // Validate the private key format
+  if (!firebasePrivateKey.includes('-----BEGIN PRIVATE KEY-----') &&
+      !firebasePrivateKey.includes('-----BEGIN RSA PRIVATE KEY-----')) {
+    throw new Error('Invalid private key format: missing PEM header');
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -215,6 +269,15 @@ serve(async (req: Request) => {
   console.log('[assign-barista] Starting at', new Date().toISOString());
   console.log('[assign-barista] DATABASE_URL:', databaseUrl ? 'SET' : 'NOT SET');
   console.log('[assign-barista] FIREBASE_PROJECT_ID:', firebaseProjectId);
+
+  // Debug: log the private key format (first 50 chars only for security)
+  if (firebasePrivateKeyRaw) {
+    console.log('[assign-barista] FIREBASE_PRIVATE_KEY format check:');
+    console.log('  - Contains \\n literals:', firebasePrivateKeyRaw.includes('\\n'));
+    console.log('  - Contains real newlines:', firebasePrivateKeyRaw.includes('\n'));
+    console.log('  - Has BEGIN header:', firebasePrivateKeyRaw.includes('-----BEGIN'));
+    console.log('  - First 50 chars:', firebasePrivateKeyRaw.substring(0, 50));
+  }
 
   if (!databaseUrl) {
     return new Response(
