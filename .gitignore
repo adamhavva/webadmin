@@ -56,5 +56,5 @@ prisma/generated
 docs/*.md
 graphify-out
 credentials/
-DOCS/
-*.md
+# DOCS/ - tracked in git
+TASKS.md
