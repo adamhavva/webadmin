@@ -8,7 +8,9 @@ const databaseUrl = Deno.env.get('DATABASE_URL');
 
 // Firebase config
 const firebaseProjectId = Deno.env.get('FIREBASE_PROJECT_ID') || 'ascend-v2-4a67d';
-const firebaseDatabaseUrl = Deno.env.get('FIREBASE_DATABASE_URL') || `https://${firebaseProjectId}-default-rtdb.asia-southeast1.fireasedatabase.app`;
+const firebaseDatabaseUrl = Deno.env.get('FIREBASE_DATABASE_URL') || `https://${firebaseProjectId}-default-rtdb.asia-southeast1.firebasedatabase.app`;
+const firebaseClientEmail = Deno.env.get('FIREBASE_CLIENT_EMAIL');
+const firebasePrivateKey = Deno.env.get('FIREBASE_PRIVATE_KEY')?.replace(/\\n/g, '\n');
 
 // Haversine formula
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -20,12 +22,113 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// JWT signing for Firebase Admin SDK
+async function signJwt(header: object, payload: object, key: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const alg = 'RS256';
+
+  const encode = (obj: object) => btoa(JSON.stringify(obj))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+  const sign = async (data: string, keyObj: CryptoKey) => {
+    const signature = await crypto.subtle.sign(
+      'RSASSA-PKCS1-v1_5',
+      keyObj,
+      encoder.encode(data)
+    );
+    return btoa(String.fromCharCode(...new Uint8Array(signature)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  };
+
+  const headerBase64 = encode(header);
+  const payloadBase64 = encode(payload);
+  const input = `${headerBase64}.${payloadBase64}`;
+
+  // Import the private key
+  const keyData = `-----BEGIN RSA PRIVATE KEY-----\n${key.replace(/-----BEGIN RSA PRIVATE KEY-----|-----END RSA PRIVATE KEY-----/g, '').replace(/\s/g, '')}\n-----END RSA PRIVATE KEY-----`;
+  const keyBuffer = encoder.encode(keyData);
+  const keyObj = await crypto.subtle.importKey(
+    'pem',
+    keyBuffer,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await sign(input, keyObj);
+  return `${input}.${signature}`;
+}
+
+// Get Firebase access token
+async function getFirebaseToken(): Promise<string> {
+  if (!firebaseClientEmail || !firebasePrivateKey) {
+    throw new Error('Firebase credentials not configured');
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const payload = {
+    iss: firebaseClientEmail,
+    sub: firebaseClientEmail,
+    aud: 'https://identitytoolkit.googleapis.com/google_identity_toolkit',
+    iat: now,
+    exp: now + 3600,
+  };
+
+  const signedJwt = await signJwt(header, payload, firebasePrivateKey);
+
+  // Exchange for refresh token
+  const tokenResponse = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${firebaseProjectId}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: signedJwt,
+        returnSecureToken: true,
+      }),
+    }
+  );
+
+  if (!tokenResponse.ok) {
+    const error = await tokenResponse.text();
+    throw new Error(`Firebase auth failed: ${error}`);
+  }
+
+  const data = await tokenResponse.json();
+  return data.idToken;
+}
+
+// Get barista location from Firebase RTDB
+async function getFirebaseLocation(firebaseUid: string, token?: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    // Firebase RTDB REST API
+    const url = `${firebaseDatabaseUrl}/users/${firebaseUid}/location.json${token ? `?auth=${token}` : ''}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      console.log(`[assign-barista] Firebase RTDB fetch failed: HTTP ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data && data.lat && data.lng) {
+      return { lat: data.lat, lng: data.lng };
+    }
+
+    return null;
+  } catch (err) {
+    console.log(`[assign-barista] Firebase RTDB error: ${err.message}`);
+    return null;
+  }
+}
+
 // Direct PostgreSQL client for edge functions
 async function createDirectClient(): Promise<any> {
-  // Use the postgres library for direct connection
   const postgres = await import('https://deno.land/x/postgres@v0.17.0/mod.ts');
 
-  // Connection string for Supabase
   const connectionString = databaseUrl || `postgresql://postgres:${supabaseServiceKey}@${supabaseUrl?.replace('https://', '')}:5432/postgres`;
 
   const pool = new postgres.Pool({
@@ -97,10 +200,12 @@ serve(async (req: Request) => {
   console.log('[assign-barista] Starting at', new Date().toISOString());
   console.log('[assign-barista] Env check:');
   console.log('[assign-barista]   SUPABASE_URL:', supabaseUrl ? 'SET' : 'NOT SET');
-  console.log('[assign-barista]   SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'SET (len=' + supabaseServiceKey.length + ')' : 'NOT SET');
+  console.log('[assign-barista]   SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'SET' : 'NOT SET');
   console.log('[assign-barista]   DATABASE_URL:', databaseUrl ? 'SET' : 'NOT SET');
   console.log('[assign-barista]   FIREBASE_PROJECT_ID:', firebaseProjectId);
-  console.log('[assign-barista]   FIREBASE_DATABASE_URL:', firebaseDatabaseUrl);
+  console.log('[assign-barista]   FIREBASE_DATABASE_URL:', firebaseDatabaseUrl ? 'SET' : 'NOT SET');
+  console.log('[assign-barista]   FIREBASE_CLIENT_EMAIL:', firebaseClientEmail ? 'SET' : 'NOT SET');
+  console.log('[assign-barista]   FIREBASE_PRIVATE_KEY:', firebasePrivateKey ? 'SET' : 'NOT SET');
 
   // Check required env vars
   if (!supabaseUrl || !supabaseServiceKey) {
@@ -111,8 +216,21 @@ serve(async (req: Request) => {
     );
   }
 
-  // Create Supabase client (uses PostgREST internally)
+  // Create Supabase client
   const supabase: SupabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+
+  // Get Firebase token for authenticated RTDB access
+  let firebaseToken: string | null = null;
+  try {
+    if (firebaseClientEmail && firebasePrivateKey) {
+      firebaseToken = await getFirebaseToken();
+      console.log('[assign-barista] Firebase token obtained');
+    } else {
+      console.log('[assign-barista] Firebase credentials not available, using public RTDB access');
+    }
+  } catch (tokenErr) {
+    console.log('[assign-barista] Firebase token error (continuing without auth):', tokenErr.message);
+  }
 
   try {
     const body = await req.json();
@@ -136,7 +254,7 @@ serve(async (req: Request) => {
       );
     }
 
-    // Get order - Try direct PostgreSQL first for better permissions
+    // Get order - Try direct PostgreSQL first
     let order: any;
     let useDirectPg = false;
 
@@ -151,7 +269,6 @@ serve(async (req: Request) => {
       console.log('[assign-barista] Direct PostgreSQL failed:', directErr.message);
       console.log('[assign-barista] Falling back to Supabase client...');
 
-      // Fallback to Supabase client
       const { data: orders, error: orderError } = await supabase
         .from('Order')
         .select('id, status, deliveryLatitude, deliveryLongitude')
@@ -240,46 +357,24 @@ serve(async (req: Request) => {
         continue;
       }
 
-      try {
-        const rtdbUrl = `${firebaseDatabaseUrl}/users/${barista.firebaseUid}/location.json`;
-        const rtdbRes = await fetch(rtdbUrl);
+      // Try Firebase RTDB first
+      const firebaseLocation = await getFirebaseLocation(barista.firebaseUid, firebaseToken || undefined);
 
-        if (rtdbRes.ok) {
-          const location = await rtdbRes.json();
-          if (location && location.lat && location.lng) {
-            baristaLocations.push({
-              ...barista,
-              rtdbLat: location.lat,
-              rtdbLng: location.lng,
-            });
-            console.log(`[assign-barista] Firebase: ${barista.name} at (${location.lat}, ${location.lng})`);
-          } else if (barista.latitude && barista.longitude) {
-            // Fallback to Supabase lat/long
-            baristaLocations.push({
-              ...barista,
-              rtdbLat: barista.latitude,
-              rtdbLng: barista.longitude,
-            });
-          }
-        } else {
-          console.log(`[assign-barista] Firebase fetch failed for ${barista.name}: HTTP ${rtdbRes.status}`);
-          if (barista.latitude && barista.longitude) {
-            baristaLocations.push({
-              ...barista,
-              rtdbLat: barista.latitude,
-              rtdbLng: barista.longitude,
-            });
-          }
-        }
-      } catch (err) {
-        console.error(`[assign-barista] Firebase error for ${barista.name}:`, err.message);
-        if (barista.latitude && barista.longitude) {
-          baristaLocations.push({
-            ...barista,
-            rtdbLat: barista.latitude,
-            rtdbLng: barista.longitude,
-          });
-        }
+      if (firebaseLocation) {
+        baristaLocations.push({
+          ...barista,
+          rtdbLat: firebaseLocation.lat,
+          rtdbLng: firebaseLocation.lng,
+        });
+        console.log(`[assign-barista] Firebase: ${barista.name} at (${firebaseLocation.lat}, ${firebaseLocation.lng})`);
+      } else if (barista.latitude && barista.longitude) {
+        // Fallback to Supabase lat/long
+        baristaLocations.push({
+          ...barista,
+          rtdbLat: barista.latitude,
+          rtdbLng: barista.longitude,
+        });
+        console.log(`[assign-barista] Fallback: ${barista.name} at Supabase (${barista.latitude}, ${barista.longitude})`);
       }
     }
 
@@ -311,12 +406,11 @@ serve(async (req: Request) => {
       }
     } catch (activeErr: any) {
       console.error('[assign-barista] Active orders query error:', activeErr.message);
-      // Continue without filtering - assume all are available
       activeOrders = [];
     }
 
-    const busyIds = new Set(activeOrders.map(o => o.baristaId));
-    const available = baristaLocations.filter(b => !busyIds.has(b.id));
+    const busyIds = new Set(activeOrders.map((o: any) => o.baristaId));
+    const available = baristaLocations.filter((b: any) => !busyIds.has(b.id));
 
     console.log(`[assign-barista] ${busyIds.size} baristas busy, ${available.length} available`);
 
