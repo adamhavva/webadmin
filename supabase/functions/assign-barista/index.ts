@@ -1,18 +1,16 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import postgres from 'postgres';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// Database connection - use DATABASE_URL from env
-const DATABASE_URL = Deno.env.get('DATABASE_URL');
-if (!DATABASE_URL) {
-  console.error('[assign-barista] DATABASE_URL not set');
-}
+// Environment variables set by Supabase (secrets)
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const databaseUrl = Deno.env.get('DATABASE_URL');
 
-// Firebase RTDB config from env
+// Firebase config
 const firebaseProjectId = Deno.env.get('FIREBASE_PROJECT_ID') || 'ascend-v2-4a67d';
-const firebaseDatabaseUrl = Deno.env.get('FIREBASE_DATABASE_URL') ||
-  `https://${firebaseProjectId}-default-rtdb.asia-southeast1.firebasedatabase.app`;
+const firebaseDatabaseUrl = Deno.env.get('FIREBASE_DATABASE_URL') || `https://${firebaseProjectId}-default-rtdb.asia-southeast1.firebasedatabase.app`;
 
-// Haversine formula - calculate distance in km
+// Haversine formula
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -33,25 +31,30 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  let db;
-  try {
-    if (!DATABASE_URL) {
-      throw new Error('DATABASE_URL not configured');
-    }
-    db = postgres(DATABASE_URL, { max: 1 });
-  } catch (err) {
-    console.error('[assign-barista] DB connection error:', err);
+  // Debug: log env vars availability
+  console.log('[assign-barista] Env check:');
+  console.log('[assign-barista] SUPABASE_URL:', supabaseUrl ? 'SET' : 'NOT SET');
+  console.log('[assign-barista] SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'SET' : 'NOT SET');
+  console.log('[assign-barista] DATABASE_URL:', databaseUrl ? 'SET' : 'NOT SET');
+  console.log('[assign-barista] FIREBASE_PROJECT_ID:', firebaseProjectId);
+  console.log('[assign-barista] FIREBASE_DATABASE_URL:', firebaseDatabaseUrl);
+
+  // Check required env vars
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('[assign-barista] Missing Supabase credentials');
     return new Response(
-      JSON.stringify({ success: false, message: 'Database connection failed' }),
+      JSON.stringify({ success: false, message: 'Server misconfigured - missing Supabase credentials' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
     const body = await req.json();
     const { orderId, customerLat, customerLng } = body;
 
-    console.log(`[assign-barista] Processing orderId=${orderId}, lat=${customerLat}, lng=${customerLng}`);
+    console.log(`[assign-barista] orderId=${orderId}, lat=${customerLat}, lng=${customerLng}`);
 
     if (!orderId) {
       return new Response(
@@ -60,10 +63,21 @@ serve(async (req: Request) => {
       );
     }
 
-    // Get order from database
-    const orders = await db`SELECT id, status, "deliveryLatitude", "deliveryLongitude" FROM "Order" WHERE id = ${orderId}`;
-    const order = orders[0];
+    // Get order from Supabase
+    const { data: orders, error: orderError } = await supabase
+      .from('Order')
+      .select('id, status, deliveryLatitude, deliveryLongitude')
+      .eq('id', orderId);
 
+    if (orderError) {
+      console.error('[assign-barista] Order query error:', orderError);
+      return new Response(
+        JSON.stringify({ success: false, message: 'Database error', error: orderError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const order = orders?.[0];
     if (!order) {
       return new Response(
         JSON.stringify({ success: false, message: 'Order not found' }),
@@ -71,7 +85,8 @@ serve(async (req: Request) => {
       );
     }
 
-    // Use coordinates from request or from order
+    console.log('[assign-barista] Order found:', order.id, order.status);
+
     const lat = customerLat ?? order.deliveryLatitude;
     const lng = customerLng ?? order.deliveryLongitude;
 
@@ -82,19 +97,26 @@ serve(async (req: Request) => {
       );
     }
 
-    // Get baristas with location from Supabase User table
-    const baristas = await db`
-      SELECT id, "firebaseUid", name, phone, latitude, longitude
-      FROM "User"
-      WHERE role = 'BARISTA'
-        AND status = 'ACTIVE'
-        AND latitude IS NOT NULL
-        AND longitude IS NOT NULL
-    `;
+    // Get baristas with location
+    const { data: baristas, error: baristaError } = await supabase
+      .from('User')
+      .select('id, firebaseUid, name, phone, latitude, longitude')
+      .eq('role', 'BARISTA')
+      .eq('status', 'ACTIVE')
+      .not('latitude', 'is', null)
+      .not('longitude', 'is', null);
 
-    console.log(`[assign-barista] Found ${baristas.length} baristas with location in Supabase`);
+    if (baristaError) {
+      console.error('[assign-barista] Barista query error:', baristaError);
+      return new Response(
+        JSON.stringify({ success: false, message: 'Failed to fetch baristas', error: baristaError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    if (baristas.length === 0) {
+    console.log(`[assign-barista] Found ${baristas?.length || 0} baristas with location`);
+
+    if (!baristas?.length) {
       return new Response(
         JSON.stringify({ success: false, message: 'No baristas with location available' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -102,7 +124,6 @@ serve(async (req: Request) => {
     }
 
     // Fetch real-time locations from Firebase RTDB
-    // Path: /users/{firebaseUid}/location
     const baristaLocations = [];
     for (const barista of baristas) {
       if (!barista.firebaseUid) continue;
@@ -117,14 +138,15 @@ serve(async (req: Request) => {
               rtdbLat: location.lat,
               rtdbLng: location.lng,
             });
+            console.log(`[assign-barista] Firebase: ${barista.name} at (${location.lat}, ${location.lng})`);
           }
         }
       } catch (err) {
-        console.error(`[assign-barista] Firebase RTDB error for ${barista.name}:`, err);
+        console.error(`[assign-barista] Firebase error for ${barista.name}:`, err);
       }
     }
 
-    // Fallback: use Supabase lat/long if no Firebase data
+    // Fallback to Supabase lat/long
     if (baristaLocations.length === 0) {
       console.log('[assign-barista] No Firebase locations, using Supabase lat/long');
       baristaLocations.push(...baristas.map(b => ({
@@ -134,18 +156,18 @@ serve(async (req: Request) => {
       })));
     }
 
-    // Check barista availability (no active orders)
+    // Check availability (no active orders)
     const baristaIds = baristaLocations.map(b => b.id);
-    const activeOrders = await db`
-      SELECT DISTINCT "baristaId"
-      FROM "Order"
-      WHERE "baristaId" IN ${db(baristaIds)}
-        AND status IN ('ASSIGNED', 'ACCEPTED', 'DELIVERING')
-    `;
-    const busyIds = new Set(activeOrders.map(o => o.baristaId));
+    const { data: activeOrders } = await supabase
+      .from('Order')
+      .select('baristaId')
+      .in('baristaId', baristaIds)
+      .in('status', ['ASSIGNED', 'ACCEPTED', 'DELIVERING']);
 
+    const busyIds = new Set(activeOrders?.map(o => o.baristaId) || []);
     const available = baristaLocations.filter(b => !busyIds.has(b.id));
-    console.log(`[assign-barista] ${available.length} baristas available (not busy)`);
+
+    console.log(`[assign-barista] ${available.length} baristas available`);
 
     if (available.length === 0) {
       return new Response(
@@ -154,7 +176,7 @@ serve(async (req: Request) => {
       );
     }
 
-    // Find nearest barista using Haversine
+    // Find nearest
     let nearest = available[0];
     let minDist = Infinity;
     for (const b of available) {
@@ -169,20 +191,28 @@ serve(async (req: Request) => {
     const now = new Date().toISOString();
     const distKm = Math.round(minDist * 100) / 100;
 
-    // Assign order to barista
-    await db`
-      UPDATE "Order"
-      SET
-        "baristaId" = ${nearest.id},
-        status = 'ASSIGNED',
-        "assignedAt" = ${now},
-        "distanceKm" = ${distKm},
-        "updatedAt" = ${now}
-      WHERE id = ${orderId}
-        AND status = 'SEARCHING'
-    `;
+    // Update order
+    const { error: updateError } = await supabase
+      .from('Order')
+      .update({
+        baristaId: nearest.id,
+        status: 'ASSIGNED',
+        assignedAt: now,
+        distanceKm: distKm,
+        updatedAt: now,
+      })
+      .eq('id', orderId)
+      .eq('status', 'SEARCHING');
 
-    console.log(`[assign-barista] Order ${orderId} assigned to ${nearest.name} (${nearest.id}) at ${distKm} km`);
+    if (updateError) {
+      console.error('[assign-barista] Update error:', updateError);
+      return new Response(
+        JSON.stringify({ success: false, message: 'Failed to assign order', error: updateError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`[assign-barista] Order ${orderId} assigned to ${nearest.name} at ${distKm} km`);
 
     return new Response(
       JSON.stringify({
@@ -202,7 +232,5 @@ serve(async (req: Request) => {
       JSON.stringify({ success: false, message: 'Internal error', error: String(err) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } finally {
-    await db.end();
   }
 });

@@ -55,3 +55,6 @@ prisma/generated
 .*
 docs/*.md
 graphify-out
+credentials/
+DOCS/
+*.md
