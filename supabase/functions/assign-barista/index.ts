@@ -189,6 +189,107 @@ async function writeOrderLocations(
   }
 }
 
+// Get barista's FCM token from Firebase RTDB
+async function getBaristaFcmToken(firebaseUid: string, token: string): Promise<string | null> {
+  try {
+    const url = `${firebaseDatabaseUrl}/users/${firebaseUid}/fcmToken.json?auth=${token}`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return typeof data === 'string' ? data : null;
+  } catch (err: any) {
+    console.log(`[assign-barista] FCM token fetch error: ${err.message}`);
+    return null;
+  }
+}
+
+// Send FCM data-only push notification via Firebase HTTP v1 API
+async function sendFcmPush(
+  fcmToken: string,
+  orderId: string,
+  orderNumber: string,
+  customerName: string,
+  totalAmount: string,
+  distanceKm: number,
+): Promise<boolean> {
+  try {
+    // Get OAuth2 access token for FCM
+    if (!firebaseClientEmail || !firebasePrivateKey) return false;
+
+    const now = Math.floor(Date.now() / 1000);
+    const jwtHeader = { alg: 'RS256', typ: 'JWT' };
+    const jwtPayload = {
+      iss: firebaseClientEmail,
+      sub: firebaseClientEmail,
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600,
+      scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    };
+    const signedJwt = await signJwt(jwtHeader, jwtPayload, firebasePrivateKey);
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: signedJwt }),
+    });
+    if (!tokenResponse.ok) {
+      console.log('[assign-barista] FCM OAuth token failed:', await tokenResponse.text());
+      return false;
+    }
+    const { access_token } = await tokenResponse.json();
+
+    // Send FCM message via HTTP v1 API
+    const fcmUrl = `https://fcm.googleapis.com/v1/projects/${firebaseProjectId}/messages:send`;
+    const message = {
+      message: {
+        token: fcmToken,
+        data: {
+          type: 'NEW_ORDER',
+          orderId,
+          orderNumber,
+          customerName,
+          totalAmount,
+          distanceKm: String(distanceKm),
+        },
+        android: {
+          priority: 'high',
+        },
+        apns: {
+          headers: {
+            'apns-priority': '10',
+          },
+          payload: {
+            aps: {
+              'content-available': 1,
+            },
+          },
+        },
+      },
+    };
+
+    const fcmResponse = await fetch(fcmUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(message),
+    });
+
+    if (fcmResponse.ok) {
+      console.log(`[assign-barista] FCM push sent to ${fcmToken.substring(0, 20)}...`);
+      return true;
+    } else {
+      const err = await fcmResponse.text();
+      console.log(`[assign-barista] FCM push failed: ${err}`);
+      return false;
+    }
+  } catch (err: any) {
+    console.log(`[assign-barista] FCM error: ${err.message}`);
+    return false;
+  }
+}
+
 // Write order tracking to Firebase RTDB
 async function updateFirebaseOrderTracking(
   orderId: string,
@@ -420,6 +521,43 @@ serve(async (req: Request) => {
         status: 'ASSIGNED',
         baristaLocation: { lat: nearest.rtdbLat, lng: nearest.rtdbLng },
       });
+
+      // Send FCM push to barista's device
+      if (nearest.firebaseUid) {
+        const fcmToken = await getBaristaFcmToken(nearest.firebaseUid, firebaseToken);
+        if (fcmToken) {
+          // Get customer name & total from order
+          let customerName = 'Customer';
+          let totalAmount = '0';
+          try {
+            const tempClient = await createDbClient();
+            const custResult = await tempClient.queryObject(
+              `SELECT u.name, o."totalAmount"
+               FROM "Order" o LEFT JOIN "User" u ON o."customerId" = u.id
+               WHERE o.id = $1`,
+              [orderId]
+            );
+            if (custResult.rows.length > 0) {
+              customerName = custResult.rows[0].name || 'Customer';
+              totalAmount = String(custResult.rows[0].totalAmount || 0);
+            }
+            await tempClient.end();
+          } catch (e: any) {
+            console.log('[assign-barista] Customer info fetch error:', e.message);
+          }
+
+          await sendFcmPush(
+            fcmToken,
+            orderId,
+            order.orderNumber || '',
+            customerName,
+            totalAmount,
+            distKm,
+          );
+        } else {
+          console.log(`[assign-barista] No FCM token for barista ${nearest.name}`);
+        }
+      }
     }
 
     const duration = Date.now() - startTime;

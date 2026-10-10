@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { getServerSession } from "next-auth";
 import { ApiError } from "./api-error";
 import { authOptions, type SessionUser } from "./auth";
+import { verifyFirebaseToken } from "./firebase-auth";
 import type { UserRole } from "@/prisma/generated/enums";
 
 // Check if Firebase auth is disabled for development
@@ -115,6 +116,18 @@ export function handleAuth(
         return await fn(req, { ...ctx, user: mockUser });
       }
 
+      const allowedRoles: UserRole[] = options?.roles ?? ["ADMIN"];
+
+      // Path 1: Firebase ID Token (barista/customer apps)
+      const firebaseUser = await verifyFirebaseToken(req);
+      if (firebaseUser) {
+        if (!allowedRoles.includes(firebaseUser.role)) {
+          throw ApiError.forbidden("Akses ditolak untuk role ini.");
+        }
+        return await fn(req, { ...ctx, user: firebaseUser });
+      }
+
+      // Path 2: NextAuth session (admin dashboard)
       const session = await getServerSession(authOptions);
 
       if (!session?.user) {
@@ -125,7 +138,6 @@ export function handleAuth(
         throw ApiError.forbidden("Akun Anda tidak aktif");
       }
 
-      const allowedRoles: UserRole[] = options?.roles ?? ["ADMIN"];
       if (!allowedRoles.includes(session.user.role)) {
         throw ApiError.forbidden(
           "Akses ditolak. WebAdmin hanya untuk administrator."
