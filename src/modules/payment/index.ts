@@ -15,10 +15,10 @@ export {
 // Validators
 export {
   createPaymentSchema,
-  dokuNotificationSchema,
+  midtransNotificationSchema,
   paymentResponseSchema,
-  DOKU_STATUS_MAP,
-  type DokuNotification,
+  MIDTRANS_STATUS_MAP,
+  type MidtransNotification,
 } from './payment.validator';
 
 // Pricing
@@ -31,22 +31,6 @@ export {
   type FeeBreakdown,
 } from './payment.pricing';
 
-<<<<<<< HEAD
 // Registry - payment methods from Midtrans API
 export { getActivePaymentMethods, clearMethodCache } from './providers/registry';
 export type { PaymentMethodOption, PaymentGroupOption } from './providers/types';
-=======
-// Providers - re-export only what's needed
-export type {
-  PaymentProviderConfig,
-  PaymentMethodConfig,
-  PaymentStatus,
-  Payment,
-  PaymentProviderAdapter,
-  CreatePaymentRequest,
-  CreatePaymentResponse,
-  PaymentNotification,
-} from './providers/types';
-
-export { getProviderAdapter, getActivePaymentMethods, clearMethodCache } from './providers/registry';
->>>>>>> 6bf28fd206c6a63fe65027db6b66dfedc5d270bd

@@ -1,6 +1,6 @@
 // ============================================================
 // Payment Service - Core payment logic
-// All payments go through DOKU Checkout (no CASH)
+// All payments go through Midtrans Snap
 // ============================================================
 
 import { prisma } from '@/lib/db';
@@ -27,17 +27,15 @@ export interface Payment {
   orderId: string;
   amount: number;
   currency: string;
-  providerId: string;
-  providerCode: string;
   methodCode: string;
   methodName: string;
   methodGroup?: string;
-  dokuChannelCode?: string;
+  providerChannel?: string;
   methodFeeAmount: number;
   status: PaymentStatus;
-  dokuInvoiceNumber?: string;
-  dokuTransactionId?: string;
-  dokuPaymentUrl?: string;
+  snapToken?: string;
+  providerTransactionId?: string;
+  paymentUrl?: string;
   requestPayload?: Record<string, unknown>;
   callbackPayload?: Record<string, unknown>;
   paidAt?: Date;
@@ -52,55 +50,29 @@ export interface Payment {
 // Helper: Convert Prisma Payment to Payment interface
 // ============================================================
 
-function convertToPayment(p: {
-  id: string;
-  orderId: string;
-  amount: unknown;
-  currency: string;
-  providerId: string;
-  providerCode: string;
-  methodCode: string;
-  methodName: string;
-  methodGroup: string | null;
-  dokuChannelCode: string | null;
-  methodFeeAmount: unknown;
-  status: string;
-  dokuInvoiceNumber: string | null;
-  dokuTransactionId: string | null;
-  dokuPaymentUrl: string | null;
-  requestPayload: unknown;
-  callbackPayload: unknown;
-  paidAt: Date | null;
-  expiredAt: Date | null;
-  failedAt: Date | null;
-  failureReason: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}): Payment {
+function convertToPayment(p: Record<string, unknown>): Payment {
   return {
-    id: p.id,
-    orderId: p.orderId,
+    id: p.id as string,
+    orderId: p.orderId as string,
     amount: Number(p.amount),
-    currency: p.currency,
-    providerId: p.providerId,
-    providerCode: p.providerCode,
-    methodCode: p.methodCode,
-    methodName: p.methodName,
-    methodGroup: p.methodGroup ?? undefined,
-    dokuChannelCode: p.dokuChannelCode ?? undefined,
-    methodFeeAmount: Number(p.methodFeeAmount),
+    currency: (p.currency as string) ?? 'IDR',
+    methodCode: (p.methodCode as string) ?? '',
+    methodName: (p.methodName as string) ?? '',
+    methodGroup: (p.methodGroup as string) ?? undefined,
+    providerChannel: (p.providerChannel as string) ?? undefined,
+    methodFeeAmount: Number(p.methodFeeAmount ?? 0),
     status: p.status as PaymentStatus,
-    dokuInvoiceNumber: p.dokuInvoiceNumber ?? undefined,
-    dokuTransactionId: p.dokuTransactionId ?? undefined,
-    dokuPaymentUrl: p.dokuPaymentUrl ?? undefined,
+    snapToken: (p.snapToken as string) ?? undefined,
+    providerTransactionId: (p.providerTransactionId as string) ?? undefined,
+    paymentUrl: (p.paymentUrl as string) ?? undefined,
     requestPayload: p.requestPayload as Record<string, unknown> | undefined,
     callbackPayload: p.callbackPayload as Record<string, unknown> | undefined,
-    paidAt: p.paidAt ?? undefined,
-    expiredAt: p.expiredAt ?? undefined,
-    failedAt: p.failedAt ?? undefined,
-    failureReason: p.failureReason ?? undefined,
-    createdAt: p.createdAt,
-    updatedAt: p.updatedAt,
+    paidAt: (p.paidAt as Date) ?? undefined,
+    expiredAt: (p.expiredAt as Date) ?? undefined,
+    failedAt: (p.failedAt as Date) ?? undefined,
+    failureReason: (p.failureReason as string) ?? undefined,
+    createdAt: p.createdAt as Date,
+    updatedAt: p.updatedAt as Date,
   };
 }
 
@@ -171,7 +143,6 @@ export interface CreatePaymentInput {
 export async function createPayment(input: CreatePaymentInput): Promise<Payment> {
   console.log('[PAYMENT SERVICE] Processing payment for order:', input.orderId);
 
-  // Find existing payment for this order (created by createOrder)
   const existingPayment = await prisma.payment.findUnique({
     where: { orderId: input.orderId },
   });
@@ -180,107 +151,11 @@ export async function createPayment(input: CreatePaymentInput): Promise<Payment>
     throw new Error(`Payment record not found for order: ${input.orderId}. Please create the order first.`);
   }
 
-  // Update payment method info if methodCode is provided
-  // If methodCode is not provided, DOKU will show all payment methods
-  // and the actual method will be saved when DOKU sends webhook
-  let methodConfig = null;
-  if (input.methodCode) {
-    methodConfig = await prisma.paymentMethodConfig.findUnique({
-      where: { code: input.methodCode },
-      include: { provider: true },
-    });
-
-    if (!methodConfig) {
-      throw new Error(`Payment method not found: ${input.methodCode}`);
-    }
-  }
-
-  // Update payment with DOKU channel code (optional)
-  const paymentUpdateData: Prisma.PaymentUpdateInput = {
-    dokuChannelCode: input.paymentMethod || null,
-  };
-
-  await prisma.payment.update({
-    where: { id: existingPayment.id },
-    data: paymentUpdateData,
-  });
-
-  // Update order with payment method snapshot (if methodCode provided)
-  const orderUpdateData: Prisma.OrderUpdateInput = {
-    dokuPaymentMethod: input.paymentMethod,
-  };
-
-  if (methodConfig) {
-    orderUpdateData.paymentMethodCode = input.methodCode;
-    orderUpdateData.paymentMethodName = methodConfig.name;
-    orderUpdateData.paymentMethodGroup = methodConfig.groupName ?? methodConfig.groupCode;
-    orderUpdateData.paymentFeeAmount = existingPayment.methodFeeAmount;
-  }
-
-  await prisma.order.update({
-    where: { id: input.orderId },
-    data: orderUpdateData,
-  });
-
   console.log('[PAYMENT SERVICE] Payment found:', existingPayment.id);
 
-  return convertToPayment(existingPayment);
+  return convertToPayment(existingPayment as unknown as Record<string, unknown>);
 }
 
-// ============================================================
-// Update Payment from DOKU Response
-// Called after DOKU Checkout returns payment URL
-// ============================================================
-
-export async function updatePaymentFromDOKUResponse(
-  paymentId: string,
-  dokuResponse: {
-    invoiceNumber?: string;
-    transactionId?: string;
-    paymentUrl?: string;
-    expiryTime?: string;
-    rawResponse?: Record<string, unknown>;
-  }
-): Promise<Payment> {
-  const payment = await prisma.payment.findUnique({
-    where: { id: paymentId },
-  });
-
-  if (!payment) {
-    throw new Error(`Payment not found: ${paymentId}`);
-  }
-
-  const updateData: Prisma.PaymentUpdateInput = {
-    dokuInvoiceNumber: dokuResponse.invoiceNumber,
-    dokuTransactionId: dokuResponse.transactionId,
-    dokuPaymentUrl: dokuResponse.paymentUrl,
-    requestPayload: dokuResponse.rawResponse as Prisma.InputJsonValue | undefined,
-  };
-
-  if (dokuResponse.expiryTime) {
-    updateData.expiredAt = new Date(dokuResponse.expiryTime);
-  }
-
-  const updated = await prisma.payment.update({
-    where: { id: paymentId },
-    data: updateData,
-  });
-
-  // Also update order with DOKU info
-  await prisma.order.update({
-    where: { id: payment.orderId },
-    data: {
-      dokuInvoiceNumber: dokuResponse.invoiceNumber,
-      dokuPaymentUrl: dokuResponse.paymentUrl,
-      dokuPaymentMethod: updated.dokuChannelCode,
-      dokuExpiredAt: dokuResponse.expiryTime ? new Date(dokuResponse.expiryTime) : undefined,
-    },
-  });
-
-  console.log('[PAYMENT SERVICE] Payment updated with DOKU response:', paymentId);
-
-  return convertToPayment(updated);
-}
 
 // ============================================================
 // Payment Status Update (from webhook)
@@ -291,28 +166,18 @@ export async function updatePaymentFromWebhook(
   status: PaymentStatus,
   transactionId?: string,
   callbackPayload?: Record<string, unknown>,
-  dokuPaymentMethod?: string
+  providerChannel?: string
 ): Promise<Payment> {
-  console.log('[PAYMENT SERVICE] Updating payment from webhook:', { paymentId, status, transactionId, dokuPaymentMethod });
+  console.log('[PAYMENT SERVICE] Updating payment from webhook:', { paymentId, status, transactionId, providerChannel });
 
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
   });
 
-<<<<<<< HEAD
-  // Build method metadata from payment_type
-  const methodCode = providerChannel ?? undefined;
-  const methodName = providerChannel ? getMidtransMethodName(providerChannel) : undefined;
-  const methodGroup = providerChannel ? inferPaymentGroup(providerChannel) : undefined;
-
-  // Atomic status transition: only update if not already in a final state.
-  // This prevents double-processing when Midtrans fires duplicate webhooks.
-=======
   if (!payment) {
     throw new Error(`Payment not found: ${paymentId}`);
   }
 
-  // Get order with items
   const order = await prisma.order.findUnique({
     where: { id: payment.orderId },
     include: { items: true },
@@ -322,35 +187,20 @@ export async function updatePaymentFromWebhook(
     throw new Error(`Order not found for payment: ${paymentId}`);
   }
 
-  // Build update data
->>>>>>> 6bf28fd206c6a63fe65027db6b66dfedc5d270bd
+  const methodCode = providerChannel ?? undefined;
+  const methodName = providerChannel ? getMidtransMethodName(providerChannel) : undefined;
+  const methodGroup = providerChannel ? inferPaymentGroup(providerChannel) : undefined;
+
   const updateData: Prisma.PaymentUpdateInput = {
     status,
     callbackPayload: callbackPayload as Prisma.InputJsonValue | undefined,
-    // Always update method fields from webhook so the final method is recorded
     ...(methodCode && { methodCode }),
     ...(methodName && { methodName }),
     ...(methodGroup && { methodGroup }),
     ...(providerChannel && { providerChannel }),
   };
 
-<<<<<<< HEAD
   if (transactionId) updateData.providerTransactionId = transactionId;
-
-  switch (status) {
-    case 'PAID':    updateData.paidAt = new Date(); break;
-    case 'FAILED':  updateData.failedAt = new Date(); break;
-    case 'EXPIRED': updateData.expiredAt = new Date(); break;
-=======
-  if (transactionId) {
-    updateData.dokuTransactionId = transactionId;
->>>>>>> 6bf28fd206c6a63fe65027db6b66dfedc5d270bd
-  }
-
-  // Save the payment channel used (extracted from DOKU webhook, e.g. "VIRTUAL_ACCOUNT_BCA")
-  if (dokuPaymentMethod) {
-    updateData.dokuChannelCode = dokuPaymentMethod;
-  }
 
   switch (status) {
     case 'PAID':
@@ -420,7 +270,7 @@ export async function updatePaymentFromWebhook(
     }
   }
 
-  return convertToPayment(updatedPayment);
+  return convertToPayment(updatedPayment as unknown as Record<string, unknown>);
 }
 
 // ============================================================
@@ -442,7 +292,7 @@ export async function markPaymentFailed(
 
   console.log('[PAYMENT SERVICE] Payment marked as failed:', paymentId, reason);
 
-  return convertToPayment(payment);
+  return convertToPayment(payment as unknown as Record<string, unknown>);
 }
 
 // ============================================================
@@ -513,7 +363,7 @@ async function reduceBaristaStockForOrder(orderId: string): Promise<void> {
           quantity: -quantity,
           balanceAfter: newQuantity,
           orderId: order.id,
-          note: 'Payment confirmed via DOKU',
+          note: 'Payment confirmed via Midtrans',
         },
       });
 
@@ -535,7 +385,7 @@ export async function getPayment(paymentId: string): Promise<Payment | null> {
 
   if (!payment) return null;
 
-  return convertToPayment(payment);
+  return convertToPayment(payment as unknown as Record<string, unknown>);
 }
 
 export async function getPaymentByOrder(orderId: string): Promise<Payment | null> {
@@ -545,7 +395,7 @@ export async function getPaymentByOrder(orderId: string): Promise<Payment | null
 
   if (!payment) return null;
 
-  return convertToPayment(payment);
+  return convertToPayment(payment as unknown as Record<string, unknown>);
 }
 
 // ============================================================
