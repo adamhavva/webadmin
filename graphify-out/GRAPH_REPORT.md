@@ -1,844 +1,593 @@
-# Graph Report - /Users/dandiramdani/Projects/ascend/webadmin  (2026-09-29)
+# Graph Report - webadmin  (2026-10-11)
 
 ## Corpus Check
-- Corpus is ~1,489 words - fits in a single context window. You may not need a graph.
+- 319 files · ~162,613 words
+- Verdict: corpus is large enough that graph structure adds value.
+- Unclassified: 8 file(s) not represented in the graph (top: (none) 2, .toml 2, .example 1)
 
 ## Summary
-- 1768 nodes · 20 edges · 1750 communities (979 shown, 771 thin omitted)
-- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
+- 2166 nodes · 5804 edges · 120 communities (100 shown, 20 thin omitted)
+- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 11 edges (avg confidence: 0.84)
 - Token cost: 0 input · 0 output
 
+## Graph Freshness
+- Built from commit: `e319510a`
+- Run `git rev-parse HEAD` and compare to check if the graph is stale.
+- Run `graphify update .` after code changes (no API cost).
+
 ## Community Hubs (Navigation)
-- Community 0
-- Community 1
-- Community 2
-- Community 3
-- Community 4
-- Community 5
-- Community 6
-- Community 7
-- Community 8
-- Community 9
-- Community 10
-- Community 11
-- Community 12
-- Community 13
-- Community 14
-- Community 15
-- Community 16
-- Community 17
-- Community 18
-- Community 19
-- Community 20
-- Community 21
-- Community 22
-- Community 23
-- Community 24
-- Community 25
-- Community 26
-- Community 27
-- Community 28
-- Community 29
-- Community 30
-- Community 31
-- Community 32
-- Community 33
-- Community 34
-- Community 35
-- Community 36
-- Community 37
-- Community 38
-- Community 39
-- Community 40
-- Community 41
-- Community 42
-- Community 43
-- Community 44
-- Community 45
-- Community 46
-- Community 48
-- Community 49
-- Community 50
-- Community 51
-- Community 52
-- Community 53
-- Community 54
-- Community 55
-- Community 56
-- Community 57
-- Community 58
-- Community 59
-- Community 60
-- Community 61
-- Community 62
-- Community 63
-- Community 64
-- Community 65
-- Community 66
-- Community 67
-- Community 68
-- Community 69
-- Community 70
-- Community 71
-- Community 72
-- Community 73
-- Community 74
-- Community 75
-- Community 76
-- Community 77
-- Community 78
-- Community 79
-- Community 80
-- Community 81
-- Community 82
-- Community 83
-- Community 84
-- Community 85
-- Community 86
-- Community 87
-- Community 88
-- Community 89
-- Community 90
-- Community 91
-- Community 92
-- Community 93
-- Community 94
-- Community 95
-- Community 96
-- Community 97
-- Community 98
-- Community 99
-- Community 100
-- Community 101
-- Community 102
-- Community 103
-- Community 104
-- Community 105
-- Community 107
-- Community 108
-- Community 110
-- Community 111
-- Community 112
-- Community 113
-- Community 114
-- Community 115
-- Community 116
-- Community 117
-- Community 118
-- Community 119
-- Community 120
-- Community 121
-- Community 122
-- Community 123
-- Community 124
-- Community 125
-- Community 126
-- Community 127
-- Community 128
-- Community 129
-- Community 130
-- Community 131
-- Community 132
-- Community 133
-- Community 134
-- Community 135
-- Community 136
-- Community 137
-- Community 138
-- Community 139
-- Community 140
-- Community 141
-- Community 142
-- Community 143
-- Community 144
-- Community 145
-- Community 146
-- Community 147
-- Community 148
-- Community 149
-- Community 150
-- Community 151
-- Community 152
-- Community 153
-- Community 154
-- Community 155
-- Community 156
-- Community 157
-- Community 158
-- Community 159
-- Community 160
-- Community 161
-- Community 162
-- Community 163
-- Community 164
-- Community 165
-- Community 166
-- Community 167
-- Community 169
-- Community 170
-- Community 172
-- Community 173
-- Community 174
-- Community 175
-- Community 176
-- Community 177
-- Community 178
-- Community 179
-- Community 180
-- Community 181
-- Community 182
-- Community 183
-- Community 184
-- Community 185
-- Community 186
-- Community 187
-- Community 188
-- Community 189
-- Community 190
-- Community 191
-- Community 192
-- Community 193
-- Community 194
-- Community 195
-- Community 196
-- Community 197
-- Community 198
-- Community 199
-- Community 200
-- Community 205
-- Community 207
-- Community 209
-- Community 210
-- Community 211
-- Community 212
-- Community 213
-- Community 214
-- Community 215
-- Community 216
-- Community 220
-- Community 221
-- Community 223
-- Community 225
-- Community 227
-- Community 229
-- Community 231
-- Community 233
-- Community 235
-- Community 237
-- Community 239
-- Community 241
-- Community 243
-- Community 245
-- Community 247
-- Community 248
-- Community 250
-- Community 252
-- Community 254
-- Community 256
-- Community 257
-- Community 258
-- Community 260
-- Community 262
-- Community 263
-- Community 264
-- Community 266
-- Community 267
-- Community 269
-- Community 271
-- Community 273
-- Community 275
-- Community 276
-- Community 278
-- Community 279
-- Community 281
-- Community 282
-- Community 284
-- Community 285
-- Community 286
-- Community 288
-- Community 289
-- Community 291
-- Community 293
-- Community 295
-- Community 296
-- Community 297
-- Community 299
-- Community 300
-- Community 302
-- Community 303
-- Community 305
-- Community 306
-- Community 308
-- Community 309
-- Community 311
-- Community 313
-- Community 315
-- Community 317
-- Community 319
-- Community 321
-- Community 323
-- Community 325
-- Community 327
-- Community 328
-- Community 330
-- Community 334
-- Community 336
-- Community 338
-- Community 340
-- Community 342
-- Community 344
-- Community 346
-- Community 348
-- Community 350
-- Community 351
-- Community 352
-- Community 354
-- Community 355
-- Community 356
-- Community 358
-- Community 359
-- Community 360
-- Community 361
-- Community 363
-- Community 364
-- Community 366
-- Community 368
-- Community 370
-- Community 371
-- Community 372
-- Community 374
-- Community 375
-- Community 379
-- Community 390
-- Community 408
-- Community 424
-- Community 434
-- Community 439
-- Community 454
-- Community 456
-- Community 458
-- Community 459
-- Community 460
-- Community 466
-- Community 467
-- Community 469
-- Community 470
-- Community 471
-- Community 477
-- Community 483
-- Community 493
-- Community 495
-- Community 496
-- Community 499
-- Community 509
-- Community 510
-- Community 511
-- Community 515
-- Community 517
-- Community 519
-- Community 521
-- Community 522
-- Community 523
-- Community 524
-- Community 525
-- Community 526
-- Community 531
-- Community 532
-- Community 536
-- Community 538
-- Community 541
-- Community 542
-- Community 543
-- Community 548
-- Community 550
-- Community 551
-- Community 554
-- Community 556
-- Community 558
-- Community 563
-- Community 565
-- Community 567
-- Community 571
-- Community 576
-- Community 579
-- Community 584
-- Community 585
-- Community 586
-- Community 587
-- Community 589
-- Community 597
-- Community 598
-- Community 600
-- Community 608
-- Community 610
-- Community 611
-- Community 612
-- Community 615
-- Community 617
-- Community 623
-- Community 624
-- Community 629
-- Community 635
-- Community 636
-- Community 637
-- Community 639
-- Community 641
-- Community 646
-- Community 648
-- Community 649
-- Community 650
-- Community 653
-- Community 654
-- Community 655
-- Community 656
-- Community 659
-- Community 664
-- Community 665
-- Community 666
-- Community 667
-- Community 668
-- Community 671
-- Community 677
-- Community 678
-- Community 682
-- Community 686
-- Community 688
-- Community 689
-- Community 691
-- Community 697
-- Community 698
-- Community 704
-- Community 706
-- Community 712
-- Community 714
-- Community 715
-- Community 717
-- Community 718
-- Community 720
-- Community 721
-- Community 725
-- Community 726
-- Community 727
-- Community 730
-- Community 731
-- Community 736
-- Community 738
-- Community 739
-- Community 744
-- Community 748
-- Community 750
-- Community 756
-- Community 757
-- Community 759
-- Community 764
-- Community 770
-- Community 772
-- Community 773
-- Community 774
-- Community 776
-- Community 777
-- Community 783
-- Community 785
-- Community 786
-- Community 789
-- Community 792
-- Community 795
-- Community 800
-- Community 801
-- Community 803
-- Community 805
-- Community 809
-- Community 810
-- Community 813
-- Community 819
-- Community 820
-- Community 821
-- Community 826
-- Community 829
-- Community 830
-- Community 834
-- Community 835
-- Community 839
-- Community 840
-- Community 841
-- Community 843
-- Community 850
-- Community 853
-- Community 864
-- Community 868
-- Community 869
-- Community 871
-- Community 875
-- Community 878
-- Community 879
-- Community 880
-- Community 885
-- Community 888
-- Community 891
-- Community 895
-- Community 898
-- Community 903
-- Community 907
-- Community 910
-- Community 916
-- Community 918
-- Community 919
-- Community 920
-- Community 927
-- Community 931
-- Community 932
-- Community 936
-- Community 941
-- Community 942
-- Community 944
-- Community 945
-- Community 948
-- Community 949
-- Community 950
-- Community 953
-- Community 957
-- Community 959
-- Community 962
-- Community 966
-- Community 967
-- Community 972
-- Community 974
-- Community 975
-- Community 983
-- Community 984
-- Community 985
-- Community 990
-- Community 992
-- Community 993
-- Community 999
-- Community 1000
-- Community 1001
-- Community 1002
-- Community 1007
-- Community 1011
-- Community 1012
-- Community 1013
-- Community 1018
-- Community 1019
-- Community 1020
-- Community 1026
-- Community 1027
-- Community 1029
-- Community 1030
-- Community 1034
-- Community 1036
-- Community 1047
-- Community 1058
-- Community 1071
-- Community 1073
-- Community 1074
-- Community 1079
-- Community 1080
-- Community 1081
-- Community 1130
-- Community 1143
-- Community 1148
-- Community 1150
-- Community 1166
-- Community 1173
-- Community 1184
-- Community 1186
-- Community 1213
-- Community 1214
-- Community 1227
-- Community 1254
-- Community 1273
-- Community 1278
-- Community 1279
-- Community 1280
-- Community 1281
-- Community 1283
-- Community 1287
-- Community 1288
-- Community 1289
-- Community 1291
-- Community 1295
-- Community 1296
-- Community 1297
-- Community 1298
-- Community 1299
-- Community 1304
-- Community 1306
-- Community 1307
-- Community 1311
-- Community 1312
-- Community 1314
-- Community 1316
-- Community 1319
-- Community 1320
-- Community 1323
-- Community 1327
-- Community 1337
-- Community 1338
-- Community 1339
-- Community 1346
-- Community 1348
-- Community 1349
-- Community 1350
-- Community 1352
-- Community 1355
-- Community 1356
-- Community 1358
-- Community 1360
-- Community 1361
-- Community 1363
-- Community 1364
-- Community 1370
-- Community 1371
-- Community 1374
-- Community 1375
-- Community 1376
-- Community 1392
-- Community 1393
-- Community 1394
-- Community 1395
-- Community 1396
-- Community 1397
-- Community 1398
-- Community 1399
-- Community 1400
-- Community 1401
-- Community 1402
-- Community 1407
-- Community 1408
-- Community 1410
-- Community 1417
-- Community 1418
-- Community 1425
-- Community 1426
-- Community 1427
-- Community 1428
-- Community 1429
-- Community 1430
-- Community 1435
-- Community 1436
-- Community 1437
-- Community 1438
-- Community 1446
-- Community 1447
-- Community 1448
-- Community 1449
-- Community 1458
-- Community 1459
-- Community 1460
-- Community 1461
-- Community 1462
-- Community 1463
-- Community 1464
-- Community 1466
-- Community 1467
-- Community 1468
-- Community 1470
-- Community 1478
-- Community 1479
-- Community 1480
-- Community 1497
-- Community 1498
-- Community 1499
-- Community 1500
-- Community 1501
-- Community 1502
-- Community 1503
-- Community 1504
-- Community 1505
-- Community 1506
-- Community 1507
-- Community 1508
-- Community 1509
-- Community 1510
-- Community 1511
-- Community 1517
-- Community 1518
-- Community 1519
-- Community 1520
-- Community 1521
-- Community 1522
-- Community 1523
-- Community 1524
-- Community 1525
-- Community 1535
-- Community 1541
-- Community 1545
-- Community 1548
-- Community 1549
-- Community 1550
-- Community 1551
-- Community 1552
-- Community 1560
-- Community 1561
-- Community 1562
-- Community 1563
-- Community 1564
-- Community 1565
-- Community 1566
-- Community 1567
-- Community 1569
-- Community 1580
-- Community 1581
-- Community 1583
-- Community 1584
-- Community 1585
-- Community 1586
-- Community 1587
-- Community 1588
-- Community 1599
-- Community 1600
-- Community 1601
-- Community 1606
-- Community 1607
-- Community 1608
-- Community 1609
-- Community 1610
-- Community 1611
-- Community 1612
-- Community 1613
-- Community 1615
-- Community 1616
-- Community 1617
-- Community 1618
-- Community 1621
-- Community 1622
-- Community 1624
-- Community 1625
-- Community 1635
-- Community 1636
-- Community 1645
-- Community 1646
-- Community 1647
-- Community 1648
-- Community 1649
-- Community 1650
-- Community 1651
-- Community 1652
-- Community 1662
-- Community 1663
-- Community 1664
-- Community 1665
-- Community 1666
-- Community 1667
-- Community 1669
-- Community 1672
-- Community 1673
-- Community 1674
-- Community 1676
-- Community 1677
-- Community 1678
-- Community 1679
-- Community 1691
-- Community 1693
-- Community 1694
-- Community 1695
-- Community 1696
-- Community 1697
-- Community 1698
-- Community 1699
-- Community 1700
-- Community 1701
-- Community 1702
-- Community 1703
-- Community 1704
-- Community 1705
-- Community 1706
-- Community 1707
-- Community 1709
-- Community 1712
-- Community 1713
-- Community 1714
-- Community 1715
-- Community 1716
-- Community 1717
-- Community 1718
-- Community 1720
-- Community 1721
-- Community 1722
-- Community 1723
-- Community 1724
-- Community 1725
-- Community 1726
-- Community 1727
-- Community 1728
-- Community 1729
-- Community 1730
-- Community 1731
-- Community 1732
-- Community 1733
-- Community 1734
-- Community 1735
-- Community 1736
-- Community 1737
-- Community 1738
-- Community 1739
-- Community 1740
-- Community 1741
-- Community 1742
-- Community 1743
-- Community 1744
-- Community 1745
-- Community 1746
-- Community 1747
-- Community 1748
-- Community 1749
+- Firebase RTDB Setup
+- registry.ts
+- types.ts
+- Quick Links
+- index.ts
+- checkout/page.tsx
+- Non-SNAP Format (DOKU Checkout)
+- DokuClient
+- ASCEND Development Tasks
+- ASCEND Seed Scripts
+- doku-checkout.service.ts
+- ASCEND Tasks - Simulation Checklist
+- ASCEND Development Plan - Order System + Real-time Features
+- Detailed Implementation
+- API Contracts
+- client.ts
+- PHASE 2: Real-time Location Tracking
+- PHASE 4: Barista-Customer Chat
+- Features Checklist
+- Implementation Order
+- Fake Order Test Script
+- radio-group.tsx
+- Database Schema Updates
+- developers_doku_com_accept-payments_direct-api_non-snap.md
+- components.json
+- order-report.service.ts
+- map/page.tsx
+- buttonVariants
+- package.json
+- dependencies
+- devDependencies
+- scripts
+- Plan: DOKU Payment Flow & Product Pages
+- postcss.config.mjs
+- seed-admin.ts
+- Public Static Assets Directory
+- File Icon SVG
+- Globe Icon SVG
+- Next.js Logo SVG
+- Vercel Logo SVG
+- Window Icon SVG
+- Integration Guide | API Reference
+- Notification | API Reference
+- db.ts
+- Order Simulation Page
+- Simulation Page Final State Screenshot
+- Simulation Page Screenshot
+- Simulation Page State Screenshot
+- Simulation Test Screenshot
+- next-auth
+- .notFound
+- barista-stock.service.ts
+- ok
+- zod
+- inventory-batch.service.ts
+- finished-product.service.ts
+- inventory-item.service.ts
+- production.service.ts
+- product-image.service.ts
+- ApiError
+- product.service.ts
+- .unprocessable
+- restock.service.ts
+- order.service.ts
+- notification/route.ts
+- setting.service.ts
+- stock.service.ts
+- CardDescription
+- user-detail-view.tsx
+- user-list-page.tsx
+- BaristaStockDetailView
+- barista-movements-page.tsx
+- barista-stock-page.tsx
+- batch-detail-view.tsx
+- batch-list-page.tsx
+- cost-history-page.tsx
+- finished-product-detail-view.tsx
+- FinishedBatchListPage
+- Button
+- item-list-page.tsx
+- production-detail-view.tsx
+- production-list-page.tsx
+- product-detail-view.tsx
+- product-list-page.tsx
+- recipe-detail-view.tsx
+- recipe-list-page.tsx
+- DialogDescription
+- DialogTitle
+- stock-page.tsx
+- field.tsx
+- Badge
+- order-list-page.tsx
+- react
+- (dashboard)/page.tsx
+- CardContent
+- profile-edit-form.tsx
+- Dialog
+- setting-list-page.tsx
+- tracking/page.tsx
+- app/layout.tsx
+- app-sidebar.tsx
+- Card
+- production-form.tsx
+- ProductForm
+- recipe-form.tsx
+- restock-form.tsx
+- dropdown-menu.tsx
+- @base-ui/react
+- command.tsx
+- DialogContent
+- navigation-menu.tsx
+- pagination.tsx
+- select.tsx
+- sidebar.tsx
+- toast.tsx
+- order.assignment.service.ts
+- doku.service.ts
+- DOKU SNAP API Adapters (Deprecated)
+- compilerOptions
 
 ## God Nodes (most connected - your core abstractions)
-1. `Non-SNAP Format (DOKU Checkout)` - 8 edges
-2. `HTTP Notification Sample for SNAP | API Reference` - 6 edges
-3. `SNAP Format` - 5 edges
-4. `Non-SNAP | API Reference` - 1 edges
-5. `Integration Guide | API Reference` - 1 edges
-6. `Notification | API Reference` - 1 edges
-7. `Overview` - 1 edges
-8. `Required Headers` - 1 edges
-9. `SNAP Payment Notification (E-Wallet, VA, etc.)` - 1 edges
-10. `Transaction Status Codes (SNAP)` - 1 edges
+1. `Button()` - 155 edges
+2. `ok()` - 141 edges
+3. `buttonVariants` - 97 edges
+4. `Card()` - 93 edges
+5. `CardContent()` - 93 edges
+6. `react` - 92 edges
+7. `CardHeader()` - 91 edges
+8. `CardTitle()` - 89 edges
+9. `Badge()` - 88 edges
+10. `lucide-react` - 84 edges
 
 ## Surprising Connections (you probably didn't know these)
-- None detected - all connections are within the same source files.
+- `✅ DONE - WebAdmin (Next.js)` --references--> `ok()`  [INFERRED]
+  TASKS.md → src/lib/api-response.ts
+- `✅ DONE - WebAdmin (Next.js)` --references--> `created()`  [INFERRED]
+  TASKS.md → src/lib/api-response.ts
+- `GET` --calls--> `ok()`  [EXTRACTED]
+  src/app/api/orders/simulation/baristas/route.ts → src/lib/api-response.ts
+- `GET` --calls--> `ok()`  [EXTRACTED]
+  src/app/api/products/route.ts → src/lib/api-response.ts
+- `getStockBadge()` --calls--> `Badge()`  [EXTRACTED]
+  src/components/inventory/items/item-list-page.tsx → src/components/ui/badge.tsx
 
 ## Import Cycles
 - None detected.
 
 ## Hyperedges (group relationships)
-- **DOKU Payment Flow** — Webhook_Notification, Stock_Deduction, Order_Broadcast, docs_payment_gateway, docs_doku_checkout [EXTRACTED 1.00]
-- **Order Status Lifecycle** — OrderStatus_ENUM, Order_Lifecycle, docs_barista_stock, Stock_Movement [EXTRACTED 1.00]
-- **Data Flow Inventory to Order** — FIFO_Consumption, HPP_Traceable, docs_barista_stock, Order_Lifecycle [EXTRACTED 1.00]
-- **Customer Order Tracking** — Google_Maps, Firebase_Realtime_Database, Real_Time_Tracking, ETA_Calculation [EXTRACTED 1.00]
-- **DOKU Payment Methods** — QRIS, Virtual_Account, EWallet, CASH_COD, HMAC_SHA256_signature [EXTRACTED 1.00]
-- **Prisma Schema Enums** — PaymentStatus_ENUM, PaymentProvider_ENUM, PaymentChannel_ENUM, UserRole_ENUM, OrderStatus_ENUM, BaristaStockMovementType_ENUM [EXTRACTED 1.00]
 - **Next.js Static Asset Files** — public_file_svg, public_globe_svg, public_next_svg, public_vercel_svg, public_window_svg [EXTRACTED 1.00]
 - **Order Simulation Page Screenshots** — simulation_page_final_png, simulation_page_state_png, simulation_page_png, simulation_test_png [INFERRED 0.75]
 
-## Communities (1750 total, 771 thin omitted)
+## Communities (120 total, 20 thin omitted)
 
-### Community 0 - "Community 0"
+### Community 0 - "Firebase RTDB Setup"
+Cohesion: 0.06
+Nodes (33): Checklist Firebase Data, Current Status, Edge Function Secrets (Required), Firebase Credentials, Firebase RTDB Setup, Firebase RTDB Structure, JWT Token Generation, Last Updated (+25 more)
+
+### Community 1 - "registry.ts"
+Cohesion: 0.11
+Nodes (21): getDokuClient(), EWALLET_CHANNEL_CODES, EWalletChannel, createVAAdapter(), DokuVAAdapter, DOKUVARequest, VA_CHANNEL_CODES, VAChannel (+13 more)
+
+### Community 2 - "types.ts"
+Cohesion: 0.17
+Nodes (11): createEWalletAdapter(), DokuEWalletAdapter, DokuQRISAdapter, CreatePaymentRequest, CreatePaymentResponse, Payment, PaymentGroupOption, PaymentMethodOption (+3 more)
+
+### Community 3 - "Quick Links"
+Cohesion: 0.10
+Nodes (20): API Routes Summary, ASCEND System Documentation, Barista App (Flutter), Barista App (Flutter), Change Log, Current Status, Customer App (Flutter), Customer App (Flutter) (+12 more)
+
+### Community 4 - "index.ts"
+Cohesion: 0.20
+Nodes (17): calculateFee(), calculateTotalWithFee(), FeeBreakdown, FeeCalculation, formatCurrency(), getMethodFee(), convertToPayment(), createPayment() (+9 more)
+
+### Community 5 - "checkout/page.tsx"
+Cohesion: 0.13
+Nodes (16): calculateDistance(), CartData, CartItem, Charge, CheckoutPage(), handlePayment(), CreateOrderResponse, CreatePaymentResponse (+8 more)
+
+### Community 6 - "Non-SNAP Format (DOKU Checkout)"
+Cohesion: 0.11
+Nodes (17): HTTP Notification Sample for SNAP | API Reference, Key Differences: SNAP vs Non-SNAP, Non-SNAP E-Wallet (Shopeepay), Non-SNAP Format (DOKU Checkout), Non-SNAP QRIS Notification, Non-SNAP Transaction Status Values, Non-SNAP Virtual Account Notification, Notes (+9 more)
+
+### Community 8 - "ASCEND Development Tasks"
+Cohesion: 0.11
+Nodes (17): ASCEND Development Tasks, Database Grants Verification, Docs Index, ✅ DONE - Database Grants, ✅ DONE - Supabase Edge Functions, Edge Function, Edge Function Test Results, Firebase JWT Signing (Priority: HIGH) (+9 more)
+
+### Community 9 - "ASCEND Seed Scripts"
+Cohesion: 0.13
+Nodes (14): ASCEND Seed Scripts, Creates, Default Credentials, explore-db.ts, Firebase Auth, Firebase Data Structure, Firebase RTDB, Last Updated (+6 more)
+
+### Community 10 - "doku-checkout.service.ts"
+Cohesion: 0.22
+Nodes (12): checkDOKUPaymentStatus(), createDOKUCheckout(), DOKUCheckoutRequest, DOKUCheckoutResult, DOKUConfig, generateSignature(), generateUUID(), getDOKUConfig() (+4 more)
+
+### Community 11 - "ASCEND Tasks - Simulation Checklist"
+Cohesion: 0.14
+Nodes (13): API Test, ASCEND Tasks - Simulation Checklist, Created, Done ✅, Edge Function, Expected Response, Firebase RTDB, In Progress (+5 more)
+
+### Community 12 - "ASCEND Development Plan - Order System + Real-time Features"
+Cohesion: 0.17
+Nodes (11): ascend_barista (Flutter), ASCEND Development Plan - Order System + Real-time Features, File Structure, Integration Tests, Notes, Overview, Status, Technology Stack (+3 more)
+
+### Community 13 - "Detailed Implementation"
+Cohesion: 0.20
+Nodes (10): 1.1 Existing Implementation ✅, 1.2 Order Accept Page (Barista App) 🔲, 1.3 Decline Order Logic ✅ DONE, 3.1 Firebase RTDB Structure, 3.2 Barista Updates During Delivery, 3.3 Customer Watches Live Tracking, 3.4 Sync to Supabase on Completion, Detailed Implementation (+2 more)
+
+### Community 14 - "API Contracts"
+Cohesion: 0.29
+Nodes (7): API Contracts, Chat Endpoints, Get Messages, Get Tracking (Customer), Order Tracking Endpoints, Send Message, Update Tracking (Barista)
+
+### Community 15 - "client.ts"
+Cohesion: 0.29
+Nodes (4): DokuConfig, DokuRequestOptions, DokuResponse, isSuccessCode()
+
+### Community 16 - "PHASE 2: Real-time Location Tracking"
+Cohesion: 0.33
+Nodes (6): 2.1 Firebase RTDB Structure, 2.2 Barista Location Sync (Flutter), 2.3 Customer Location Sync (Flutter - Customer App), 2.4 WebAdmin: Barista Map, 2.5 Updated Edge Function, PHASE 2: Real-time Location Tracking
+
+### Community 17 - "PHASE 4: Barista-Customer Chat"
+Cohesion: 0.33
+Nodes (6): 4.1 Firebase RTDB Structure, 4.2 Send Message API (WebAdmin), 4.3 Subscribe to Messages (Flutter), 4.4 Chat UI, 4.5 WhatsApp Deep Link (Quick Solution), PHASE 4: Barista-Customer Chat
+
+### Community 18 - "Features Checklist"
+Cohesion: 0.33
+Nodes (6): Features Checklist, Phase 1: Order Assignment Flow ✅ COMPLETE, Phase 2: Real-time Location Tracking 🔲 PARTIAL, Phase 3: Order Status Tracking 🔲 PARTIAL, Phase 4: Barista-Customer Chat 🔲 PENDING, Phase 5: Integration & Testing ✅ COMPLETE
+
+### Community 19 - "Implementation Order"
+Cohesion: 0.33
+Nodes (6): Implementation Order, Week 1: Order Accept Page, Week 2: Location Tracking, Week 3: Order Tracking, Week 4: Chat, Week 5: Integration & Polish
+
+### Community 20 - "Fake Order Test Script"
+Cohesion: 0.50
+Nodes (4): Fake Order Test Script, Features, Location, Usage
+
+### Community 21 - "radio-group.tsx"
+Cohesion: 0.50
+Nodes (3): @radix-ui/react-radio-group, RadioGroup, RadioGroupItem
+
+### Community 22 - "Database Schema Updates"
+Cohesion: 0.67
+Nodes (3): Database Schema Updates, New Model: ChatMessage, Prisma Schema (webadmin/prisma/schema.prisma)
+
+### Community 47 - "components.json"
+Cohesion: 0.09
+Nodes (21): aliases, components, hooks, lib, ui, utils, iconLibrary, menuAccent (+13 more)
+
+### Community 99 - "order-report.service.ts"
+Cohesion: 0.11
+Nodes (23): exceljs, GET, ExportMeta, exportOrderReport(), fmtDateTime(), handleExport(), buildSheet(), BuildSheetArgs (+15 more)
+
+### Community 102 - "map/page.tsx"
+Cohesion: 0.06
+Nodes (33): leaflet, react-leaflet, ActiveOrder, fmtRupiah(), ListResponse, OrdersLiveMap, OrdersLiveMapStyles, OrdersMapPage() (+25 more)
+
+### Community 106 - "buttonVariants"
+Cohesion: 0.07
+Nodes (44): nextConfig, lucide-react, next, DetailResponse, EditAdminPage(), EditSkeleton(), NewAdminPage(), RestockBaristaPage() (+36 more)
+
+### Community 109 - "package.json"
+Cohesion: 0.07
+Nodes (27): name, private, type, version, @anthropic-ai/claude-code, babel-plugin-react-compiler, cmdk, date-fns (+19 more)
+
+### Community 110 - "dependencies"
+Cohesion: 0.06
+Nodes (31): dependencies, @anthropic-ai/claude-code, @aws-sdk/client-s3, @base-ui/react, class-variance-authority, cmdk, cn, date-fns (+23 more)
+
+### Community 140 - "devDependencies"
+Cohesion: 0.13
+Nodes (15): devDependencies, babel-plugin-react-compiler, dotenv, playwright, prisma, @prisma/cli-engine, tailwindcss, @tailwindcss/postcss (+7 more)
+
+### Community 157 - "scripts"
+Cohesion: 0.33
+Nodes (6): scripts, build, dev, postinstall, seed:admin, start
+
+### Community 171 - "seed-admin.ts"
+Cohesion: 0.21
+Nodes (9): dotenv, prisma, main(), syncDatabaseUser(), syncFirebaseUser(), USERS, generateBatchCode(), INVENTORY_ITEMS (+1 more)
+
+### Community 206 - "db.ts"
+Cohesion: 0.09
+Nodes (15): @prisma/adapter-pg, METHODS, GET, GET, GET, GET, adapter, prisma (+7 more)
+
+### Community 217 - "next-auth"
+Cohesion: 0.13
+Nodes (12): next-auth, handler, authOptions, SessionUser, adminAuth, serviceAccount, config, JWT (+4 more)
+
+### Community 219 - ".notFound"
+Cohesion: 0.10
+Nodes (34): GET, PATCH, POST, PATCH, DELETE, GET, PATCH, GET (+26 more)
+
+### Community 228 - "barista-stock.service.ts"
+Cohesion: 0.11
+Nodes (26): POST, GET, GET, GET, POST, POST, GET, adjustBaristaStock() (+18 more)
+
+### Community 242 - "ok"
+Cohesion: 0.11
+Nodes (34): GET, DELETE, GET, PUT, GET, GET, GET, GET (+26 more)
+
+### Community 244 - "zod"
+Cohesion: 0.28
+Nodes (10): zod, GET, DashboardStats, formatDateOnly(), getDashboardStats(), startOfDay(), startOfDaysAgo(), startOfMonth() (+2 more)
+
+### Community 246 - "inventory-batch.service.ts"
+Cohesion: 0.27
+Nodes (10): GET, PATCH, GET, getInventoryBatchById(), listInventoryBatches(), updateInventoryBatch(), ListInventoryBatchQuery, listInventoryBatchQuerySchema (+2 more)
+
+### Community 255 - "finished-product.service.ts"
+Cohesion: 0.22
+Nodes (14): DELETE, GET, PATCH, GET, getFinishedBatchById(), listFinishedBatches(), updateFinishedBatch(), voidFinishedBatch() (+6 more)
+
+### Community 261 - "inventory-item.service.ts"
+Cohesion: 0.18
+Nodes (18): DELETE, GET, PATCH, GET, POST, createInventoryItem(), deactivateInventoryItem(), getInventoryItemById() (+10 more)
+
+### Community 268 - "production.service.ts"
+Cohesion: 0.09
+Nodes (32): GET, GET, POST, GET, POST, POST, previewSchema, computeFifoForItem() (+24 more)
+
+### Community 277 - "product-image.service.ts"
+Cohesion: 0.13
+Nodes (22): @aws-sdk/client-s3, sharp, DELETE, PATCH, publicUrlFor(), r2, R2_BUCKET, R2_PUBLIC_BASE (+14 more)
+
+### Community 280 - "ApiError"
+Cohesion: 0.15
+Nodes (11): GET, POST, GET, POST, GET, ApiError, created(), listProductImages() (+3 more)
+
+### Community 283 - "product.service.ts"
+Cohesion: 0.15
+Nodes (20): DELETE, GET, PATCH, GET, POST, calculateEstimatedHpp(), createProduct(), deactivateProduct() (+12 more)
+
+### Community 290 - ".unprocessable"
+Cohesion: 0.12
+Nodes (27): PATCH, PATCH, GET, POST, activateRecipe(), computeMargin(), createRecipe(), deactivateRecipe() (+19 more)
+
+### Community 304 - "restock.service.ts"
+Cohesion: 0.17
+Nodes (18): DELETE, GET, GET, POST, createRestock(), generateBatchCode(), getRestockById(), listRestocks() (+10 more)
+
+### Community 312 - "order.service.ts"
+Cohesion: 0.09
+Nodes (38): POST, POST, POST, POST, POST, POST, GET, POST (+30 more)
+
+### Community 331 - "notification/route.ts"
+Cohesion: 0.17
+Nodes (14): logWebhook(), POST, verifyDokuSignature(), CreatePaymentInput, createPaymentSchema, DOKU_STATUS_MAP, DokuNonSnapNotification, dokuNonSnapNotificationSchema (+6 more)
+
+### Community 347 - "setting.service.ts"
+Cohesion: 0.16
+Nodes (18): GET, DELETE, GET, PATCH, GET, POST, createSetting(), deleteSetting() (+10 more)
+
+### Community 365 - "stock.service.ts"
+Cohesion: 0.21
+Nodes (12): GET, GET, FinishedStockItem, getLowStockItems(), getStockSummary(), MaterialStockItem, MaterialStockStatus, StockSummary (+4 more)
+
+### Community 376 - "CardDescription"
+Cohesion: 0.12
+Nodes (22): Page(), ItemDetailPage(), Batch, DetailError(), DetailResponse, DetailSkeleton(), formatDateTime(), formatNumber() (+14 more)
+
+### Community 382 - "user-detail-view.tsx"
+Cohesion: 0.15
+Nodes (14): AdminDetailPage(), UserDetailPage(), DetailError(), DetailResponse, DetailSkeleton(), formatDate(), formatDateTime(), getInitials() (+6 more)
+
+### Community 386 - "user-list-page.tsx"
+Cohesion: 0.14
+Nodes (14): AdminsPage(), UsersPage(), formatDate(), getInitials(), ListResponse, MutationResponse, Props, Role (+6 more)
+
+### Community 388 - "BaristaStockDetailView"
+Cohesion: 0.15
+Nodes (7): BaristaStockDetailPage(), PageProps, BaristaStockDetailView(), DetailSkeleton(), formatDateTime(), formatNumber(), formatRupiah()
+
+### Community 391 - "barista-movements-page.tsx"
+Cohesion: 0.19
+Nodes (12): BaristaMovementsRoutePage(), BaristaMovementsPage(), formatDateTime(), formatNumber(), ListResponse, Movement, MovementsEmptyState(), MovementsErrorState() (+4 more)
+
+### Community 393 - "barista-stock-page.tsx"
+Cohesion: 0.22
+Nodes (10): BaristaStockRoutePage(), BaristaStockItem, BaristaStockPage(), BaristaStockProduct, formatNumber(), formatRupiah(), ListResponse, StockEmptyState() (+2 more)
+
+### Community 397 - "batch-detail-view.tsx"
+Cohesion: 0.16
+Nodes (14): BatchDetailPage(), BatchDetail, BatchDetailView(), handleEdit(), DetailError(), DetailResponse, DetailSkeleton(), formatDateTime() (+6 more)
+
+### Community 399 - "batch-list-page.tsx"
+Cohesion: 0.17
+Nodes (12): BatchesPage(), Batch, BatchEmptyState(), BatchErrorState(), BatchListPage(), handleEdit(), BatchSkeleton(), formatDateTime() (+4 more)
+
+### Community 401 - "cost-history-page.tsx"
+Cohesion: 0.17
+Nodes (14): CostHistoryRoutePage(), CostEntry, CostHistoryEmptyState(), CostHistoryErrorState(), CostHistoryPage(), CostHistorySkeleton(), formatDateTime(), formatNumber() (+6 more)
+
+### Community 403 - "finished-product-detail-view.tsx"
+Cohesion: 0.14
+Nodes (12): FinishedBatchDetailPage(), DetailError(), DetailResponse, DetailSkeleton(), FinishedBatchDetail, FinishedBatchDetailView(), formatDateTime(), formatNumber() (+4 more)
+
+### Community 405 - "FinishedBatchListPage"
+Cohesion: 0.14
+Nodes (7): FinishedBatchesPage(), BatchSkeleton(), FinishedBatchListPage(), formatDateTime(), formatNumber(), formatRupiah(), formatUnitCost()
+
+### Community 407 - "Button"
+Cohesion: 0.20
+Nodes (12): react-day-picker, DetailResponse, EditItemPage(), EditSkeleton(), ItemForm(), ItemFormData, Props, Unit (+4 more)
+
+### Community 415 - "item-list-page.tsx"
+Cohesion: 0.16
+Nodes (14): ItemsPage(), formatNumber(), Item, ItemEmptyState(), ItemErrorState(), ItemListPage(), getStockBadge(), ItemSkeleton() (+6 more)
+
+### Community 417 - "production-detail-view.tsx"
+Cohesion: 0.26
+Nodes (11): ProductionDetailPage(), DetailError(), DetailResponse, DetailSkeleton(), formatDateTime(), formatNumber(), formatRupiah(), formatUnitCost() (+3 more)
+
+### Community 421 - "production-list-page.tsx"
+Cohesion: 0.26
+Nodes (10): ProductionsPage(), formatDateTime(), formatNumber(), formatRupiah(), ListResponse, Production, ProductionEmptyState(), ProductionErrorState() (+2 more)
+
+### Community 426 - "product-detail-view.tsx"
+Cohesion: 0.13
+Nodes (16): ProductDetailPage(), CostHistory, DetailError(), DetailResponse, DetailSkeleton(), formatBytes(), formatDateTime(), formatNumber() (+8 more)
+
+### Community 430 - "product-list-page.tsx"
+Cohesion: 0.18
+Nodes (13): ProductsPage(), formatNumber(), formatRupiah(), ListResponse, marginBadgeClass(), MutationResponse, Product, ProductEmptyState() (+5 more)
+
+### Community 435 - "recipe-detail-view.tsx"
+Cohesion: 0.16
+Nodes (14): RecipeDetailPage(), DetailError(), DetailResponse, DetailSkeleton(), FifoAllocation, formatDateTime(), formatNumber(), formatRupiah() (+6 more)
+
+### Community 440 - "recipe-list-page.tsx"
+Cohesion: 0.10
+Nodes (14): RecipesPage(), formatDateTime(), formatNumber(), formatRupiah(), ListResponse, marginColorClass(), MutationResponse, Recipe (+6 more)
+
+### Community 442 - "DialogDescription"
+Cohesion: 0.18
+Nodes (12): RestockDetailPage(), DetailError(), DetailResponse, DetailSkeleton(), formatDateTime(), formatNumber(), formatRupiah(), MutationResponse (+4 more)
+
+### Community 446 - "DialogTitle"
+Cohesion: 0.17
+Nodes (7): RestocksPage(), formatDateTime(), formatNumber(), formatRupiah(), RestockListPage(), RestockSkeleton(), DialogTitle()
+
+### Community 448 - "stock-page.tsx"
+Cohesion: 0.16
+Nodes (15): StockRoutePage(), finishedStatusBadge(), FinishedStatusFilter, FinishedStockItem, formatNumber(), formatRupiah(), materialStatusBadge(), MaterialStatusFilter (+7 more)
+
+### Community 450 - "field.tsx"
+Cohesion: 0.16
+Nodes (11): DashboardLayout(), ModeToggle(), NotificationButton(), Field(), FieldSeparator(), fieldVariants, Separator(), SidebarInset() (+3 more)
+
+### Community 452 - "Badge"
+Cohesion: 0.10
+Nodes (24): OrderDetailPage(), PageProps, ReportsOrdersPage(), canCancel(), DetailError(), DetailResponse, DetailSkeleton(), fmtDateTime() (+16 more)
+
+### Community 463 - "order-list-page.tsx"
+Cohesion: 0.12
+Nodes (17): OrdersPage(), canCancel(), ChannelFilter, fmtDateTime(), fmtRupiah(), ListResponse, MutationResponse, Order (+9 more)
+
+### Community 465 - "react"
+Cohesion: 0.06
+Nodes (48): react, CartItem, fmtRupiah(), OrderSimulationPage(), PreviewData, ProductItem, fmtRupiah(), Product (+40 more)
+
+### Community 473 - "(dashboard)/page.tsx"
+Cohesion: 0.13
+Nodes (22): recharts, DashboardError(), DashboardPage(), DashboardSkeleton(), DashboardStats, formatCompactRupiah(), formatDateShort(), formatRelativeTime() (+14 more)
+
+### Community 482 - "CardContent"
+Cohesion: 0.08
+Nodes (46): StatCard(), ReportFilterValue, TabKey, TabMeta, TABS, BatchesTab(), BatchRow, fmtDateTime() (+38 more)
+
+### Community 484 - "profile-edit-form.tsx"
+Cohesion: 0.23
+Nodes (14): ProfileEditPage(), ACCEPTED_TYPES, formatDateTime(), getInitials(), isoToDateInput(), normalizePhone(), ProfileData, ProfileEditForm() (+6 more)
+
+### Community 488 - "Dialog"
+Cohesion: 0.31
+Nodes (7): ReportsProductsPage(), formatFilterLabels(), ReportPage(), handleExport(), CommandDialog(), Dialog(), DialogHeader()
+
+### Community 490 - "setting-list-page.tsx"
+Cohesion: 0.11
+Nodes (12): SettingsRoutePage(), formatValue(), ListResponse, MutationResponse, Setting, SettingEmptyState(), SettingErrorState(), SettingListPage() (+4 more)
+
+### Community 492 - "tracking/page.tsx"
+Cohesion: 0.08
+Nodes (37): firebase, RoleFilter, timeAgo(), TrackingMap, TrackingMapStyles, TrackingPage(), AutoFitBounds(), getMarkerIcon() (+29 more)
+
+### Community 508 - "app/layout.tsx"
 Cohesion: 0.25
-Nodes (8): Key Differences: SNAP vs Non-SNAP, Non-SNAP E-Wallet (Shopeepay), Non-SNAP Format (DOKU Checkout), Non-SNAP QRIS Notification, Non-SNAP Transaction Status Values, Non-SNAP Virtual Account Notification, Required Headers, Signature Verification (Non-SNAP)
+Nodes (7): next-themes, geistMono, geistSans, metadata, RootLayout(), AppSessionProvider(), ThemeProvider()
 
-### Community 1 - "Community 1"
-Cohesion: 0.40
-Nodes (4): HTTP Notification Sample for SNAP | API Reference, Notes, Overview, Response Format
+### Community 518 - "app-sidebar.tsx"
+Cohesion: 0.14
+Nodes (22): administration, AppSidebar(), dashboard, inventoryFlow, orders, reports, system, teams (+14 more)
 
-### Community 2 - "Community 2"
-Cohesion: 0.40
-Nodes (5): Required Headers, Signature Verification (SNAP), SNAP Format, SNAP Payment Notification (E-Wallet, VA, etc.), Transaction Status Codes (SNAP)
+### Community 540 - "Card"
+Cohesion: 0.18
+Nodes (17): AvailableProduct, Barista, BaristaListResponse, BaristaRestockForm(), addRow(), handleProductChange(), handleSubmit(), updateRow() (+9 more)
+
+### Community 680 - "production-form.tsx"
+Cohesion: 0.19
+Nodes (13): FifoAllocation, formatNumber(), formatRupiah(), formatUnitCost(), MutationResponse, parseNumber(), PreviewItem, PreviewResponse (+5 more)
+
+### Community 722 - "ProductForm"
+Cohesion: 0.13
+Nodes (9): formatBytes(), formatDigits(), formatRupiah(), nextUid(), ProductForm(), addFiles(), addMetadataRow(), handleDrop() (+1 more)
+
+### Community 760 - "recipe-form.tsx"
+Cohesion: 0.13
+Nodes (18): emptyRow(), FifoAllocation, formatNumber(), formatRupiah(), formatUnitCost(), FormError(), FormSkeleton(), MutationResponse (+10 more)
+
+### Community 804 - "restock-form.tsx"
+Cohesion: 0.18
+Nodes (12): BulkResponse, emptyRow(), formatDigits(), formatRupiahDisplay(), InventoryItem, ItemsResponse, parseNumber(), RestockForm() (+4 more)
+
+### Community 854 - "dropdown-menu.tsx"
+Cohesion: 0.19
+Nodes (21): NavProjects(), getInitials(), NavUser(), TeamSwitcher(), Avatar(), AvatarFallback(), AvatarImage(), DropdownMenu() (+13 more)
+
+### Community 1087 - "command.tsx"
+Cohesion: 0.12
+Nodes (19): Command(), CommandEmpty(), CommandGroup(), CommandInput(), CommandItem(), CommandList(), InputGroup(), InputGroupAddon() (+11 more)
+
+### Community 1097 - "DialogContent"
+Cohesion: 0.47
+Nodes (3): DialogContent(), DialogOverlay(), DialogPortal()
+
+### Community 1124 - "navigation-menu.tsx"
+Cohesion: 0.12
+Nodes (7): class-variance-authority, EmptyMedia(), emptyMediaVariants, NavigationMenu(), NavigationMenuPositioner(), NavigationMenuTrigger(), navigationMenuTriggerStyle
+
+### Community 1167 - "pagination.tsx"
+Cohesion: 0.28
+Nodes (4): PaginationLink(), PaginationLinkProps, PaginationNext(), PaginationPrevious()
+
+### Community 1187 - "select.tsx"
+Cohesion: 0.24
+Nodes (3): SelectContent(), SelectScrollDownButton(), SelectScrollUpButton()
+
+### Community 1199 - "sidebar.tsx"
+Cohesion: 0.11
+Nodes (19): cn, Sheet(), SheetContent(), SheetDescription(), SheetHeader(), SheetOverlay(), SheetPortal(), SheetTitle() (+11 more)
+
+### Community 1253 - "toast.tsx"
+Cohesion: 0.28
+Nodes (12): toast, ToastAction(), ToastClose(), ToastContent(), ToastDescription(), Toaster(), ToastIcon(), ToastList() (+4 more)
+
+### Community 1356 - "order.assignment.service.ts"
+Cohesion: 0.28
+Nodes (8): adminDatabase, BaristaCandidate, BaristaLocation, BroadcastOrderInput, FindBaristasInput, findNearestBaristasWithStock(), getActiveBaristasFromFirebase(), haversine()
+
+### Community 1512 - "doku.service.ts"
+Cohesion: 0.24
+Nodes (10): createDOKUCheckout(), DOKUCheckoutRequest, DOKUCheckoutResult, DOKUConfig, DOKUPaymentMethod, dokuRequest(), generateCheckoutSignature(), generateSnapSignature() (+2 more)
+
+### Community 1719 - "compilerOptions"
+Cohesion: 0.09
+Nodes (21): compilerOptions, allowJs, allowSyntheticDefaultImports, esModuleInterop, incremental, isolatedModules, jsx, lib (+13 more)
 
 ## Knowledge Gaps
-- **763 isolated node(s):** `DOKU Checkout Integration Guide`, `DOKU Checkout`, `Backend Integration`, `Frontend Integration`, `Checkout Page` (+758 more)
-  These have ≤1 connection - possible missing edges or undocumented components.
-- **771 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **597 isolated node(s):** `$schema`, `style`, `rsc`, `tsx`, `config` (+592 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 824 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **20 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Non-SNAP Format (DOKU Checkout)` connect `Community 0` to `Community 1`?**
-  _High betweenness centrality (0.000) - this node is a cross-community bridge._
-- **Why does `HTTP Notification Sample for SNAP | API Reference` connect `Community 1` to `Community 0`, `Community 2`?**
-  _High betweenness centrality (0.000) - this node is a cross-community bridge._
-- **Why does `SNAP Format` connect `Community 2` to `Community 1`?**
-  _High betweenness centrality (0.000) - this node is a cross-community bridge._
-- **What connects `DOKU Checkout Integration Guide`, `DOKU Checkout`, `Backend Integration` to the rest of the system?**
-  _763 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Why does `next` connect `buttonVariants` to `user-list-page.tsx`, `checkout/page.tsx`, `app-sidebar.tsx`, `barista-movements-page.tsx`, `barista-stock-page.tsx`, `batch-detail-view.tsx`, `batch-list-page.tsx`, `cost-history-page.tsx`, `finished-product-detail-view.tsx`, `Button`, `Card`, `item-list-page.tsx`, `production-detail-view.tsx`, `restock-form.tsx`, `production-list-page.tsx`, `production-form.tsx`, `product-detail-view.tsx`, `product-list-page.tsx`, `recipe-detail-view.tsx`, `recipe-list-page.tsx`, `DialogDescription`, `stock-page.tsx`, `Badge`, `order-list-page.tsx`, `react`, `dropdown-menu.tsx`, `(dashboard)/page.tsx`, `next-auth`, `CardContent`, `profile-edit-form.tsx`, `map/page.tsx`, `tracking/page.tsx`, `package.json`, `recipe-form.tsx`, `ok`, `CardDescription`, `app/layout.tsx`, `user-detail-view.tsx`?**
+  _High betweenness centrality (0.247) - this node is a cross-community bridge._
+- **Why does `react` connect `react` to `user-list-page.tsx`, `checkout/page.tsx`, `app-sidebar.tsx`, `barista-movements-page.tsx`, `barista-stock-page.tsx`, `batch-detail-view.tsx`, `@base-ui/react`, `batch-list-page.tsx`, `pagination.tsx`, `cost-history-page.tsx`, `finished-product-detail-view.tsx`, `radio-group.tsx`, `Button`, `Card`, `item-list-page.tsx`, `production-detail-view.tsx`, `select.tsx`, `restock-form.tsx`, `production-list-page.tsx`, `production-form.tsx`, `product-detail-view.tsx`, `product-list-page.tsx`, `sidebar.tsx`, `recipe-detail-view.tsx`, `recipe-list-page.tsx`, `DialogDescription`, `command.tsx`, `stock-page.tsx`, `field.tsx`, `Badge`, `DialogContent`, `order-list-page.tsx`, `dropdown-menu.tsx`, `(dashboard)/page.tsx`, `table.tsx`, `CardContent`, `profile-edit-form.tsx`, `toast.tsx`, `map/page.tsx`, `buttonVariants`, `setting-list-page.tsx`, `tracking/page.tsx`, `package.json`, `recipe-form.tsx`, `CardDescription`, `app/layout.tsx`, `user-detail-view.tsx`?**
+  _High betweenness centrality (0.087) - this node is a cross-community bridge._
+- **Why does `Button()` connect `Button` to `user-list-page.tsx`, `BaristaStockDetailView`, `checkout/page.tsx`, `barista-movements-page.tsx`, `barista-stock-page.tsx`, `batch-detail-view.tsx`, `batch-list-page.tsx`, `pagination.tsx`, `cost-history-page.tsx`, `finished-product-detail-view.tsx`, `FinishedBatchListPage`, `Card`, `item-list-page.tsx`, `production-detail-view.tsx`, `restock-form.tsx`, `production-list-page.tsx`, `production-form.tsx`, `product-detail-view.tsx`, `product-list-page.tsx`, `sidebar.tsx`, `recipe-detail-view.tsx`, `recipe-list-page.tsx`, `DialogDescription`, `DialogTitle`, `command.tsx`, `stock-page.tsx`, `field.tsx`, `Badge`, `DialogContent`, `order-list-page.tsx`, `react`, `ProductForm`, `(dashboard)/page.tsx`, `CardContent`, `profile-edit-form.tsx`, `toast.tsx`, `map/page.tsx`, `Dialog`, `buttonVariants`, `setting-list-page.tsx`, `tracking/page.tsx`, `recipe-form.tsx`, `CardDescription`, `user-detail-view.tsx`?**
+  _High betweenness centrality (0.063) - this node is a cross-community bridge._
+- **What connects `$schema`, `style`, `rsc` to the rest of the system?**
+  _597 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Firebase RTDB Setup` be split into smaller, more focused modules?**
+  _Cohesion score 0.05714285714285714 - nodes in this community are weakly interconnected._
+- **Should `registry.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.10582010582010581 - nodes in this community are weakly interconnected._
+- **Should `Quick Links` be split into smaller, more focused modules?**
+  _Cohesion score 0.09523809523809523 - nodes in this community are weakly interconnected._
