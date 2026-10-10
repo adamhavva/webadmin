@@ -80,8 +80,8 @@ type Order = {
   deliveryFee: number;
   total: number;
   paymentStatus: "PENDING" | "PAID" | "FAILED" | "EXPIRED" | "REFUNDED";
-  paymentProvider: "MIDTRANS";
-  paymentChannel: "PREPAID";
+  paymentProvider: "CASH" | "DOKU";
+  paymentChannel: "COD" | "PREPAID";
   paymentMethodCode: string | null;
   paymentMethodName: string | null;
   distanceKm: number | null;
@@ -225,7 +225,7 @@ function paymentBadge(order: Order) {
   }
   return (
     <Badge variant="secondary">
-      Belum Bayar
+      {order.paymentChannel === "COD" ? "COD" : "Belum Bayar"}
     </Badge>
   );
 }

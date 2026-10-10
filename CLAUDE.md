@@ -31,10 +31,17 @@ ASCEND is a **three-application system** for a coffee business:
 | Frontend Web | Next.js 16, React 19, Tailwind v4, shadcn |
 | Frontend Mobile | Flutter |
 | Backend | Next.js API Routes |
+<<<<<<< HEAD
 | Database | PostgreSQL ≥ 15, Prisma 7, **Supabase PostgreSQL** |
 | Authentication | **Firebase Auth** (barista & customer apps) |
 | Real-time | **Supabase Realtime** |
 | Payment | Midtrans Snap (dynamic — from Midtrans API) |
+=======
+| Database | PostgreSQL ≥ 15, Prisma 7 |
+| Authentication | Firebase Auth |
+| Real-time | Firebase RTDB |
+| Payment | DOKU (QRIS, VA, e-Wallet) |
+>>>>>>> 6bf28fd206c6a63fe65027db6b66dfedc5d270bd
 | Storage | Cloudflare R2 |
 | Serverless Functions | **Supabase Edge Functions** |
 
@@ -62,7 +69,7 @@ npm run start    # serve production build
 npx prisma db push          # sync schema
 npx prisma generate         # regenerate client
 npx tsx scripts/seed-admin.ts
-npx tsx scripts/seed-kopi.ts  # seed products
+npx tsx scripts/seed-payment-methods.ts  # CASH + QRIS
 ```
 
 ---
@@ -141,25 +148,41 @@ CANCELLED    CANCELLED
 
 ---
 
-## Payment System
+## Payment System - All Methods
 
 ### Supported Methods
 
+<<<<<<< HEAD
 Payment methods are **dynamic** — fetched from Midtrans API (`GET /v1/payment-options`) based on your Midtrans Dashboard configuration. No hardcoded method codes.
 
 Supported method types: QRIS, Virtual Account (BCA/Mandiri/BNI), E-Wallet (OVO/DANA/ShopeePay), Credit Card, Convenience Store, Cicilan.
 
 Semua pembayaran melalui Midtrans Snap — tidak ada COD/CASH.
+=======
+| Code | Provider | Channel | Type | Flow |
+|------|----------|---------|------|------|
+| CASH | Internal | COD | Offline | Bayar di tempat |
+| QRIS | DOKU | PREPAID | Online | Scan QR via DOKU |
+| VA_BCA, VA_MANDIRI, dll | DOKU | PREPAID | Online | Virtual Account |
+| EWALLET_OVO, EWALLET_DANA, EWALLET_SHOPEEPAY | DOKU | PREPAID | Online | e-Wallet |
+>>>>>>> 6bf28fd206c6a63fe65027db6b66dfedc5d270bd
 
 ### Payment APIs
 
 | Endpoint | Description |
 |----------|-------------|
+<<<<<<< HEAD
 | `POST /api/payment/checkout` | Create Midtrans Snap token → redirectUrl |
 | `POST /api/payment/notification` | Midtrans webhook callback |
+=======
+| `POST /api/payment/cash` | Process CASH (COD) payment |
+| `POST /api/payment/checkout` | Create DOKU Checkout session |
+| `POST /api/payment/notification` | DOKU webhook callback |
+>>>>>>> 6bf28fd206c6a63fe65027db6b66dfedc5d270bd
 | `GET /api/payment?orderId=` | Query payment status |
 | `GET /api/payment/methods` | List available payment methods (dynamic from Midtrans) |
 
+<<<<<<< HEAD
 ### Midtrans Dashboard Configuration
 
 Before going live, configure these in your Midtrans Dashboard:
@@ -183,13 +206,43 @@ Before going live, configure these in your Midtrans Dashboard:
 7. Payment status updated → Order status → SEARCHING + PAID
 8. Stock reduced → Order broadcasted to baristas
 9. Customer redirected to /checkout/finish?order_id=xxx
+=======
+### CASH Flow (COD)
+
+```
+1. Pilih produk → pilih CASH → input jumlah bayar
+2. Sistem hitung kembalian
+3. Klik Bayar → POST /api/payment/cash
+4. Order SEARCHING + PAID → Stok dikurangi → Broadcast ke baristas
 ```
 
-### Midtrans Signature Verification
+### DOKU Flow (QRIS/VA/e-Wallet)
 
 ```
-SHA512(order_id + status_code + gross_amount + serverKey)
+1. Pilih produk → pilih metode (QRIS/VA/e-Wallet)
+2. Klik Bayar → POST /api/orders + POST /api/payment/checkout
+3. Redirect ke DOKU Checkout page
+4. Customer bayar via DOKU
+5. DOKU webhook → POST /api/payment/notification
+6. Order SEARCHING + PAID → Stok dikurangi → Broadcast ke baristas
+>>>>>>> 6bf28fd206c6a63fe65027db6b66dfedc5d270bd
 ```
+
+### DOKU Signature Format
+
+```typescript
+// Signature header format: HMACSHA256=<base64>
+// StringToSign:
+Client-Id:{clientId}
+Request-Id:{requestId}
+Request-Timestamp:{timestamp}
+Request-Target:{endpoint}
+Digest:{bodyHash}
+```
+
+### Timestamp Format
+
+DOKU requires: `YYYY-MM-DDTHH:mm:ssZ` (UTC, no milliseconds)
 
 > **Note**: Payment method information (methodCode, methodName, methodGroup) is captured as a SNAPSHOT from Midtrans webhook. It is not used for filtering or business logic — only for display in admin reports.
 
@@ -200,6 +253,7 @@ SHA512(order_id + status_code + gross_amount + serverKey)
 ### Barista Assignment Flow
 
 ```
+<<<<<<< HEAD
 Payment Webhook
     ↓
 POST /api/payment/notification
@@ -217,12 +271,31 @@ Update order: status=ASSIGNED, baristaId
 Supabase Realtime broadcast to barista app
     ↓
 Barista receives order (Order Accept Page)
+=======
+1. Pilih barista → produk → cart
+2. Masukkan nama & no. HP customer
+3. Pilih metode pembayaran (CASH / QRIS / VA / e-Wallet)
+4. Klik "Pilih Pembayaran"
+
+For CASH:
+  → Input jumlah bayar
+  → Klik Bayar → Order langsung selesai
+  → Stok dikurangi, broadcast ke baristas
+
+For DOKU:
+  → Redirect ke DOKU Checkout page
+  → Pilih metode: QRIS / VA / e-Wallet
+  → Bayar via DOKU
+  → DOKU webhook → Stok dikurangi
+  → Redirect back → Result
+>>>>>>> 6bf28fd206c6a63fe65027db6b66dfedc5d270bd
 ```
 
 ### Edge Function: assign-barista
 
 Reads barista locations from **Firebase RTDB** (primary) or **Supabase User table** (fallback).
 
+<<<<<<< HEAD
 ```typescript
 // supabase/functions/assign-barista/index.ts
 // Primary: Read from Firebase RTDB
@@ -387,6 +460,8 @@ AND latitude IS NOT NULL AND longitude IS NOT NULL
 ```
 
 ---
+=======
+>>>>>>> 6bf28fd206c6a63fe65027db6b66dfedc5d270bd
 
 ---
 
@@ -396,7 +471,11 @@ AND latitude IS NOT NULL AND longitude IS NOT NULL
 
 ```prisma
 PaymentStatus: PENDING, PAID, FAILED, EXPIRED, REFUNDED
+<<<<<<< HEAD
 PaymentProvider: MIDTRANS
+=======
+PaymentProvider: CASH, DOKU
+>>>>>>> 6bf28fd206c6a63fe65027db6b66dfedc5d270bd
 OrderStatus: PENDING, SEARCHING, ASSIGNED, ACCEPTED, DELIVERING, ARRIVED, COMPLETED, CANCELLED, FAILED
 BaristaStockMovementType: RESTOCK, SOLD, ADJUSTMENT, RETURN, WASTE
 UserRole: ADMIN, CUSTOMER, BARISTA
@@ -410,11 +489,17 @@ UserStatus: ACTIVE, INACTIVE
 | User | ADMIN, CUSTOMER, BARISTA (with latitude, longitude columns) |
 | Product | Master produk jadi |
 | BaristaStock | Stok produk di gerobak |
+<<<<<<< HEAD
 | Order | Order dengan payment info, baristaId |
 | Payment | Record pembayaran via Midtrans Snap |
 | PaymentWebhookLog | Log webhook Midtrans |
 
 > **NOTE**: `PaymentProviderConfig`, `PaymentMethodConfig`, dan `CustomerPaymentAccount` telah dihapus.
+=======
+| Order | Order dengan payment info |
+| Payment | Record pembayaran |
+| PaymentMethodConfig | Konfigurasi payment (CASH, QRIS) |
+>>>>>>> 6bf28fd206c6a63fe65027db6b66dfedc5d270bd
 
 ---
 
@@ -484,6 +569,7 @@ npm test
 | `src/lib/auth.ts` | NextAuth config + Firebase token verification |
 | `src/lib/api-response.ts` | Response helpers |
 | `src/lib/db.ts` | Prisma client |
+<<<<<<< HEAD
 | `src/lib/supabase.ts` | Supabase client |
 | `src/modules/payment/midtrans.service.ts` | Midtrans Snap service |
 | `src/modules/payment/payment.service.ts` | Payment business logic |
@@ -502,6 +588,12 @@ npm test
 | `supabase/functions/broadcast-order/index.ts` | Broadcast order to pool |
 | `supabase/functions/firebase-token/index.ts` | Firebase token generation |
 | `credentials/firebase/serviceAccountKey.json` | Firebase service account (private key) |
+=======
+| `src/modules/payment/doku.service.ts` | DOKU Checkout service |
+| `src/app/api/payment/cash/route.ts` | CASH (COD) payment endpoint |
+| `src/app/api/payment/checkout/route.ts` | DOKU Checkout endpoint |
+| `src/app/api/payment/notification/route.ts` | DOKU webhook |
+>>>>>>> 6bf28fd206c6a63fe65027db6b66dfedc5d270bd
 | `prisma/schema.prisma` | Database schema |
 | `tests/payment.test.ts` | Payment module unit tests |
 | `tests/payment_test.html` | Midtrans integration test page |
@@ -539,6 +631,7 @@ npm test
 
 ---
 
+<<<<<<< HEAD
 ## Knowledge Graph (graphify-out/)
 
 This project has a navigable knowledge graph built with graphify — run `/graphify .` to rebuild, or `/graphify query "question"` to query it.
@@ -594,6 +687,15 @@ These nodes span the most communities and deserve extra care when changing:
 - **Knowledge Graph Meta Statistics** — Graph documentation
 
 ---
+=======
+| File | Description |
+|------|-------------|
+| `docs/API.md` | Complete API documentation |
+| `docs/PAYMENT.md` | Payment system (CASH + DOKU) |
+| `docs/DOKU.md` | DOKU Payment integration |
+| `docs/BARISTA.md` | Barista workflow |
+| `docs/BARISTA-STOCK.md` | Barista stock management |
+>>>>>>> 6bf28fd206c6a63fe65027db6b66dfedc5d270bd
 
 <!-- BEGIN:nextjs-agent-rules -->
 

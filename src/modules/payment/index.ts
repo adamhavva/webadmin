@@ -7,32 +7,18 @@ export {
   createPayment,
   getPayment,
   getPaymentByOrder,
-  updatePaymentFromMidtrans,
   updatePaymentFromWebhook,
   getAvailablePaymentMethods,
   type CreatePaymentInput,
-  type Payment,
-  type PaymentStatus,
 } from './payment.service';
-
-// Midtrans service
-export {
-  createSnapToken,
-  verifyMidtransSignature,
-  checkTransactionStatus,
-  getMidtransConfig,
-  type MidtransConfig,
-  type SnapTokenRequest,
-  type SnapTokenResult,
-} from './midtrans.service';
 
 // Validators
 export {
   createPaymentSchema,
-  midtransNotificationSchema,
+  dokuNotificationSchema,
   paymentResponseSchema,
-  MIDTRANS_STATUS_MAP,
-  type MidtransNotification,
+  DOKU_STATUS_MAP,
+  type DokuNotification,
 } from './payment.validator';
 
 // Pricing
@@ -45,6 +31,22 @@ export {
   type FeeBreakdown,
 } from './payment.pricing';
 
+<<<<<<< HEAD
 // Registry - payment methods from Midtrans API
 export { getActivePaymentMethods, clearMethodCache } from './providers/registry';
 export type { PaymentMethodOption, PaymentGroupOption } from './providers/types';
+=======
+// Providers - re-export only what's needed
+export type {
+  PaymentProviderConfig,
+  PaymentMethodConfig,
+  PaymentStatus,
+  Payment,
+  PaymentProviderAdapter,
+  CreatePaymentRequest,
+  CreatePaymentResponse,
+  PaymentNotification,
+} from './providers/types';
+
+export { getProviderAdapter, getActivePaymentMethods, clearMethodCache } from './providers/registry';
+>>>>>>> 6bf28fd206c6a63fe65027db6b66dfedc5d270bd
