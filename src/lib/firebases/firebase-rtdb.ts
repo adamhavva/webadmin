@@ -116,13 +116,44 @@ export async function setLocationOffline(uid: string) {
 
 // ============================================================
 // Subscribe All Locations
+// Note: Flutter app writes to /users/{uid}/location
 // ============================================================
 
 export function subscribeToLocations(
   callback: (locations: Record<string, LiveLocation>) => void
 ): Unsubscribe {
-  return onValue(ref(rtdb, "locations"), (snapshot) => {
-    callback(snapshot.val() ?? {});
+  return onValue(ref(rtdb, "users"), (snapshot) => {
+    const data = snapshot.val() ?? {};
+    // Flatten users to locations format
+    const locations: Record<string, LiveLocation> = {};
+    for (const [uid, userData] of Object.entries(data)) {
+      const user = userData as Record<string, unknown>;
+      const location = user?.location as Record<string, unknown> | null;
+      if (location && user?.role) {
+        locations[uid] = {
+          uid: uid,
+          role: user.role as LiveLocation["role"],
+          name: (user.name as string) || uid,
+          latitude: (location.lat as number) || 0,
+          longitude: (location.lng as number) || 0,
+          accuracy: (location.accuracy as number) || null,
+          altitude: null,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+          speedKmh: null,
+          timestamp: (location.updatedAt as number) || Date.now(),
+          lastSeen: (user.lastActiveAt as number) || Date.now(),
+          isActive: user.status === "ONLINE",
+          status: (user.status as "online" | "idle" | "offline") || "offline",
+          batteryLevel: null,
+          batteryCharging: null,
+          devicePlatform: null,
+          deviceIsMobile: null,
+        };
+      }
+    }
+    callback(locations);
   });
 }
 

@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db";
 import type {
-  PaymentFeeType,
   SettingType,
 } from "@/prisma/generated/enums";
 
@@ -20,19 +19,6 @@ export type ComputedCharge = {
 export type ComputedCharges = {
   charges: ComputedCharge[];
   chargesTotal: number;
-};
-
-export type ComputedPaymentFee = {
-  method: {
-    code: string;
-    name: string;
-    groupCode: string | null;
-    groupName: string | null;
-    providerId: string;
-    providerCode: string;
-    dokuChannelCode: string | null;
-  };
-  feeAmount: number;
 };
 
 // ============================================================
@@ -71,61 +57,6 @@ export async function computeCharges(
   const chargesTotal = charges.reduce((sum, c) => sum + c.amount, 0);
 
   return { charges, chargesTotal };
-}
-
-// ============================================================
-// Hitung payment fee dari PaymentMethodConfig
-// ============================================================
-
-export async function computePaymentFee(
-  methodCode: string | undefined,
-  subtotal: number
-): Promise<ComputedPaymentFee | null> {
-  // Default to QRIS if no method specified
-  const code = methodCode || 'QRIS';
-
-  // Payment method config is optional - DOKU SNAP handles all payment methods
-  // If method not found, return null (no fee)
-  const method = await prisma.paymentMethodConfig.findUnique({
-    where: { code: code },
-    include: { provider: true },
-  });
-
-  if (!method) {
-    // Payment method not in database - this is expected for DOKU SNAP
-    // Return null to indicate no fee configuration
-    console.log(`[computePaymentFee] Method "${code}" not found in config - using DOKU SNAP`);
-    return null;
-  }
-
-  if (!method.isActive) {
-    throw new Error(
-      `Metode pembayaran "${method.name}" sedang tidak aktif`
-    );
-  }
-
-  const feeType = method.feeType as PaymentFeeType;
-  const feeValue = Number(method.feeValue);
-  let feeAmount = 0;
-
-  if (feeType === "PERCENTAGE") {
-    feeAmount = (subtotal * feeValue) / 100;
-  } else if (feeType === "NOMINAL") {
-    feeAmount = feeValue;
-  }
-
-  return {
-    method: {
-      code: method.code,
-      name: method.name,
-      groupCode: method.groupCode,
-      groupName: method.groupName,
-      providerId: method.provider.id,
-      providerCode: method.provider.code,
-      dokuChannelCode: method.dokuChannelCode,
-    },
-    feeAmount: Math.round(feeAmount),
-  };
 }
 
 // ============================================================

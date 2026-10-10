@@ -54,6 +54,7 @@ prisma/generated
 .windsurf
 .*
 docs/*.md
-graphify-out/
+graphify-out
 credentials/
-DOCS/
+# DOCS/ - tracked in git
+TASKS.md

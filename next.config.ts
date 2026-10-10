@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  allowedDevOrigins: ['ascendwebadmin.vercel.app', 'localhost'],
+  allowedDevOrigins: ['ascendwebadmin.vercel.app', 'localhost', "dbe4-114-10-147-97.ngrok-free.app"],
 
   // Remove the webpack config - use turbopack instead
   turbopack: {},
@@ -19,6 +19,11 @@ const nextConfig: NextConfig = {
         hostname: '*.supabase.co',
         pathname: '/**',
       },
+      {
+        protocol: "https",
+        hostname: "pub-38396b04723744d4a3f61813ba1c3a11.r2.dev",
+        pathname: "/**"
+      }
     ],
   },
 };

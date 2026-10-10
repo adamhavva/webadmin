@@ -37,7 +37,6 @@ export async function proxy(req: NextRequest) {
 
   // Public pages (no auth required)
   const publicPages = [
-    "/orders/simulation",
     "/orders/payment",
     "/orders/payment/success",
   ];

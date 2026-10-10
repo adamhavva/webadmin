@@ -555,7 +555,7 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
               <div>
                 <p className="text-xs text-muted-foreground">Channel</p>
                 <Badge variant="outline">
-                  {data.payment.channel === "COD" ? "COD" : "Prepaid"}
+                  Prepaid
                 </Badge>
               </div>
               {data.payment.paidAt && (

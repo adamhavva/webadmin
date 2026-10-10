@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 export type OrderReportFilterValue = {
   status: string;
   channel: "all" | "ONLINE" | "OFFLINE";
-  paymentMethodCode: string;
   baristaId: string;
   search: string;
   dateFrom: string;
@@ -23,7 +22,6 @@ type Option = { value: string; label: string };
 type Props = {
   value: OrderReportFilterValue;
   onChange: (v: OrderReportFilterValue) => void;
-  paymentMethods: Option[];
   baristas: Option[];
   disabled?: boolean;
 };
@@ -69,7 +67,6 @@ function getPreset(p: PresetKey): { from: string; to: string } {
 export function OrderReportFilter({
   value,
   onChange,
-  paymentMethods,
   baristas,
   disabled,
 }: Props) {
@@ -98,7 +95,6 @@ export function OrderReportFilter({
     onChange({
       status: "all",
       channel: "all",
-      paymentMethodCode: "",
       baristaId: "",
       search: "",
       dateFrom: range.from,
@@ -109,7 +105,6 @@ export function OrderReportFilter({
   const isFiltered =
     value.status !== "all" ||
     value.channel !== "all" ||
-    value.paymentMethodCode !== "" ||
     value.baristaId !== "" ||
     value.search !== "";
 
@@ -169,23 +164,6 @@ export function OrderReportFilter({
             <option value="all">Semua Channel</option>
             <option value="ONLINE">Online</option>
             <option value="OFFLINE">Offline</option>
-          </select>
-        </div>
-
-        <div className="grid gap-1.5">
-          <Label className="text-xs">Payment Method</Label>
-          <select
-            value={value.paymentMethodCode}
-            onChange={(e) => update({ paymentMethodCode: e.target.value })}
-            disabled={disabled}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-          >
-            <option value="">Semua Method</option>
-            {paymentMethods.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
           </select>
         </div>
 

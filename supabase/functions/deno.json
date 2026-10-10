@@ -1,0 +1,13 @@
+{
+  "functions": [
+    { "path": "assign-barista", "name": "assign-barista" },
+    { "path": "broadcast-order", "name": "broadcast-order" },
+    { "path": "firebase-token", "name": "firebase-token" },
+    { "path": "order-accept", "name": "order-accept" },
+    { "path": "order-complete", "name": "order-complete" },
+    { "path": "order-reject", "name": "order-reject" },
+    { "path": "order-status", "name": "order-status" },
+    { "path": "payment-webhook", "name": "payment-webhook" }
+  ],
+  "version": "2"
+}

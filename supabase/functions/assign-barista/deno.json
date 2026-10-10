@@ -1,0 +1,18 @@
+{
+  "functions": [
+    { "path": "assign-barista", "name": "assign-barista" }
+  ],
+  "version": "2",
+  "lock": false,
+  "tasks": {
+    "check": "deno check **/*.ts && deno check **/*.tsx",
+    "start": "deno run --allow-net --allow-env --allow-sys --allow-read index.ts"
+  },
+  "imports": {
+    "postgres": "npm:postgres@3"
+  },
+  "compilerOptions": {
+    "lib": ["deno.window"],
+    "strict": true
+  }
+}
